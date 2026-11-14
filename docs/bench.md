@@ -33,6 +33,10 @@ Measured on 2026-11-14. Raw numbers: `bench/results/2026-11-14.json`. Regenerate
 | 5 000 | 13084 | 34 | 8 |
 | 10 000 | 44034 | 99 | 19 |
 
+## Layout time at 10 000 nodes
+
+`layout()` takes 44034 ms (about 44 s) on 10 000 nodes, against 99 ms for the SVG page and 19 ms for the WebGL page: the layout dominates by far. For large graphs, compute it once and keep the result. `standargraph export` lays the graph out once and writes the positions into the HTML page, which never lays anything out again when opened; in your own code, store the laid-out `x` and `y` of every node as its `position` in the document, and `layout()`, `mount()` and the exports then skip ELK. A faster layout for large graphs is coming soon.
+
 ## Capped (display refresh)
 
 | Nodes | SVG | WebGL |
