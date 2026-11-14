@@ -112,6 +112,8 @@ export function createPanel(view: View, doc: Document, panel: HTMLElement): Pane
   if (doc.kind === "state") doc.states.forEach((state, index) => statesById.set(state.id, index));
   const entitiesById = new Map<string, number>();
   if (doc.kind === "er") doc.entities.forEach((entity, index) => entitiesById.set(entity.id, index));
+  const treeNodesById = new Map<string, number>();
+  if (doc.kind === "tree") doc.nodes.forEach((node, index) => treeNodesById.set(node.id, index));
   let edgesById: Map<string, number> | undefined;
   let transitionsById: Map<string, number> | undefined;
   let relationsById: Map<string, number> | undefined;
@@ -126,6 +128,21 @@ export function createPanel(view: View, doc: Document, panel: HTMLElement): Pane
       title = item.label ?? item.id;
       meta = item.meta;
       row(list, "Kind", "Node");
+      if (item.type !== undefined) row(list, "Type", item.type);
+      if (item.description !== undefined) row(list, "Description", item.description);
+      if (item.link !== undefined) row(list, "Link", linkValue(item.link));
+    } else if (kind === "node" && doc.kind === "tree") {
+      const item = doc.nodes[treeNodesById.get(id) ?? -1];
+      if (item === undefined) return;
+      title = item.label;
+      meta = item.meta;
+      row(list, "Kind", "Node");
+      if (item.parent !== undefined) {
+        const parent = doc.nodes[treeNodesById.get(item.parent) ?? -1];
+        row(list, "Parent", parent?.label ?? item.parent);
+      }
+      const laid = view.item({ kind: "node", id });
+      if (laid !== undefined && "depth" in laid) row(list, "Depth", String(laid.depth));
       if (item.type !== undefined) row(list, "Type", item.type);
       if (item.description !== undefined) row(list, "Description", item.description);
       if (item.link !== undefined) row(list, "Link", linkValue(item.link));

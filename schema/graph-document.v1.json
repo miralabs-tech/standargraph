@@ -1464,6 +1464,274 @@
           }
         }
       }
+    },
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "version",
+        "kind",
+        "nodes"
+      ],
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "type": "number"
+        },
+        "kind": {
+          "const": "tree",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "const": "tree",
+              "type": "string"
+            },
+            {
+              "const": "mindmap",
+              "type": "string"
+            }
+          ]
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "const": "down",
+              "type": "string"
+            },
+            {
+              "const": "right",
+              "type": "string"
+            },
+            {
+              "const": "up",
+              "type": "string"
+            },
+            {
+              "const": "left",
+              "type": "string"
+            }
+          ]
+        },
+        "nodes": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "label"
+            ],
+            "properties": {
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "parent": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "shape": {
+                "anyOf": [
+                  {
+                    "const": "box",
+                    "type": "string"
+                  },
+                  {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  {
+                    "const": "pill",
+                    "type": "string"
+                  },
+                  {
+                    "const": "diamond",
+                    "type": "string"
+                  },
+                  {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  {
+                    "const": "ellipse",
+                    "type": "string"
+                  },
+                  {
+                    "const": "hexagon",
+                    "type": "string"
+                  },
+                  {
+                    "const": "parallelogram",
+                    "type": "string"
+                  },
+                  {
+                    "const": "cylinder",
+                    "type": "string"
+                  },
+                  {
+                    "const": "document",
+                    "type": "string"
+                  },
+                  {
+                    "const": "subroutine",
+                    "type": "string"
+                  }
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "link": {
+                "type": "string"
+              },
+              "meta": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "provenance": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "source"
+                    ],
+                    "properties": {
+                      "source": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "confidence": {
+                        "anyOf": [
+                          {
+                            "const": "confirmed",
+                            "type": "string"
+                          },
+                          {
+                            "const": "inferred",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "tool": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "coverage": {
+                    "minimum": 0,
+                    "maximum": 1,
+                    "type": "number"
+                  },
+                  "freshness": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^(.*)$": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "meta": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "provenance": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "source"
+              ],
+              "properties": {
+                "source": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "confidence": {
+                  "anyOf": [
+                    {
+                      "const": "confirmed",
+                      "type": "string"
+                    },
+                    {
+                      "const": "inferred",
+                      "type": "string"
+                    },
+                    {
+                      "const": "unknown",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "tool": {
+                  "type": "string"
+                }
+              }
+            },
+            "coverage": {
+              "minimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            "freshness": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "data": {
+              "type": "object",
+              "patternProperties": {
+                "^(.*)$": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

@@ -117,6 +117,7 @@ const CAPTION_FONT_SIZE = 11;
 const EDGE_LABEL_FONT_SIZE = 12;
 const HIT_PX = 4;
 const CULL_MARGIN_PX = 100;
+const BEZIER_SAMPLES = 16;
 const EMPTY: ReadonlySet<string> = new Set();
 
 const RECT = 0;
@@ -162,6 +163,29 @@ function distanceToSegment(
       ? 0
       : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lengthSquared));
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+function sampleBezier(
+  points: readonly { x: number; y: number }[],
+): { x: number; y: number }[] {
+  const [p0, c1, c2, p3] = points;
+  if (p0 === undefined || c1 === undefined || c2 === undefined || p3 === undefined) {
+    return [...points];
+  }
+  const samples: { x: number; y: number }[] = [];
+  for (let step = 0; step < BEZIER_SAMPLES; step++) {
+    const t = step / (BEZIER_SAMPLES - 1);
+    const u = 1 - t;
+    const a = u * u * u;
+    const b = 3 * u * u * t;
+    const c = 3 * u * t * t;
+    const d = t * t * t;
+    samples.push({
+      x: a * p0.x + b * c1.x + c * c2.x + d * p3.x,
+      y: a * p0.y + b * c1.y + c * c2.y + d * p3.y,
+    });
+  }
+  return samples;
 }
 
 function contains(box: Rect, x: number, y: number): boolean {
@@ -401,8 +425,32 @@ export function createView(scene: LaidOut, options: ViewOptions = {}): View {
     });
     break;
   }
-  case "tree":
+  case "tree": {
+    const edgeIndexes: number[] = [];
+    for (const edge of scene.edges) {
+      const index = addEntry("edge", edge.id, edge);
+      edgeIndexes.push(index);
+      addPath(index, edge.curve === "bezier" ? sampleBezier(edge.points) : edge.points);
+    }
+    for (const node of scene.nodes) {
+      const index = addEntry("node", node.id, node);
+      addRect(index, node.x, node.y, node.width, node.height);
+      searchable.push({ index, label: node.label.toLowerCase(), id: node.id.toLowerCase() });
+    }
+    scene.edges.forEach((edge, position) => {
+      const edgeKey = entries[edgeIndexes[position]!]!.key;
+      const from = keyOf("node", edge.from);
+      const to = keyOf("node", edge.to);
+      for (const [self, other] of [[from, to], [to, from]] as const) {
+        if (!byKey.has(self)) continue;
+        link(self, edgeKey);
+        if (byKey.has(other)) link(self, other);
+      }
+      if (byKey.has(from)) link(edgeKey, from);
+      if (byKey.has(to)) link(edgeKey, to);
+    });
     break;
+  }
   default:
     unreachable(scene);
   }

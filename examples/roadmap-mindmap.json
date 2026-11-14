@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "kind": "tree",
+  "title": "StandarGraph v1",
+  "layout": "mindmap",
+  "nodes": [
+    { "id": "standargraph-v1", "label": "StandarGraph v1", "shape": "pill" },
+    { "id": "format", "label": "Format", "parent": "standargraph-v1" },
+    { "id": "graph", "label": "graph", "parent": "format" },
+    { "id": "sequence", "label": "sequence", "parent": "format" },
+    { "id": "state-er-tree", "label": "state, er, tree", "parent": "format" },
+    { "id": "render", "label": "Rendering", "parent": "standargraph-v1" },
+    { "id": "svg", "label": "SVG", "parent": "render" },
+    { "id": "webgl", "label": "WebGL", "parent": "render", "description": "Sigma.js above 2000 nodes" },
+    { "id": "text-syntax-j8", "label": "Text syntax [J8]", "parent": "standargraph-v1" },
+    { "id": "github", "label": "GitHub", "parent": "standargraph-v1" },
+    { "id": "mermaid-export", "label": "Mermaid export", "parent": "github" },
+    { "id": "pages-demo", "label": "Pages demo", "parent": "github" }
+  ]
+}

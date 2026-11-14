@@ -38,6 +38,9 @@ import type {
   LaidOutState,
   LaidOutStateMachine,
   LaidOutTransition,
+  LaidOutTree,
+  LaidOutTreeEdge,
+  LaidOutTreeNode,
   Point,
 } from "../layout/types";
 import type { Cardinality, Meta, Shape } from "../format";
@@ -342,7 +345,13 @@ function shapeDetails(shape: Shape, box: Box, theme: Theme): string {
   return "";
 }
 
-function renderNode(item: LaidOutNode, index: number, theme: Theme, types: Types): string {
+function renderNode(
+  item: LaidOutNode,
+  index: number,
+  theme: Theme,
+  types: Types,
+  extra: readonly (readonly [string, string | number | undefined])[] = [],
+): string {
   const confidence = confidenceOf(item.meta);
   const dash = confidenceDash(item.meta);
   const unknown = confidence === "unknown";
@@ -391,6 +400,7 @@ function renderNode(item: LaidOutNode, index: number, theme: Theme, types: Types
         ["type", item.type],
         ["confidence", confidence],
         ["shape", shape],
+        ...extra,
       ]),
     ),
     item.link,
@@ -866,6 +876,45 @@ function renderEr(laid: LaidOutEr, theme: Theme, types: Types): string {
   ].join("");
 }
 
+function renderTreeEdge(item: LaidOutTreeEdge, theme: Theme): string {
+  const [first, ...rest] = item.points;
+  const d =
+    first === undefined
+      ? ""
+      : item.curve === "bezier"
+        ? `M${n(first.x)},${n(first.y)} C${rest.map((point) => `${n(point.x)},${n(point.y)}`).join(" ")}`
+        : pathOf(item.points);
+  return group(
+    "edge",
+    item.id,
+    undefined,
+    `<path class="sg-edge" d="${d}" fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linejoin="round"/>`,
+    data([
+      ["from", item.from],
+      ["to", item.to],
+    ]),
+  );
+}
+
+function renderTreeNode(
+  item: LaidOutTreeNode,
+  index: number,
+  theme: Theme,
+  types: Types,
+): string {
+  return renderNode(item, index, theme, types, [
+    ["depth", item.depth],
+    ["side", item.side],
+  ]);
+}
+
+function renderTree(laid: LaidOutTree, theme: Theme, types: Types): string {
+  return [
+    ...laid.edges.map((item) => renderTreeEdge(item, theme)),
+    ...laid.nodes.map((item, index) => renderTreeNode(item, index, theme, types)),
+  ].join("");
+}
+
 function renderScene(laidOut: LaidOut, theme: Theme, types: Types): string {
   switch (laidOut.kind) {
     case "graph":
@@ -877,7 +926,7 @@ function renderScene(laidOut: LaidOut, theme: Theme, types: Types): string {
     case "er":
       return renderEr(laidOut, theme, types);
     case "tree":
-      throw new Error(`Rendering of ${laidOut.kind} diagrams is not available yet`);
+      return renderTree(laidOut, theme, types);
     default:
       return unreachable(laidOut);
   }
@@ -900,7 +949,7 @@ export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string
     laidOut.title === undefined ? "" : `<title>${esc(laidOut.title)}</title>`;
   const body = renderScene(laidOut, theme, types);
   const svg = [
-    `${head} class="sg-root" data-diagram="${laidOut.kind}" version="1.1" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="Inter, system-ui, sans-serif">`,
+    `${head} class="sg-root" data-diagram="${laidOut.kind}"${laidOut.kind === "tree" ? ` data-layout="${laidOut.layout}"` : ""} version="1.1" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="Inter, system-ui, sans-serif">`,
     title,
     defs(theme, resolved, options.styles ?? true),
     `<rect class="sg-bg" x="0" y="0" width="${width}" height="${height}" fill="${theme.bg}"/>`,

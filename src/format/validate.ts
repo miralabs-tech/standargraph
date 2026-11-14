@@ -6,16 +6,19 @@ import {
   KEYS,
   PSEUDO,
   SHAPES,
+  TREE_LAYOUTS,
   type Document,
   ErDocumentSchema,
   GraphDocumentSchema,
   SequenceDocumentSchema,
   StateDocumentSchema,
+  TreeDocumentSchema,
 } from "./schema";
 import { semanticErErrors } from "./semantic/er";
 import { semanticGraphErrors } from "./semantic/graph";
 import { semanticSequenceErrors } from "./semantic/sequence";
 import { semanticStateErrors } from "./semantic/state";
+import { semanticTreeErrors } from "./semantic/tree";
 import type { ValidationError } from "./semantic/shared";
 
 export type { ValidationError };
@@ -57,6 +60,7 @@ const KINDS: Readonly<Record<string, KindHandler>> = {
   sequence: handler(SequenceDocumentSchema, semanticSequenceErrors),
   state: handler(StateDocumentSchema, semanticStateErrors),
   er: handler(ErDocumentSchema, semanticErErrors),
+  tree: handler(TreeDocumentSchema, semanticTreeErrors),
 };
 
 const KIND_NAMES = Object.keys(KINDS)
@@ -81,7 +85,9 @@ function structuralErrors(
             ? `Expected one of ${CARDINALITIES.join(", ")}`
             : /\/keys\/\d+$/.test(error.path)
               ? `Expected one of ${KEYS.join(", ")}`
-              : "Expected a string, a number or a boolean";
+              : error.path === "/layout"
+                ? `Expected one of ${TREE_LAYOUTS.join(", ")}`
+                : "Expected a string, a number or a boolean";
     } else if (error.type === ValueErrorType.ObjectAdditionalProperties) {
       message = "Unexpected property";
     } else if (error.type === ValueErrorType.StringFormat) {

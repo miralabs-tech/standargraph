@@ -282,6 +282,82 @@ describe("mount() with an ER diagram", () => {
   });
 });
 
+describe("mount() with a mindmap", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("tree", "{}"), errors);
+    await page.evaluate(async (doc) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", doc);
+    }, example("roadmap-mindmap"));
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("the tree is laid out on the main thread and the SVG is drawn", async () => {
+    const state = await page.evaluate(() => ({
+      ready: document.querySelector("#a .sg-app")?.getAttribute("data-sg-ready"),
+      diagram: document.querySelector("#a svg")?.getAttribute("data-diagram"),
+      layout: document.querySelector("#a svg")?.getAttribute("data-layout"),
+      nodes: document.querySelectorAll("#a [data-kind=node]").length,
+      edges: document.querySelectorAll("#a [data-kind=edge]").length,
+      left: document.querySelectorAll("#a [data-side=left]").length,
+    }));
+    expect(state).toEqual({
+      ready: "1",
+      diagram: "tree",
+      layout: "mindmap",
+      nodes: 12,
+      edges: 11,
+      left: 4,
+    });
+  });
+
+  test("clicking a node selects it and the panel shows its parent and depth", async () => {
+    await page.evaluate(() => (window as any).m1.view.fit());
+    const point = await page.evaluate(() => {
+      const rect = document.querySelector("#a [data-id=webgl] rect.sg-node")!.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    });
+    await page.mouse.click(point.x, point.y);
+    expect(await page.evaluate(() => (window as any).m1.view.selected())).toEqual({
+      kind: "node",
+      id: "webgl",
+    });
+    const panel = await page.evaluate(() => ({
+      title: document.querySelector("#a .sg-panel h2")?.textContent,
+      text: document.querySelector("#a .sg-panel dl")?.textContent,
+    }));
+    expect(panel.title).toBe("WebGL");
+    expect(panel.text).toContain("KindNode");
+    expect(panel.text).toContain("ParentRendering");
+    expect(panel.text).toContain("Depth2");
+    expect(panel.text).toContain("DescriptionSigma.js above 2000 nodes");
+    await page.evaluate(() => (window as any).m1.view.select(null));
+  });
+
+  test("hovering a node highlights it", async () => {
+    const point = await page.evaluate(() => {
+      const rect = document.querySelector("#a [data-id=github] rect.sg-node")!.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    });
+    await page.mouse.move(point.x, point.y);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as any).m1.view.hovered())).toEqual({
+      kind: "node",
+      id: "github",
+    });
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
 describe("mount() with the WebGL renderer", () => {
   const errors: string[] = [];
   let page: Page;

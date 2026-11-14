@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "kind": "tree",
+  "title": "Repository layout",
+  "nodes": [
+    { "id": "repo", "label": "standargraph", "type": "folder", "shape": "pill" },
+    { "id": "src", "label": "src", "type": "folder", "parent": "repo" },
+    { "id": "format", "label": "format", "type": "folder", "parent": "src", "description": "Schema and semantic checks" },
+    { "id": "layout", "label": "layout", "type": "folder", "parent": "src" },
+    { "id": "svg", "label": "svg", "type": "folder", "parent": "src" },
+    { "id": "html", "label": "html", "type": "folder", "parent": "src" },
+    { "id": "tests", "label": "tests", "type": "folder", "parent": "repo" },
+    { "id": "browser", "label": "browser", "type": "folder", "parent": "tests" },
+    { "id": "examples", "label": "examples", "type": "folder", "parent": "repo" },
+    { "id": "readme", "label": "README.md", "type": "file", "shape": "document", "parent": "repo" }
+  ]
+}

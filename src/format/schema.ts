@@ -259,8 +259,44 @@ export const ErDocumentSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const TREE_LAYOUTS = ["tree", "mindmap"] as const;
+
+export const TreeNodeSchema = Type.Object(
+  {
+    id: Id,
+    label: Type.String(),
+    parent: Type.Optional(Type.String()),
+    type: Type.Optional(Type.String()),
+    shape: Type.Optional(ShapeSchema),
+    description: Type.Optional(Type.String()),
+    link: Type.Optional(Type.String()),
+    meta: Type.Optional(MetaSchema),
+  },
+  { additionalProperties: false },
+);
+
+export const TreeDocumentSchema = Type.Object(
+  {
+    $schema: Type.Optional(Type.String()),
+    version: Type.Literal(FORMAT_VERSION),
+    kind: Type.Literal("tree"),
+    title: Type.Optional(Type.String()),
+    layout: Type.Optional(Type.Union(TREE_LAYOUTS.map((layout) => Type.Literal(layout)))),
+    direction: Type.Optional(DirectionSchema),
+    nodes: Type.Array(TreeNodeSchema, { minItems: 1 }),
+    meta: Type.Optional(MetaSchema),
+  },
+  { additionalProperties: false },
+);
+
 export const DocumentSchema = Type.Union(
-  [GraphDocumentSchema, SequenceDocumentSchema, StateDocumentSchema, ErDocumentSchema],
+  [
+    GraphDocumentSchema,
+    SequenceDocumentSchema,
+    StateDocumentSchema,
+    ErDocumentSchema,
+    TreeDocumentSchema,
+  ],
   {
     $id: "urn:standargraph:graph-document:v1",
     title: "Standargraph document v1",
@@ -286,4 +322,7 @@ export type Attribute = Static<typeof AttributeSchema>;
 export type Entity = Static<typeof EntitySchema>;
 export type Relation = Static<typeof RelationSchema>;
 export type ErDocument = Static<typeof ErDocumentSchema>;
+export type TreeLayout = (typeof TREE_LAYOUTS)[number];
+export type TreeNode = Static<typeof TreeNodeSchema>;
+export type TreeDocument = Static<typeof TreeDocumentSchema>;
 export type Document = Static<typeof DocumentSchema>;
