@@ -5,7 +5,9 @@ import { LineMap, STOP, Sink, type Range, type TextError } from "./errors";
 import { normalize } from "./lexer";
 import { parseSyntax } from "./parser";
 
+export { canonicalize } from "./canonical";
 export type { TextError, TextErrorCode } from "./errors";
+export { print, type PrintOptions, type PrintStyle } from "./print";
 
 export type ParseResult =
   | { ok: true; document: Document }

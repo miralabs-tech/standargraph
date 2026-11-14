@@ -1,0 +1,14 @@
+tree "StandarGraph v1" [layout=mindmap]
+
+StandarGraph v1 [shape=pill]
+  Format
+    graph
+    sequence
+    state, er, tree
+  Rendering [id="render"]
+    SVG
+    WebGL [description="Sigma.js above 2000 nodes"]
+  "Text syntax [J8]"
+  GitHub
+    Mermaid export
+    Pages demo

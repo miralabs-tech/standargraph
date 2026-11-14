@@ -1,0 +1,17 @@
+sequence "OAuth 2.0 authorization code flow with PKCE"
+
+browser "Browser" [type="client"]
+app "App" [type="client"]
+auth "Authorization server" [type="service"]
+api "API" [type="service"]
+
+browser -> app "Click sign in"
+app -> app "Generate code_verifier and code_challenge"
+app --> browser "Redirect to /authorize with code_challenge"
+browser -> auth "GET /authorize"
+auth --> browser "Login and consent, redirect with code"
+browser ->> app "Callback with authorization code"
+app -> auth "POST /token with code and code_verifier"
+auth --> app "Access token and refresh token"
+app -> api "GET /resource with bearer token"
+api --> app "Protected resource"

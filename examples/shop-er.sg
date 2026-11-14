@@ -1,0 +1,26 @@
+er "Shop orders"
+
+customer "Customer" {
+  id uuid pk
+  email varchar(255) uk
+  name text
+}
+order "Order" {
+  id uuid pk
+  customer_id uuid fk
+  placed_at timestamp
+  note text null [note="free text from checkout"]
+}
+order_item "Order item" {
+  order_id uuid pk fk
+  product_id uuid pk fk
+  quantity int
+}
+product "Product" [type="catalog"] {
+  id uuid pk
+  price decimal(10,2)
+}
+
+customer 1 .. 0..* order "places"
+order 1 -- 1..* order_item "contains"
+product 1 -- 0..* order_item "appears in"

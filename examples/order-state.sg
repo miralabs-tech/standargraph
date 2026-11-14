@@ -1,0 +1,21 @@
+state "Order lifecycle" [direction=right]
+
+* -> pending
+pending "Pending" [actions=["entry / reserve stock"]]
+paid "Paid"
+cancelled "Cancelled" [source="src/orders/machine.ts", confidence=confirmed]
+fulfilment "Fulfilment" {
+  * -> picking
+  picking "Picking"
+  shipped "Shipped"
+  picking -> shipped "handed to carrier" [action="notify customer"]
+}
+check [pseudo=choice]
+
+pending -> paid "payment received"
+pending -> cancelled "timeout" [guard="after 30 min"]
+paid -> fulfilment
+shipped -> check "delivery report"
+check -> * [guard="delivered"]
+check -> cancelled [guard="lost"]
+cancelled -> *

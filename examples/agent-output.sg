@@ -1,0 +1,12 @@
+graph "Files touched by the settings view" [direction=down, source="agent run settings-view-audit", confidence=inferred, tool="static-analysis", coverage=0.75, freshness="2026-11-14T09:45:00Z", data.agent="audit", data.run=12, data.complete=false]
+
+settings-view "src/views/SettingsView.tsx" [type="file", source="src/views/SettingsView.tsx", confidence=confirmed, tool="scip", coverage=1, freshness="2026-11-14T09:30:00Z"]
+use-settings "src/hooks/useSettings.ts" [type="file", source="src/hooks/useSettings.ts", confidence=confirmed, tool="scip", coverage=0.9, freshness="2026-11-14T09:30:00Z"]
+settings-api "src/api/settings.ts" [type="file", source="src/api/settings.ts", confidence=inferred, tool="static-analysis", coverage=0.6, freshness="2026-11-13T18:05:00+01:00"]
+settings-controller "server/settings.controller.ts" [type="file", source="server/settings.controller.ts", confidence=inferred, tool="static-analysis", coverage=0.5, freshness="2026-11-13T18:05:00+01:00"]
+settings-migration "db/migrations/0042_settings.sql" [type="file", source="db/migrations/0042_settings.sql", confidence=unknown, freshness="2026-11-10T12:00:00Z"]
+
+settings-view -> use-settings "imports" [source="scip", confidence=confirmed, tool="scip"]
+use-settings -> settings-api "imports" [source="static-analysis", confidence=inferred, tool="static-analysis"]
+settings-api -> settings-controller "http call" [source="static-analysis", confidence=inferred, tool="static-analysis"]
+settings-controller -> settings-migration "touches schema" [source="agent guess", confidence=unknown]

@@ -1,0 +1,12 @@
+tree "Repository layout"
+
+standargraph [id="repo", type="folder", shape=pill]
+  src [type="folder"]
+    format [type="folder", description="Schema and semantic checks"]
+    layout [type="folder"]
+    svg [type="folder"]
+    html [type="folder"]
+  tests [type="folder"]
+    browser [type="folder"]
+  examples [type="folder"]
+  README.md [id="readme", type="file", shape=document]

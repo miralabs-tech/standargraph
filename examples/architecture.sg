@@ -1,0 +1,24 @@
+graph "Settings page flow" [direction=down]
+
+group frontend "Frontend" {
+  GeneralSettings "GeneralSettings" [type="page"]
+  ThemeSelector "ThemeSelector" [type="component"]
+  useSettings "useSettings" [type="hook"]
+}
+group backend "Backend" {
+  PatchSettings "PATCH /api/settings" [type="endpoint"]
+  SettingsController "settings.controller" [type="handler"]
+  SettingsService "SettingsService" [type="service"]
+}
+group storage "Storage" {
+  SettingsRepository "SettingsRepository" [type="repository"]
+  SettingsTable "settings table" [type="database"]
+}
+
+GeneralSettings -> ThemeSelector "renders"
+GeneralSettings -> useSettings "uses"
+useSettings -> PatchSettings "calls"
+PatchSettings -> SettingsController "handles"
+SettingsController -> SettingsService "delegates"
+SettingsService -> SettingsRepository "uses"
+SettingsRepository -> SettingsTable "reads/writes"

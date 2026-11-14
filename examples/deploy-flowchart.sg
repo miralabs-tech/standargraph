@@ -1,0 +1,19 @@
+graph "Deploy pipeline" [direction=down]
+
+start "Merge to main" [shape=pill]
+config "Load config" [shape=parallelogram]
+build "Build image" [shape=rect]
+tests "Run tests" [shape=subroutine]
+green "Green?" [shape=diamond]
+registry "Registry" [type="database", shape=cylinder]
+prepare "Prepare rollout" [shape=hexagon]
+report "Release notes" [shape=document]
+alarm "Alert" [shape=ellipse]
+done "Live" [shape=circle]
+
+start -> config -> build -> tests -> green
+green -> registry "yes"
+green -> alarm "no"
+registry -> prepare
+prepare -> report
+prepare -> done
