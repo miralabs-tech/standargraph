@@ -556,3 +556,23 @@ describe("view", () => {
     expect(view.selected()).toEqual({ kind: "edge", id: "a1" });
   });
 });
+
+test("validate stays linear on a deep parent chain and reports a cycle from its first member", () => {
+  const nodes = [{ id: "n0", label: "root" }];
+  for (let i = 1; i < 20000; i++) nodes.push({ id: `n${i}`, label: "x", parent: `n${i - 1}` } as never);
+  const started = performance.now();
+  expect(validate({ version: 1, kind: "tree", nodes }).ok).toBe(true);
+  expect(performance.now() - started).toBeLessThan(2000);
+  const cyclic = validate({
+    version: 1,
+    kind: "tree",
+    nodes: [
+      { id: "r", label: "r" },
+      { id: "b", label: "b", parent: "a" },
+      { id: "a", label: "a", parent: "c" },
+      { id: "c", label: "c", parent: "b" },
+    ],
+  });
+  expect(cyclic.ok).toBe(false);
+  if (!cyclic.ok) expect(cyclic.errors).toEqual([{ path: "/nodes/1/parent", message: "Node parent cycle: b -> a -> c -> b" }]);
+});

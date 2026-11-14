@@ -30,24 +30,33 @@ export function parentCycles(
       parentOf.set(item.id, item.parent);
     }
   }
-  const found: { index: number; cycle: string[] }[] = [];
-  const reported = new Set<string>();
+  const firstIndex = new Map<string, number>();
   items.forEach((item, index) => {
+    if (!firstIndex.has(item.id)) firstIndex.set(item.id, index);
+  });
+  const state = new Map<string, 1 | 2>();
+  const found: { index: number; cycle: string[] }[] = [];
+  for (const item of items) {
+    if (state.has(item.id)) continue;
     const path: string[] = [];
+    const position = new Map<string, number>();
     let current: string | undefined = item.id;
-    while (current !== undefined) {
-      const at = path.indexOf(current);
-      if (at !== -1) {
-        const cycle = path.slice(at);
-        if (cycle.includes(item.id) && !reported.has(item.id)) {
-          for (const id of cycle) reported.add(id);
-          found.push({ index, cycle: [...cycle, current] });
-        }
-        break;
-      }
+    while (current !== undefined && !state.has(current)) {
+      state.set(current, 1);
+      position.set(current, path.length);
       path.push(current);
       current = parentOf.get(current);
     }
-  });
-  return found;
+    if (current !== undefined && state.get(current) === 1) {
+      const members = path.slice(position.get(current)!);
+      let start = 0;
+      members.forEach((id, at) => {
+        if (firstIndex.get(id)! < firstIndex.get(members[start]!)!) start = at;
+      });
+      const cycle = [...members.slice(start), ...members.slice(0, start)];
+      found.push({ index: firstIndex.get(cycle[0]!)!, cycle: [...cycle, cycle[0]!] });
+    }
+    for (const id of path) state.set(id, 2);
+  }
+  return found.sort((a, b) => a.index - b.index);
 }
