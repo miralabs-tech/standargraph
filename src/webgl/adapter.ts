@@ -1,6 +1,6 @@
 import Graph from "graphology";
 import Sigma from "sigma";
-import { sdfRectangle } from "sigma/rendering";
+import { sdfCircle, sdfDiamond, sdfRectangle } from "sigma/rendering";
 import type { NodeDisplayData } from "sigma/types";
 import { type Change, createView, type ItemRef } from "../core/view";
 import type { Document } from "../format";
@@ -60,6 +60,12 @@ function contrast(a: Rgb, b: Rgb): number {
 export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   if (scene.kind !== "graph") return undefined;
   const graphScene = scene;
+  const rectangleShape = sdfRectangle({
+    aspectRatio: { attribute: "aspect", default: 3 },
+    cornerRadius: 0.18,
+  });
+  const diamondShape = sdfDiamond();
+  const circleShape = sdfCircle();
   const app = part<HTMLElement>("sg-app");
   const viewport = part<HTMLElement>("sg-viewport");
   const glElement = part<HTMLElement>("sg-gl");
@@ -98,6 +104,7 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
       y: -(node.y + node.height / 2),
       size: node.width / 2,
       aspect: node.width / node.height,
+      shape: node.shape === "diamond" ? diamondShape.name : node.shape === "circle" ? circleShape.name : rectangleShape.name,
       label: node.label,
       color: css(fill),
       labelColor: css(contrast(fill, fg) >= contrast(fill, bg) ? fg : bg),
@@ -133,9 +140,7 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   const sigma = new Sigma(graph, glElement, {
     primitives: {
       nodes: {
-        shapes: [
-          sdfRectangle({ aspectRatio: { attribute: "aspect", default: 3 }, cornerRadius: 0.18 }),
-        ],
+        shapes: [rectangleShape, diamondShape, circleShape],
         label: { zoomToLabelSizeRatioFunction: (ratio: number) => ratio / labelUnit },
       },
     },
@@ -145,6 +150,7 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
         y: { attribute: "y" },
         size: { attribute: "size" },
         color: { attribute: "color" },
+        shape: { attribute: "shape" },
         label: { attribute: "label" },
         labelColor: { attribute: "labelColor" },
         labelPosition: "over",

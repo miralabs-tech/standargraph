@@ -1,4 +1,4 @@
-import type { Meta } from "../format";
+import type { Meta, Shape } from "../format";
 
 export type Point = { x: number; y: number };
 
@@ -19,6 +19,7 @@ export type LaidOutNode = {
   id: string;
   label: string;
   type?: string;
+  shape?: Shape;
   x: number;
   y: number;
   width: number;

@@ -34,11 +34,28 @@ export const MetaSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const SHAPES = [
+  "box",
+  "rect",
+  "pill",
+  "diamond",
+  "circle",
+  "ellipse",
+  "hexagon",
+  "parallelogram",
+  "cylinder",
+  "document",
+  "subroutine",
+] as const;
+
+export const ShapeSchema = Type.Union(SHAPES.map((shape) => Type.Literal(shape)));
+
 export const NodeSchema = Type.Object(
   {
     id: Id,
     label: Type.Optional(Type.String()),
     type: Type.Optional(Type.String()),
+    shape: Type.Optional(ShapeSchema),
     group: Type.Optional(Type.String()),
     description: Type.Optional(Type.String()),
     link: Type.Optional(Type.String()),
@@ -146,6 +163,7 @@ export const DocumentSchema = Type.Union(
   },
 );
 
+export type Shape = (typeof SHAPES)[number];
 export type Meta = Static<typeof MetaSchema>;
 export type Node = Static<typeof NodeSchema>;
 export type Edge = Static<typeof EdgeSchema>;

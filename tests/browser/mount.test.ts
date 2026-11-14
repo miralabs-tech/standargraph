@@ -185,3 +185,33 @@ describe("mount() with the WebGL renderer", () => {
     expect(errors).toEqual([]);
   });
 });
+
+describe("mount() with the WebGL renderer and node shapes", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("webgl-shapes", '{ renderer: "webgl" }'), errors);
+    await page.evaluate(async (doc) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", doc);
+    }, example("deploy-flowchart"));
+    await page.waitForFunction(
+      () => document.querySelectorAll('.sg-app[data-sg-ready="1"]').length === 1,
+      null,
+      { timeout: 30000 },
+    );
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("a graph with diamond and circle nodes draws on a canvas", async () => {
+    expect(await page.evaluate(() => document.querySelectorAll("#a .sg-gl canvas").length)).toBeGreaterThan(0);
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});

@@ -2,6 +2,7 @@ import { FormatRegistry } from "@sinclair/typebox";
 import { Value, ValueErrorType } from "@sinclair/typebox/value";
 import {
   FORMAT_VERSION,
+  SHAPES,
   type Document,
   type GraphDocument,
   GraphDocumentSchema,
@@ -41,7 +42,9 @@ function structuralErrors(
     if (error.path === "/version") {
       message = VERSION_MESSAGE;
     } else if (error.type === ValueErrorType.Union) {
-      message = "Expected a string, a number or a boolean";
+      message = error.path.endsWith("/shape")
+        ? `Expected one of ${SHAPES.join(", ")}`
+        : "Expected a string, a number or a boolean";
     } else if (error.type === ValueErrorType.ObjectAdditionalProperties) {
       message = "Unexpected property";
     } else if (error.type === ValueErrorType.StringFormat) {

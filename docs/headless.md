@@ -16,7 +16,7 @@ Nothing under `src/core`, `src/format` or `src/layout` uses `document`, `window`
 A view holds:
 
 - Camera: `camera()`, `setCamera()`, `fit()`, `panBy(dx, dy)`, `zoomAt(factor, screenX, screenY)`. A screen point is `world * scale + (x, y)`. `zoomAt` keeps the world point under the cursor fixed and clamps the scale to `minScale`..`maxScale` (0.05..8 by default).
-- Geometry: `screenToWorld`, `worldToScreen`, `hitTest(screenX, screenY)` (nodes and participants first, then edges and messages within 4 screen pixels, then groups, else `null`).
+- Geometry: `screenToWorld`, `worldToScreen`, `hitTest(screenX, screenY)` (nodes and participants first, then edges and messages within 4 screen pixels, then groups, else `null`). The test uses the bounding box of a node whatever its `shape`, so the corners of a diamond or a circle still hit.
 - Culling: `visible()` lists the items that intersect the viewport plus a margin. It comes from a uniform grid index, so it stays cheap on thousands of items.
 - Level of detail: `lod()` returns `{ labels, captions, edgeLabels }`. Each flag turns false once its font size times the scale falls under `labelMinPx` (7 by default), when text is unreadable anyway.
 - Interaction state: `hover`, `select`, `search`, `hovered`, `selected`, and `highlight()` which returns `{ focused, active }` where `active` holds `"kind:id"` keys: hover gives the item, its incident edges or messages and their endpoints; without hover, the search matches.
@@ -90,6 +90,7 @@ The view changes state instantly and never schedules anything, so animation belo
 - Hit testing: `view.hitTest`, not Sigma's GPU picking, so hover and click cost the same as in the SVG page.
 - Level of detail: Sigma's `renderLabels` follows `view.lod().labels`; group captions follow `view.lod().edgeLabels`.
 - Colors come from the light or dark theme variables of the page (`--sg-*`), read once at start. `meta.provenance.confidence` of `unknown` gives a muted node fill and a faded edge, `inferred` a lighter node fill and a half-faded edge. Dash patterns are not used.
+- Node shapes: `diamond` and `circle` are drawn with their own shape; every other `shape` (including `rect`, `pill`, `cylinder`) is drawn as a rounded rectangle.
 - Not drawn in WebGL: node type captions, edge labels and arrowheads.
 
 ## Mounting in an application

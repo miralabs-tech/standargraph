@@ -10,6 +10,13 @@ import {
   SELF_LOOP_HEIGHT,
   SELF_LOOP_WIDTH,
 } from "../layout/shared";
+import {
+  CYLINDER_RY,
+  DOCUMENT_WAVE,
+  outline,
+  SUBROUTINE_BAR,
+  textOffsetY,
+} from "../layout/shapes";
 import type {
   Box,
   LaidOut,
@@ -21,7 +28,7 @@ import type {
   LaidOutParticipant,
   LaidOutSequence,
 } from "../layout/types";
-import type { Meta } from "../format";
+import type { Meta, Shape } from "../format";
 
 export type RenderOptions = {
   theme?: "light" | "dark";
@@ -172,6 +179,7 @@ function css(theme: Theme): string {
     ".sg-muted{fill:var(--sg-muted)}",
     ".sg-node{fill:var(--sg-node-fill);stroke:var(--sg-node-stroke)}",
     ".sg-node.sg-unknown{fill:var(--sg-unknown-fill)}",
+    ".sg-node-detail{fill:none;stroke:var(--sg-node-stroke)}",
     ".sg-group{fill:var(--sg-group-fill);stroke:var(--sg-group-stroke)}",
     ".sg-edge{stroke:var(--sg-edge)}",
     ".sg-arrow-filled{fill:var(--sg-edge);stroke:var(--sg-edge)}",
@@ -199,8 +207,21 @@ function wrapLink(content: string, link: string | undefined): string {
   return `<a href="${esc(link)}">${content}</a>`;
 }
 
-function group(kind: string, id: string, meta: Meta | undefined, body: string): string {
-  return `<g data-kind="${kind}" data-id="${esc(id)}">${metaTitle(meta)}${body}</g>`;
+function data(entries: readonly (readonly [string, string | number | undefined])[]): string {
+  return entries
+    .filter((entry): entry is readonly [string, string | number] => entry[1] !== undefined)
+    .map(([name, value]) => ` data-${name}="${esc(String(value))}"`)
+    .join("");
+}
+
+function group(
+  kind: string,
+  id: string,
+  meta: Meta | undefined,
+  body: string,
+  attributes = "",
+): string {
+  return `<g data-kind="${kind}" data-id="${esc(id)}"${attributes}>${metaTitle(meta)}${body}</g>`;
 }
 
 function labelBoxSvg(
@@ -243,7 +264,16 @@ function renderGroup(item: LaidOutGroup, theme: Theme): string {
           theme.muted,
           "start",
         );
-  return group("group", item.id, item.meta, rect + label);
+  return group(
+    "group",
+    item.id,
+    item.meta,
+    rect + label,
+    data([
+      ["confidence", confidenceOf(item.meta)],
+      ["depth", item.depth],
+    ]),
+  );
 }
 
 function pathOf(points: readonly { x: number; y: number }[]): string {
@@ -260,7 +290,87 @@ function renderEdge(item: LaidOutEdge, theme: Theme): string {
     item.labelBox === undefined || item.label === undefined
       ? ""
       : labelBoxSvg(item.labelBox, item.label, theme, true);
-  return group("edge", item.id, item.meta, path + label);
+  return group(
+    "edge",
+    item.id,
+    item.meta,
+    path + label,
+    data([
+      ["type", item.type],
+      ["confidence", confidenceOf(item.meta)],
+      ["from", item.from],
+      ["to", item.to],
+      ["directed", item.directed ? undefined : "false"],
+    ]),
+  );
+}
+
+type Geometry = { tag: string; attrs: string };
+
+function shapeGeometry(shape: Shape, box: Box): Geometry {
+  const { x, y, width: w, height: h } = box;
+  const rect = (rx: number): Geometry => ({
+    tag: "rect",
+    attrs: ` x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" rx="${n(rx)}"`,
+  });
+  const polygon = (): Geometry => ({
+    tag: "polygon",
+    attrs: ` points="${outline(shape, box)!.map((point) => `${n(point.x)},${n(point.y)}`).join(" ")}"`,
+  });
+  switch (shape) {
+    case "box":
+      return rect(8);
+    case "rect":
+    case "subroutine":
+      return rect(0);
+    case "pill":
+      return rect(h / 2);
+    case "diamond":
+    case "hexagon":
+    case "parallelogram":
+      return polygon();
+    case "circle":
+      return {
+        tag: "circle",
+        attrs: ` cx="${n(x + w / 2)}" cy="${n(y + h / 2)}" r="${n(w / 2)}"`,
+      };
+    case "ellipse":
+      return {
+        tag: "ellipse",
+        attrs: ` cx="${n(x + w / 2)}" cy="${n(y + h / 2)}" rx="${n(w / 2)}" ry="${n(h / 2)}"`,
+      };
+    case "cylinder": {
+      const arc = `A${n(w / 2)},${CYLINDER_RY} 0 0 1`;
+      return {
+        tag: "path",
+        attrs: ` d="M${n(x)},${n(y + CYLINDER_RY)} ${arc} ${n(x + w)},${n(y + CYLINDER_RY)} V${n(y + h - CYLINDER_RY)} ${arc} ${n(x)},${n(y + h - CYLINDER_RY)} Z"`,
+      };
+    }
+    case "document": {
+      const a = DOCUMENT_WAVE;
+      return {
+        tag: "path",
+        attrs: ` d="M${n(x)},${n(y)} H${n(x + w)} V${n(y + h - a)} C${n(x + 0.75 * w)},${n(y + h - 3 * a)} ${n(x + 0.25 * w)},${n(y + h + a)} ${n(x)},${n(y + h - a)} Z"`,
+      };
+    }
+  }
+}
+
+function shapeDetails(shape: Shape, box: Box, theme: Theme): string {
+  const { x, y, width: w, height: h } = box;
+  const style = `fill="none" stroke="${theme.nodeStroke}" stroke-width="1.5"`;
+  if (shape === "cylinder") {
+    return `<path class="sg-node-detail" d="M${n(x)},${n(y + CYLINDER_RY)} A${n(w / 2)},${CYLINDER_RY} 0 0 0 ${n(x + w)},${n(y + CYLINDER_RY)}" ${style}/>`;
+  }
+  if (shape === "subroutine") {
+    return [x + SUBROUTINE_BAR, x + w - SUBROUTINE_BAR]
+      .map(
+        (lineX) =>
+          `<line class="sg-node-detail" x1="${n(lineX)}" y1="${n(y)}" x2="${n(lineX)}" y2="${n(y + h)}" ${style}/>`,
+      )
+      .join("");
+  }
+  return "";
 }
 
 function renderNode(item: LaidOutNode, index: number, theme: Theme): string {
@@ -269,13 +379,15 @@ function renderNode(item: LaidOutNode, index: number, theme: Theme): string {
   const unknown = confidence === "unknown";
   const fill = unknown ? theme.unknownFill : theme.nodeFill;
   const cls = unknown ? "sg-node sg-unknown" : "sg-node";
-  let body = `<rect class="${cls}" x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="8" fill="${fill}" stroke="${theme.nodeStroke}" stroke-width="1.5"${dashAttr(dash)}/>`;
+  const shape = item.shape ?? "box";
+  const geometry = shapeGeometry(shape, item);
+  let body = `<${geometry.tag} class="${cls}"${geometry.attrs} fill="${fill}" stroke="${theme.nodeStroke}" stroke-width="1.5"${dashAttr(dash)}/>${shapeDetails(shape, item, theme)}`;
 
   const label = measureText(item.label, LABEL_FONT);
   const caption =
     item.type === undefined ? undefined : measureText(item.type, CAPTION_FONT);
   const block = label.height + (caption?.height ?? 0);
-  const top = item.y + (item.height - block) / 2;
+  const top = item.y + (item.height - block) / 2 + textOffsetY(shape);
   const cx = item.x + item.width / 2;
   body += textLines(item.label, cx, top, LABEL_FONT, "sg-text sg-label", theme.fg);
   if (item.type !== undefined) {
@@ -293,12 +405,25 @@ function renderNode(item: LaidOutNode, index: number, theme: Theme): string {
   if (coverage !== undefined) {
     const clip = `sg-clip-${index}`;
     body =
-      `<clipPath id="${clip}"><rect x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="8"/></clipPath>` +
+      `<clipPath id="${clip}"><${geometry.tag}${geometry.attrs}/></clipPath>` +
       body +
       `<rect class="sg-accent" x="${n(item.x)}" y="${n(item.y + item.height - 4)}" width="${n(coverage * item.width)}" height="4" fill="${theme.accent}" clip-path="url(#${clip})"/>`;
   }
 
-  return wrapLink(group("node", item.id, item.meta, body), item.link);
+  return wrapLink(
+    group(
+      "node",
+      item.id,
+      item.meta,
+      body,
+      data([
+        ["type", item.type],
+        ["confidence", confidence],
+        ["shape", shape],
+      ]),
+    ),
+    item.link,
+  );
 }
 
 function renderGraph(laid: LaidOutGraph, theme: Theme): string {
@@ -336,7 +461,16 @@ function renderParticipant(
       theme.muted,
     );
   }
-  return group("participant", item.id, item.meta, lifeline + body);
+  return group(
+    "participant",
+    item.id,
+    item.meta,
+    lifeline + body,
+    data([
+      ["type", item.type],
+      ["confidence", confidence],
+    ]),
+  );
 }
 
 function renderMessage(item: LaidOutMessage, theme: Theme): string {
@@ -352,7 +486,18 @@ function renderMessage(item: LaidOutMessage, theme: Theme): string {
     item.labelBox === undefined || item.label === undefined
       ? ""
       : labelBoxSvg(item.labelBox, item.label, theme, false);
-  return group("message", String(item.index), item.meta, path + label);
+  return group(
+    "message",
+    String(item.index),
+    item.meta,
+    path + label,
+    data([
+      ["confidence", confidenceOf(item.meta)],
+      ["from", item.from],
+      ["to", item.to],
+      ["style", item.style],
+    ]),
+  );
 }
 
 function renderSequence(laid: LaidOutSequence, theme: Theme): string {
@@ -379,7 +524,7 @@ export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string
       ? renderGraph(laidOut, theme)
       : renderSequence(laidOut, theme);
   const svg = [
-    `${head} class="sg-root" version="1.1" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="Inter, system-ui, sans-serif">`,
+    `${head} class="sg-root" data-diagram="${laidOut.kind}" version="1.1" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="Inter, system-ui, sans-serif">`,
     title,
     defs(theme, options.styles ?? true),
     `<rect class="sg-bg" x="0" y="0" width="${width}" height="${height}" fill="${theme.bg}"/>`,

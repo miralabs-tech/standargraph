@@ -5,7 +5,6 @@ import ELK, {
 import type { Edge, GraphDocument, Group, Node } from "../format";
 import { measureText } from "./measure";
 import {
-  boxSize,
   compact,
   GROUP_FONT,
   groupTopPadding,
@@ -14,6 +13,7 @@ import {
   PAD_X,
   round,
 } from "./shared";
+import { clipEnds, clipToShape, shapeSize } from "./shapes";
 import type {
   Box,
   LaidOutEdge,
@@ -71,6 +71,7 @@ function laidOutNode(node: Node, box: Box): LaidOutNode {
     id: node.id,
     label: nodeLabel(node),
     type: node.type,
+    shape: node.shape,
     x: round(box.x),
     y: round(box.y),
     width: round(box.width),
@@ -158,7 +159,7 @@ async function layoutWithElk(doc: GraphDocument): Promise<LaidOutGraph> {
   }
 
   const nodeElk = (node: Node): ElkNode => {
-    const size = boxSize(nodeLabel(node), node.type, 80);
+    const size = shapeSize(node.shape, nodeLabel(node), node.type, 80);
     return { id: `n:${node.id}`, width: size.width, height: size.height };
   };
 
@@ -252,6 +253,7 @@ async function layoutWithElk(doc: GraphDocument): Promise<LaidOutGraph> {
   const routedById = new Map<string, ElkExtendedEdge>();
   for (const routed of result.edges ?? []) routedById.set(routed.id, routed);
 
+  const shapeById = new Map(doc.nodes.map((node) => [node.id, node.shape]));
   const laidOutEdges = edges.map((edge, index) => {
     const routed = routedById.get(`e:${index}`);
     const offset = absolute.get(routed?.container ?? "root") ?? { x: 0, y: 0 };
@@ -280,7 +282,14 @@ async function layoutWithElk(doc: GraphDocument): Promise<LaidOutGraph> {
             width: label.width ?? 0,
             height: label.height ?? 0,
           };
-    return laidOutEdge(edge, index, points, labelBox);
+    const clipped = clipEnds(
+      points,
+      shapeById.get(edge.from),
+      boxOf(`n:${edge.from}`),
+      shapeById.get(edge.to),
+      boxOf(`n:${edge.to}`),
+    );
+    return laidOutEdge(edge, index, clipped, labelBox);
   });
 
   return finish(
@@ -293,19 +302,6 @@ async function layoutWithElk(doc: GraphDocument): Promise<LaidOutGraph> {
     doc.nodes.map((node) => laidOutNode(node, boxOf(`n:${node.id}`))),
     laidOutEdges,
   );
-}
-
-function clipToRect(rect: Box, toward: Point): Point {
-  const cx = rect.x + rect.width / 2;
-  const cy = rect.y + rect.height / 2;
-  const dx = toward.x - cx;
-  const dy = toward.y - cy;
-  if (dx === 0 && dy === 0) return { x: cx, y: cy };
-  const scale = Math.min(
-    dx === 0 ? Infinity : rect.width / 2 / Math.abs(dx),
-    dy === 0 ? Infinity : rect.height / 2 / Math.abs(dy),
-  );
-  return { x: cx + dx * scale, y: cy + dy * scale };
 }
 
 function boundsOf(boxes: readonly Box[]): Box {
@@ -323,7 +319,7 @@ function layoutPrecomputed(doc: GraphDocument): LaidOutGraph {
     nodeBoxes.set(node.id, {
       x: node.position?.x ?? 0,
       y: node.position?.y ?? 0,
-      ...boxSize(nodeLabel(node), node.type, 80),
+      ...shapeSize(node.shape, nodeLabel(node), node.type, 80),
     });
   }
 
@@ -373,10 +369,13 @@ function layoutPrecomputed(doc: GraphDocument): LaidOutGraph {
     }
   }
 
+  const shapeById = new Map(doc.nodes.map((node) => [node.id, node.shape]));
   const labelBoxes: Box[] = [];
   const laidOutEdges = (doc.edges ?? []).map((edge, index) => {
     const from = nodeBoxes.get(edge.from)!;
     const to = nodeBoxes.get(edge.to)!;
+    const fromShape = shapeById.get(edge.from);
+    const toShape = shapeById.get(edge.to);
     let points: Point[];
     let anchor: Point;
     if (edge.from === edge.to) {
@@ -395,8 +394,8 @@ function layoutPrecomputed(doc: GraphDocument): LaidOutGraph {
         y: from.y + from.height / 2,
       };
       const toCenter = { x: to.x + to.width / 2, y: to.y + to.height / 2 };
-      const start = clipToRect(from, toCenter);
-      const end = clipToRect(to, fromCenter);
+      const start = clipToShape(fromShape, from, toCenter);
+      const end = clipToShape(toShape, to, fromCenter);
       points = [start, end];
       anchor = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
     }

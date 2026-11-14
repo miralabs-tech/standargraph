@@ -65,6 +65,54 @@
               "type": {
                 "type": "string"
               },
+              "shape": {
+                "anyOf": [
+                  {
+                    "const": "box",
+                    "type": "string"
+                  },
+                  {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  {
+                    "const": "pill",
+                    "type": "string"
+                  },
+                  {
+                    "const": "diamond",
+                    "type": "string"
+                  },
+                  {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  {
+                    "const": "ellipse",
+                    "type": "string"
+                  },
+                  {
+                    "const": "hexagon",
+                    "type": "string"
+                  },
+                  {
+                    "const": "parallelogram",
+                    "type": "string"
+                  },
+                  {
+                    "const": "cylinder",
+                    "type": "string"
+                  },
+                  {
+                    "const": "document",
+                    "type": "string"
+                  },
+                  {
+                    "const": "subroutine",
+                    "type": "string"
+                  }
+                ]
+              },
               "group": {
                 "type": "string"
               },

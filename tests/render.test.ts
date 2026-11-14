@@ -239,7 +239,7 @@ describe("metadata", () => {
       ],
     });
     assertWellFormed(svg);
-    expect(svg).toContain('<a href="https://example.com/a"><g data-kind="node" data-id="a">');
+    expect(svg).toContain('<a href="https://example.com/a"><g data-kind="node" data-id="a" data-shape="box">');
     expect(svg.split("<a ").length - 1).toBe(1);
     expect(svg).not.toContain("javascript:");
   });

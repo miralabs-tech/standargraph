@@ -1,0 +1,30 @@
+{
+  "$schema": "../schema/graph-document.v1.json",
+  "version": 1,
+  "kind": "graph",
+  "title": "Deploy pipeline",
+  "direction": "down",
+  "nodes": [
+    { "id": "start", "label": "Merge to main", "shape": "pill" },
+    { "id": "config", "label": "Load config", "shape": "parallelogram" },
+    { "id": "build", "label": "Build image", "shape": "rect" },
+    { "id": "tests", "label": "Run tests", "shape": "subroutine" },
+    { "id": "green", "label": "Green?", "shape": "diamond" },
+    { "id": "registry", "label": "Registry", "type": "database", "shape": "cylinder" },
+    { "id": "prepare", "label": "Prepare rollout", "shape": "hexagon" },
+    { "id": "report", "label": "Release notes", "shape": "document" },
+    { "id": "alarm", "label": "Alert", "shape": "ellipse" },
+    { "id": "done", "label": "Live", "shape": "circle" }
+  ],
+  "edges": [
+    { "from": "start", "to": "config" },
+    { "from": "config", "to": "build" },
+    { "from": "build", "to": "tests" },
+    { "from": "tests", "to": "green" },
+    { "from": "green", "to": "registry", "label": "yes" },
+    { "from": "green", "to": "alarm", "label": "no" },
+    { "from": "registry", "to": "prepare" },
+    { "from": "prepare", "to": "report" },
+    { "from": "prepare", "to": "done" }
+  ]
+}
