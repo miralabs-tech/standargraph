@@ -79,3 +79,19 @@ The view changes state instantly and never schedules anything, so animation belo
 - Camera: tween an object `{ x, y, scale }` with any library (GSAP, Motion, a hand-written easing) and call `view.setCamera(value)` on each update. `setCamera` clamps the scale and notifies like any other mutation, so `lod()` and `visible()` follow the animation. Start from `view.camera()` and aim at a target computed with `worldToScreen` or `fit()`.
 - Items: the scene is plain data. To move nodes, keep your own animated positions and draw with them. The view indexes the geometry it was created with: when the movement ends, build a new view with `createView(nextScene)` so `hitTest` and `visible` use the final positions.
 - Highlight: `highlight().active` only says which items are emphasised. Fading them in and out is a rendering concern of the adapter.
+
+## The WebGL adapter
+
+`standargraph/webgl` renders a graph with [Sigma.js](https://www.sigmajs.org) (WebGL) and a 2D canvas for the groups, as a second adapter on the same view. The HTML export picks it above `WEBGL_THRESHOLD` nodes (exported from `standargraph/core`, a plain constant); `renderer: "svg" | "webgl" | "auto"` on `renderHtml` and `--renderer` on the CLI override the choice. Sequence diagrams are always drawn as SVG.
+
+**The view stays the source of truth.** Sigma's mouse and touch captors are killed, and Sigma's camera is never read back. The pointer, wheel, toolbar and keyboard handlers are the same ones the SVG page uses (`src/html/ui.ts`) and call `panBy`, `zoomAt`, `fit`, `hover`, `select` and `search` on the view. Each `camera` change from the view is written to Sigma's camera synchronously (`view.camera()` is converted to a Sigma camera state through a calibration read once from `sigma.graphToViewport`, so scale and translation match exactly), and Sigma renders on its own animation frame. The groups canvas is redrawn in Sigma's `afterRender` from `view.camera()` and `view.visible()`, so both layers always show the same camera.
+
+- Hover, selection, search: `view.hover`, `view.select` and `view.search` change `view.highlight()` and `view.selected()`. A single `sigma.refresh` per animation frame re-runs Sigma's `nodeReducer` and `edgeReducer`, which read those values (dimmed items get a lower opacity, the selected node a backdrop in the accent color, the selected edge the accent color).
+- Hit testing: `view.hitTest`, not Sigma's GPU picking, so hover and click cost the same as in the SVG page.
+- Level of detail: Sigma's `renderLabels` follows `view.lod().labels`; group captions follow `view.lod().edgeLabels`.
+- Colors come from the light or dark theme variables of the page (`--sg-*`), read once at start. `meta.provenance.confidence` of `unknown` gives a muted node fill and a faded edge, `inferred` a lighter node fill and a half-faded edge. Dash patterns are not used.
+- Not drawn in WebGL: node type captions, edge labels and arrowheads.
+
+## Mounting in an application
+
+`mount(container, input, options?)` from `standargraph/html` validates a document, builds the scene and renders the SVG or WebGL adapter inside `container`. When every node has a `position`, the scene comes from the precomputed path without running ELK. Otherwise the layout runs in a Web Worker created from an inline Blob, so the main thread stays free during the layout. It returns a promise of `{ view, destroy() }`. One mounted graph per document is supported, because the toolbar and panel use fixed element ids.

@@ -20,6 +20,7 @@ export type ExportOptions = {
   theme?: "light" | "dark" | "auto";
   scale?: number;
   title?: string;
+  renderer?: "auto" | "svg" | "webgl";
 };
 
 export type ExportResult = { [K in ExportFormat]?: K extends "svg" | "html" ? string : Uint8Array };
@@ -42,7 +43,11 @@ export async function exportDocument(
     if (format === "svg") {
       output.svg = renderSvg(laidOut, { theme: flatTheme });
     } else if (format === "html") {
-      output.html = renderHtml(document, laidOut, { theme, title: options.title });
+      output.html = renderHtml(document, laidOut, {
+        theme,
+        title: options.title,
+        renderer: options.renderer,
+      });
     } else {
       const svg = renderSvg(laidOut, { theme: flatTheme, styles: false });
       output[format] =

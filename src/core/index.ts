@@ -14,3 +14,4 @@ export {
   type View,
   type ViewOptions,
 } from "./view";
+export { WEBGL_THRESHOLD } from "./threshold";

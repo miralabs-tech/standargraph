@@ -1,0 +1,305 @@
+{
+  "date": "2026-11-14",
+  "machine": {
+    "cpu": "Intel(R) Core(TM) i7-14700KF",
+    "cores": 28,
+    "memoryGb": 32,
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Ti SUPER (0x00002705) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "os": "win32 10.0.26300",
+    "edge": "157.0.4341.46"
+  },
+  "prepare": [
+    {
+      "n": 100,
+      "layoutMs": 204,
+      "exportMs": {
+        "svg": 4,
+        "webgl": 1
+      }
+    },
+    {
+      "n": 500,
+      "layoutMs": 702,
+      "exportMs": {
+        "svg": 4,
+        "webgl": 2
+      }
+    },
+    {
+      "n": 1000,
+      "layoutMs": 1282,
+      "exportMs": {
+        "svg": 7,
+        "webgl": 2
+      }
+    },
+    {
+      "n": 2000,
+      "layoutMs": 3748,
+      "exportMs": {
+        "svg": 11,
+        "webgl": 3
+      }
+    },
+    {
+      "n": 5000,
+      "layoutMs": 13084,
+      "exportMs": {
+        "svg": 34,
+        "webgl": 8
+      }
+    },
+    {
+      "n": 10000,
+      "layoutMs": 44034,
+      "exportMs": {
+        "svg": 99,
+        "webgl": 19
+      }
+    }
+  ],
+  "cells": [
+    {
+      "n": 100,
+      "renderer": "svg",
+      "mode": "capped",
+      "frames": 2930,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 53.3
+    },
+    {
+      "n": 100,
+      "renderer": "webgl",
+      "mode": "capped",
+      "frames": 3001,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 8.2
+    },
+    {
+      "n": 500,
+      "renderer": "svg",
+      "mode": "capped",
+      "frames": 2101,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 486.6
+    },
+    {
+      "n": 500,
+      "renderer": "webgl",
+      "mode": "capped",
+      "frames": 2991,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 10.1
+    },
+    {
+      "n": 1000,
+      "renderer": "svg",
+      "mode": "capped",
+      "frames": 2767,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 103.4
+    },
+    {
+      "n": 1000,
+      "renderer": "webgl",
+      "mode": "capped",
+      "frames": 2972,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 16.7
+    },
+    {
+      "n": 2000,
+      "renderer": "svg",
+      "mode": "capped",
+      "frames": 1866,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 396.7
+    },
+    {
+      "n": 2000,
+      "renderer": "webgl",
+      "mode": "capped",
+      "frames": 2987,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 30
+    },
+    {
+      "n": 5000,
+      "renderer": "svg",
+      "mode": "capped",
+      "frames": 585,
+      "medianFps": 294.1,
+      "p5Fps": 59.9,
+      "longestFrameMs": 540
+    },
+    {
+      "n": 5000,
+      "renderer": "webgl",
+      "mode": "capped",
+      "frames": 2973,
+      "medianFps": 303,
+      "p5Fps": 294.1,
+      "longestFrameMs": 50
+    },
+    {
+      "n": 10000,
+      "renderer": "svg",
+      "mode": "capped",
+      "skipped": "single frame 1833 ms exceeds 1000 ms"
+    },
+    {
+      "n": 10000,
+      "renderer": "webgl",
+      "mode": "capped",
+      "frames": 2865,
+      "medianFps": 303,
+      "p5Fps": 285.7,
+      "longestFrameMs": 10.2
+    },
+    {
+      "n": 100,
+      "renderer": "svg",
+      "mode": "uncapped",
+      "frames": 832,
+      "medianFps": 58.5,
+      "p5Fps": 54.1,
+      "longestFrameMs": 19
+    },
+    {
+      "n": 100,
+      "renderer": "webgl",
+      "mode": "uncapped",
+      "frames": 831,
+      "medianFps": 58.5,
+      "p5Fps": 54.6,
+      "longestFrameMs": 19.1
+    },
+    {
+      "n": 500,
+      "renderer": "svg",
+      "mode": "uncapped",
+      "frames": 718,
+      "medianFps": 58.5,
+      "p5Fps": 54.9,
+      "longestFrameMs": 435.7
+    },
+    {
+      "n": 500,
+      "renderer": "webgl",
+      "mode": "uncapped",
+      "frames": 829,
+      "medianFps": 58.5,
+      "p5Fps": 55.2,
+      "longestFrameMs": 19.2
+    },
+    {
+      "n": 1000,
+      "renderer": "svg",
+      "mode": "uncapped",
+      "frames": 826,
+      "medianFps": 58.5,
+      "p5Fps": 54.6,
+      "longestFrameMs": 19
+    },
+    {
+      "n": 1000,
+      "renderer": "webgl",
+      "mode": "uncapped",
+      "frames": 820,
+      "medianFps": 58.5,
+      "p5Fps": 54.6,
+      "longestFrameMs": 19.1
+    },
+    {
+      "n": 2000,
+      "renderer": "svg",
+      "mode": "uncapped",
+      "frames": 597,
+      "medianFps": 58.5,
+      "p5Fps": 54.9,
+      "longestFrameMs": 1542.1
+    },
+    {
+      "n": 2000,
+      "renderer": "webgl",
+      "mode": "uncapped",
+      "frames": 812,
+      "medianFps": 58.5,
+      "p5Fps": 54.9,
+      "longestFrameMs": 34.3
+    },
+    {
+      "n": 5000,
+      "renderer": "svg",
+      "mode": "uncapped",
+      "frames": 248,
+      "medianFps": 57.8,
+      "p5Fps": 35.6,
+      "longestFrameMs": 1148.8
+    },
+    {
+      "n": 5000,
+      "renderer": "webgl",
+      "mode": "uncapped",
+      "frames": 784,
+      "medianFps": 58.5,
+      "p5Fps": 54.9,
+      "longestFrameMs": 19.2
+    },
+    {
+      "n": 10000,
+      "renderer": "svg",
+      "mode": "uncapped",
+      "frames": 106,
+      "medianFps": 55.6,
+      "p5Fps": 7.2,
+      "longestFrameMs": 2320.2
+    },
+    {
+      "n": 10000,
+      "renderer": "webgl",
+      "mode": "uncapped",
+      "frames": 734,
+      "medianFps": 58.1,
+      "p5Fps": 54.3,
+      "longestFrameMs": 19.2
+    }
+  ],
+  "mount": {
+    "nodes": 2000,
+    "mountMs": 3994,
+    "workerMs": 3335,
+    "longestFrameDuringWorkerMs": 20,
+    "longestFrameAfterWorkerMs": 657,
+    "rendered": true,
+    "scale": 0.007773498898495206
+  },
+  "threshold": 5000,
+  "method": {
+    "sizes": [
+      100,
+      500,
+      1000,
+      2000,
+      5000,
+      10000
+    ],
+    "scriptMs": 10000,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "uncappedArgs": [
+      "--disable-gpu-vsync",
+      "--disable-frame-rate-limit"
+    ]
+  }
+}

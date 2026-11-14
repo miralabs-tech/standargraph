@@ -17,6 +17,7 @@ Export options:
   --name <base>      Output base name (default: the input file name without .json)
   --theme <theme>    light, dark or auto (default: auto)
   --scale <n>        PNG scale factor (default: 2)
+  --renderer <name>  HTML renderer: auto, svg or webgl (default: auto)
   --markdown         Print a Markdown snippet linking the SVG preview to the HTML page
 
 Options:
@@ -51,6 +52,7 @@ function runValidate(file: string | undefined): number {
 const FORMATS = ["svg", "html", "png", "pdf"] as const;
 type Format = (typeof FORMATS)[number];
 type Theme = "light" | "dark" | "auto";
+type Renderer = "auto" | "svg" | "webgl";
 
 type ExportArgs = {
   file: string;
@@ -59,6 +61,7 @@ type ExportArgs = {
   name: string | undefined;
   theme: Theme;
   scale: number | undefined;
+  renderer: Renderer;
   markdown: boolean;
 };
 
@@ -69,7 +72,7 @@ function fail(message: string): undefined {
 
 function parseExportArgs(args: string[]): ExportArgs | undefined {
   const values = new Map<string, string>();
-  const valued = new Set(["--format", "--out", "--name", "--theme", "--scale"]);
+  const valued = new Set(["--format", "--out", "--name", "--theme", "--scale", "--renderer"]);
   let markdown = false;
   let file: string | undefined;
   for (let index = 0; index < args.length; index++) {
@@ -92,7 +95,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     }
   }
   if (file === undefined) {
-    return fail("Usage: standargraph export <file> [--format svg,html,png,pdf] [--out <dir>] [--name <base>] [--theme light|dark|auto] [--scale <n>] [--markdown]");
+    return fail("Usage: standargraph export <file> [--format svg,html,png,pdf] [--out <dir>] [--name <base>] [--theme light|dark|auto] [--scale <n>] [--renderer auto|svg|webgl] [--markdown]");
   }
   const formats: Format[] = [];
   for (const item of (values.get("--format") ?? "svg,html").split(",")) {
@@ -105,6 +108,10 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
   const theme = values.get("--theme") ?? "auto";
   if (theme !== "light" && theme !== "dark" && theme !== "auto") {
     return fail(`Unknown theme: ${theme}`);
+  }
+  const renderer = values.get("--renderer") ?? "auto";
+  if (renderer !== "auto" && renderer !== "svg" && renderer !== "webgl") {
+    return fail(`Unknown renderer: ${renderer}`);
   }
   const scaleText = values.get("--scale");
   let scale: number | undefined;
@@ -119,6 +126,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     name: values.get("--name"),
     theme,
     scale,
+    renderer,
     markdown,
   };
 }
@@ -149,6 +157,7 @@ async function runExport(args: string[]): Promise<number> {
     formats: parsed.formats,
     theme: parsed.theme,
     scale: parsed.scale,
+    renderer: parsed.renderer,
   });
   try {
     mkdirSync(directory, { recursive: true });
