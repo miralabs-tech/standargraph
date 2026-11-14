@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Standargraph playground</title>
+<style>
+:root{color-scheme:light dark}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:flex;flex-direction:column;font:14px/1.4 system-ui,sans-serif;background:Canvas;color:CanvasText}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 12px;border-bottom:1px solid #8884}
+header h1{margin:0;font-size:16px}
+header nav{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,38%) 1fr}
+.pane{display:flex;flex-direction:column;min-width:0;min-height:0}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #8884}
+.bar button,.bar select{font:inherit;padding:3px 8px}
+#source{flex:1;min-height:0;width:100%;resize:none;border:0;padding:12px;font:13px/1.5 ui-monospace,Consolas,monospace;background:Canvas;color:CanvasText;outline:none;tab-size:2}
+#errors{margin:0;padding:8px 12px 8px 28px;max-height:30%;overflow:auto;border-top:1px solid #8884;color:#c0392b;font:12px/1.5 ui-monospace,Consolas,monospace}
+#errors:empty{display:none}
+#preview{position:relative;flex:1;min-height:0}
+#status{margin-left:auto;font-size:12px;opacity:.7}
+@media (max-width:760px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+<h1>Standargraph playground</h1>
+<nav id="pages" aria-label="Interactive examples"></nav>
+</header>
+<main>
+<section class="pane">
+<div class="bar">
+<label for="example">Example</label>
+<select id="example"></select>
+<span id="status" role="status"></span>
+</div>
+<textarea id="source" spellcheck="false" aria-label="Diagram source in the text syntax or JSON"></textarea>
+<ul id="errors" aria-label="Errors"></ul>
+</section>
+<section class="pane">
+<div class="bar">
+<button id="download-svg" type="button" disabled>Download SVG</button>
+<button id="download-json" type="button" disabled>Download JSON</button>
+<button id="download-sg" type="button" disabled>Download .sg</button>
+<button id="download-mmd" type="button" disabled>Download .mmd</button>
+</div>
+<div id="preview"></div>
+</section>
+</main>
+<script src="examples.js"></script>
+<script src="playground.js"></script>
+</body>
+</html>

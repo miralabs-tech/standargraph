@@ -91,6 +91,7 @@
     "test": "bun test",
     "prepublishOnly": "bun run typecheck && bun test && bun run build",
     "smoke": "bun tools/smoke.ts",
+    "site": "bun scripts/site.ts",
     "test:browser": "bun test --config=bunfig.browser.toml tests/browser"
   },
   "devDependencies": {

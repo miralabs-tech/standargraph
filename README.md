@@ -14,6 +14,8 @@
 
 Both images above come from the CLI (`examples/architecture.json` and `examples/protocol.json`). Each links to a self-contained interactive viewer: download the `.html` file and open it in a browser.
 
+**Live demo**: the [playground](https://miralabs-tech.github.io/standargraph/) renders the text syntax or JSON as you type, offline once loaded, and every example has an interactive page: [architecture](https://miralabs-tech.github.io/standargraph/examples/architecture.html), [protocol](https://miralabs-tech.github.io/standargraph/examples/protocol.html).
+
 ---
 
 ## 🧠 What is StandarGraph?
@@ -384,6 +386,7 @@ bun run smoke               # the packed package, under Node
 STANDARGRAPH_BROWSER_CHANNEL=msedge bun run test:browser   # Playwright, set the channel of an installed browser
 bun run bench               # benchmark (Microsoft Edge, headed)
 bun run runtime             # regenerate the embedded HTML and WebGL runtimes
+bun run site               # build the GitHub Pages site into site-dist/
 ```
 
 CI pins bun 1.4.2 so that the generated bundles match the committed ones; use the same version before running `bun run runtime`.

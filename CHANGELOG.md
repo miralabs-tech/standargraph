@@ -24,6 +24,7 @@ All notable changes to this project are documented in this file. The format foll
 - `mount()` and `exportDocument()` accept a string in JSON or the text syntax.
 - Mermaid export for the five kinds: `toMermaid()` in `@miralabs-tech/standargraph/mermaid`, the `mermaid` format of `exportDocument()` and `--format mermaid` on the CLI (`<base>.mmd`, warnings on stderr, and a fenced `mermaid` block after `--markdown`), with the losses documented in `docs/mermaid.md`.
 - GitHub Action (`action.yml`, composite) that renders `.sg` files with the published CLI in `write` or `check` mode without committing, an example workflow in `docs/diagrams-workflow.yml`, and a CI job that runs it from the local checkout.
+- GitHub Pages demo at https://miralabs-tech.github.io/standargraph/: a playground (`site/`) that renders the text syntax or JSON with `mount()` as you type, with SVG, JSON, `.sg` and `.mmd` downloads, plus the interactive HTML page of every example. `bun run site` builds it into the git-ignored `site-dist/`, and `.github/workflows/pages.yml` deploys it on every push to `main`.
 - Playwright benchmark (`bun run bench`) with results published in `docs/bench.md`: 10 000 nodes in WebGL hold a median of 303 FPS capped and 58.1 FPS uncapped.
 - Node smoke test of the packed package, browser tests of `mount()`, a CLI `--markdown` test and GitHub CI.
 - MIT license, third-party notices and the EPL-2.0 and MPL-2.0 texts in `licenses/`.
