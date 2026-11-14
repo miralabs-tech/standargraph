@@ -114,7 +114,15 @@ describe("the built site playground", () => {
       area.scrollTop = 400;
       area.scrollLeft = 120;
     });
-    await page.waitForFunction(() => document.getElementById("highlight")!.scrollTop > 0, null, { timeout: 5000 });
+    await page.waitForFunction(
+      () => {
+        const area = document.getElementById("source")!;
+        const layer = document.getElementById("highlight")!;
+        return area.scrollTop > 0 && layer.scrollTop === area.scrollTop && layer.scrollLeft === area.scrollLeft;
+      },
+      null,
+      { timeout: 5000 },
+    );
     const scroll = await page.evaluate(() => {
       const area = document.getElementById("source")!;
       const layer = document.getElementById("highlight")!;
