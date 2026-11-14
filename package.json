@@ -1,0 +1,51 @@
+{
+  "name": "standargraph",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT OR Apache-2.0",
+  "description": "Declarative graph and diagram rendering",
+  "bin": {
+    "standargraph": "dist/cli.js"
+  },
+  "exports": {
+    "./format": {
+      "types": "./dist/format/index.d.ts",
+      "import": "./dist/format/index.js"
+    },
+    "./layout": {
+      "types": "./dist/layout/index.d.ts",
+      "import": "./dist/layout/index.js"
+    },
+    "./svg": {
+      "types": "./dist/svg/index.d.ts",
+      "import": "./dist/svg/index.js"
+    },
+    "./webgl": {
+      "types": "./dist/webgl/index.d.ts",
+      "import": "./dist/webgl/index.js"
+    },
+    "./remark": {
+      "types": "./dist/remark/index.d.ts",
+      "import": "./dist/remark/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "schema"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "bun scripts/clean.ts && bun build src/cli.ts src/format/index.ts src/layout/index.ts src/svg/index.ts src/webgl/index.ts src/remark/index.ts --root src --outdir dist --target node --format esm && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}
