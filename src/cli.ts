@@ -5,7 +5,13 @@ import { fileURLToPath } from "node:url";
 import type { ExportResult } from "./export";
 import type { Document } from "./format/schema";
 import { formatLoadErrors } from "./shared/errors";
-import { type PageThemeOption, THEMES } from "./svg/theme";
+import {
+  isThemeName,
+  type PageThemeOption,
+  THEME_NAMES,
+  THEMES,
+  withoutPalette,
+} from "./svg/theme";
 import { loadSource, print } from "./text";
 import { VERSION } from "./version";
 
@@ -28,7 +34,8 @@ Export options:
   --format <list>    Comma-separated formats: svg, html, png, pdf, mermaid (default: svg,html)
   --out <dir>        Output directory (default: the input file directory)
   --name <base>      Output base name (default: the input file name without .json or .sg)
-  --theme <theme>    light, dark, auto or a theme file ending in .json (default: auto)
+  --theme <theme>    auto, a palette name (light, dark, nord, solarized-light, solarized-dark, high-contrast) or a theme file ending in .json (default: auto)
+  --no-palette       Turn off the automatic color per item type
   --scale <n>        PNG scale factor (default: 2)
   --renderer <name>  HTML renderer: auto, svg or webgl (default: auto)
   --markdown         Print a Markdown snippet linking the SVG preview to the HTML page, then the Mermaid code block when mermaid is exported
@@ -88,6 +95,7 @@ type ExportArgs = {
   scale: number | undefined;
   renderer: Renderer;
   markdown: boolean;
+  palette: boolean;
 };
 
 function fail(message: string): undefined {
@@ -108,8 +116,9 @@ function isStrings(value: unknown, keys: readonly string[]): boolean {
 
 function isTheme(value: unknown): boolean {
   if (!isRecord(value)) return false;
-  const { base, tokens, types } = value;
-  if (base !== undefined && base !== "light" && base !== "dark") return false;
+  const { base, tokens, types, palette } = value;
+  if (base !== undefined && !isThemeName(base)) return false;
+  if (palette !== undefined && palette !== false) return false;
   if (tokens !== undefined && !isStrings(tokens, Object.keys(THEMES.light))) return false;
   if (types === undefined) return true;
   return (
@@ -137,6 +146,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
   const values = new Map<string, string>();
   const valued = new Set(["--format", "--out", "--name", "--theme", "--scale", "--renderer"]);
   let markdown = false;
+  let palette = true;
   let file: string | undefined;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index]!;
@@ -149,6 +159,8 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     const flag = equals === -1 ? arg : arg.slice(0, equals);
     if (flag === "--markdown" && equals === -1) {
       markdown = true;
+    } else if (flag === "--no-palette" && equals === -1) {
+      palette = false;
     } else if (valued.has(flag)) {
       const value = equals === -1 ? args[++index] : arg.slice(equals + 1);
       if (value === undefined) return fail(`Missing value for ${flag}`);
@@ -158,7 +170,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     }
   }
   if (file === undefined) {
-    return fail("Usage: standargraph export <file> [--format svg,html,png,pdf,mermaid] [--out <dir>] [--name <base>] [--theme light|dark|auto|<file.json>] [--scale <n>] [--renderer auto|svg|webgl] [--markdown]");
+    return fail(`Usage: standargraph export <file> [--format svg,html,png,pdf,mermaid] [--out <dir>] [--name <base>] [--theme auto|${THEME_NAMES.join("|")}|<file.json>] [--no-palette] [--scale <n>] [--renderer auto|svg|webgl] [--markdown]`);
   }
   const formats: Format[] = [];
   for (const item of (values.get("--format") ?? "svg,html").split(",")) {
@@ -173,7 +185,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
   if (themeValue.endsWith(".json")) {
     theme = readTheme(themeValue);
     if (theme === undefined) return undefined;
-  } else if (themeValue === "light" || themeValue === "dark" || themeValue === "auto") {
+  } else if (themeValue === "auto" || isThemeName(themeValue)) {
     theme = themeValue;
   } else {
     return fail(`Unknown theme: ${themeValue}`);
@@ -197,6 +209,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     scale,
     renderer,
     markdown,
+    palette,
   };
 }
 
@@ -214,7 +227,7 @@ async function runExport(args: string[]): Promise<number> {
     const { exportDocument } = await import("./export");
     output = await exportDocument(document, {
       formats: rendered,
-      theme: parsed.theme,
+      theme: parsed.palette ? parsed.theme : withoutPalette(parsed.theme),
       scale: parsed.scale,
       renderer: parsed.renderer,
     });

@@ -1,0 +1,599 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Standargraph",
+  "scopeName": "source.standargraph",
+  "fileTypes": [
+    "sg"
+  ],
+  "patterns": [
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#diagram-graph"
+    },
+    {
+      "include": "#diagram-sequence"
+    },
+    {
+      "include": "#diagram-state"
+    },
+    {
+      "include": "#diagram-er"
+    },
+    {
+      "include": "#diagram-tree"
+    },
+    {
+      "include": "#invalid"
+    }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.number-sign.standargraph",
+      "match": "(#).*$",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.comment.standargraph"
+        }
+      }
+    },
+    "string": {
+      "name": "string.quoted.double.standargraph",
+      "begin": "(\")",
+      "end": "(\")|$",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.string.begin.standargraph"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.string.end.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.standargraph",
+          "match": "\\\\(?:[\"\\\\nt]|u\\{[0-9a-fA-F]{1,6}\\})"
+        },
+        {
+          "name": "invalid.illegal.escape.standargraph",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "backtick-id": {
+      "name": "variable.other.standargraph",
+      "match": "`(?:[^`\\\\\\n]|\\\\.)*`"
+    },
+    "first-id": {
+      "match": "^\\s*(?:([\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*)|(`(?:[^`\\\\\\n]|\\\\.)*`))",
+      "captures": {
+        "1": {
+          "name": "entity.name.tag.standargraph"
+        },
+        "2": {
+          "name": "entity.name.tag.standargraph"
+        }
+      }
+    },
+    "ident": {
+      "name": "variable.other.standargraph",
+      "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*"
+    },
+    "end-line": {
+      "match": "^\\s*(end)(?=\\s*(?:#.*)?$)",
+      "captures": {
+        "1": {
+          "name": "keyword.control.block.standargraph"
+        }
+      }
+    },
+    "do-keyword": {
+      "name": "keyword.control.block.standargraph",
+      "match": "(?<![\\p{L}\\p{N}_./-])do(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])(?=\\s*(?:#.*)?$)"
+    },
+    "group-line": {
+      "match": "^\\s*(group)\\s+(?:([\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*)|(`(?:[^`\\\\\\n]|\\\\.)*`))",
+      "captures": {
+        "1": {
+          "name": "storage.type.group.standargraph"
+        },
+        "2": {
+          "name": "entity.name.namespace.standargraph"
+        },
+        "3": {
+          "name": "entity.name.namespace.standargraph"
+        }
+      }
+    },
+    "braces": {
+      "patterns": [
+        {
+          "name": "punctuation.section.block.begin.standargraph",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.block.end.standargraph",
+          "match": "\\}"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.reply.standargraph",
+          "match": "-->"
+        },
+        {
+          "name": "keyword.operator.async.standargraph",
+          "match": "->>"
+        },
+        {
+          "name": "keyword.operator.arrow.standargraph",
+          "match": "->"
+        },
+        {
+          "name": "keyword.operator.line.standargraph",
+          "match": "--"
+        },
+        {
+          "name": "keyword.operator.dots.standargraph",
+          "match": "\\.\\."
+        }
+      ]
+    },
+    "word-operator": {
+      "name": "keyword.operator.word.standargraph",
+      "match": "(?<=[\\p{L}\\p{N}_`*]\\s|[\\p{L}\\p{N}_`*]\\s\\s|[\\p{L}\\p{N}_`*]\\s\\s\\s)(to|with|async|reply|via)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])(?=\\s+[^\\s#])"
+    },
+    "star": {
+      "name": "keyword.operator.star.standargraph",
+      "match": "\\*"
+    },
+    "state-initial": {
+      "match": "^\\s*(initial)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])(?=\\s*(?:->>|-->|->|--|\\.\\.|(?:to|with|async|reply|via)(?![\\p{L}\\p{N}_])))",
+      "captures": {
+        "1": {
+          "name": "keyword.operator.word.standargraph"
+        }
+      }
+    },
+    "state-final": {
+      "name": "keyword.operator.word.standargraph",
+      "match": "(?<=->\\s|->\\s\\s|to\\s|to\\s\\s)final(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])"
+    },
+    "cardinality": {
+      "name": "constant.numeric.cardinality.standargraph",
+      "match": "(?<![\\p{L}\\p{N}_./-])(?:0\\.\\.1|1\\.\\.\\*|0\\.\\.\\*|1)(?![\\p{L}\\p{N}_*])"
+    },
+    "attr-values": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#list"
+        },
+        {
+          "name": "constant.numeric.standargraph",
+          "match": "(?<![\\p{L}\\p{N}_./-])-?[0-9]+(?:\\.[0-9]+)?(?:[eE][-+]?[0-9]+)?"
+        },
+        {
+          "name": "constant.language.boolean.standargraph",
+          "match": "(?<![\\p{L}\\p{N}_./-])(?:true|false)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])"
+        },
+        {
+          "name": "string.unquoted.standargraph",
+          "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*"
+        },
+        {
+          "name": "punctuation.separator.comma.standargraph",
+          "match": ","
+        }
+      ]
+    },
+    "list": {
+      "name": "meta.list.standargraph",
+      "begin": "(\\[)",
+      "end": "(\\])",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.list.begin.standargraph"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.list.end.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#attr-values"
+        }
+      ]
+    },
+    "attributes": {
+      "name": "meta.attributes.standargraph",
+      "begin": "(\\[)",
+      "end": "(\\])",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.attributes.begin.standargraph"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.attributes.end.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "match": "(?<![\\p{L}\\p{N}_./-])(shape|pseudo|confidence|direction|layout)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])(\\s*)(=)(\\s*)([\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*)",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.attribute.standargraph"
+            },
+            "3": {
+              "name": "keyword.operator.assignment.standargraph"
+            },
+            "5": {
+              "name": "constant.other.enum.standargraph"
+            }
+          }
+        },
+        {
+          "name": "variable.parameter.attribute.standargraph",
+          "match": "(?:[\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*|`(?:[^`\\\\\\n]|\\\\.)*`)(?=\\s*=)"
+        },
+        {
+          "name": "keyword.operator.assignment.standargraph",
+          "match": "="
+        },
+        {
+          "include": "#attr-values"
+        }
+      ]
+    },
+    "entity-attribute-line": {
+      "match": "^\\s*(?:([\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*)|(`(?:[^`\\\\\\n]|\\\\.)*`))(?:(\\s+)(\"(?:[^\"\\\\\\n]|\\\\.)*\")|(\\s+)(?!(?:pk|fk|uk|null)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_]))([\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*))?",
+      "captures": {
+        "1": {
+          "name": "entity.name.tag.standargraph"
+        },
+        "2": {
+          "name": "entity.name.tag.standargraph"
+        },
+        "4": {
+          "name": "string.quoted.double.standargraph"
+        },
+        "6": {
+          "name": "entity.name.type.standargraph"
+        }
+      }
+    },
+    "entity-attribute-patterns": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#entity-attribute-line"
+        },
+        {
+          "name": "storage.modifier.standargraph",
+          "match": "(?<![\\p{L}\\p{N}_./-])(pk|fk|uk|null)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "match": "(\\[)(\\])",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.array.begin.standargraph"
+            },
+            "2": {
+              "name": "punctuation.definition.array.end.standargraph"
+            }
+          }
+        },
+        {
+          "include": "#attributes"
+        },
+        {
+          "name": "punctuation.section.parens.begin.standargraph",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.standargraph",
+          "match": "\\)"
+        },
+        {
+          "name": "punctuation.separator.comma.standargraph",
+          "match": ","
+        },
+        {
+          "name": "constant.numeric.standargraph",
+          "match": "(?<![\\p{L}\\p{N}_./-])[0-9]+(?:\\.[0-9]+)?"
+        },
+        {
+          "name": "entity.name.type.standargraph",
+          "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?:[./-][\\p{L}\\p{N}_]+)*"
+        }
+      ]
+    },
+    "entity-block-braces": {
+      "name": "meta.block.entity.standargraph",
+      "begin": "(\\{)",
+      "end": "(\\})",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.block.begin.standargraph"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.section.block.end.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#entity-attribute-patterns"
+        }
+      ]
+    },
+    "entity-block-words": {
+      "name": "meta.block.entity.standargraph",
+      "begin": "(?<![\\p{L}\\p{N}_./-])(do)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])(?=\\s*(?:#.*)?$)",
+      "end": "^\\s*(end)(?=\\s*(?:#.*)?$)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.block.standargraph"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "keyword.control.block.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#entity-attribute-patterns"
+        }
+      ]
+    },
+    "tree-label": {
+      "match": "^\\s*([^\"\\s#\\[][^\\[#]*?)(?=\\s*(?:\\[|#|$))",
+      "captures": {
+        "1": {
+          "name": "string.unquoted.label.standargraph"
+        }
+      }
+    },
+    "diagram-graph": {
+      "name": "meta.diagram.graph.standargraph",
+      "begin": "^\\s*(graph)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])",
+      "end": "(?!)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.kind.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#end-line"
+        },
+        {
+          "include": "#group-line"
+        },
+        {
+          "include": "#first-id"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#backtick-id"
+        },
+        {
+          "include": "#attributes"
+        },
+        {
+          "include": "#word-operator"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#do-keyword"
+        },
+        {
+          "include": "#braces"
+        },
+        {
+          "include": "#ident"
+        }
+      ]
+    },
+    "diagram-sequence": {
+      "name": "meta.diagram.sequence.standargraph",
+      "begin": "^\\s*(sequence)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])",
+      "end": "(?!)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.kind.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#end-line"
+        },
+        {
+          "include": "#first-id"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#backtick-id"
+        },
+        {
+          "include": "#attributes"
+        },
+        {
+          "include": "#word-operator"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#ident"
+        }
+      ]
+    },
+    "diagram-state": {
+      "name": "meta.diagram.state.standargraph",
+      "begin": "^\\s*(state)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])",
+      "end": "(?!)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.kind.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#end-line"
+        },
+        {
+          "include": "#state-initial"
+        },
+        {
+          "include": "#first-id"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#backtick-id"
+        },
+        {
+          "include": "#attributes"
+        },
+        {
+          "include": "#state-final"
+        },
+        {
+          "include": "#word-operator"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#star"
+        },
+        {
+          "include": "#do-keyword"
+        },
+        {
+          "include": "#braces"
+        },
+        {
+          "include": "#ident"
+        }
+      ]
+    },
+    "diagram-er": {
+      "name": "meta.diagram.er.standargraph",
+      "begin": "^\\s*(er)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])",
+      "end": "(?!)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.kind.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#end-line"
+        },
+        {
+          "include": "#first-id"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#backtick-id"
+        },
+        {
+          "include": "#attributes"
+        },
+        {
+          "include": "#cardinality"
+        },
+        {
+          "include": "#word-operator"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#entity-block-braces"
+        },
+        {
+          "include": "#entity-block-words"
+        },
+        {
+          "include": "#ident"
+        }
+      ]
+    },
+    "diagram-tree": {
+      "name": "meta.diagram.tree.standargraph",
+      "begin": "^\\s*(tree)(?![\\p{L}\\p{N}_]|[./-][\\p{L}\\p{N}_])",
+      "end": "(?!)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.kind.standargraph"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#tree-label"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#attributes"
+        }
+      ]
+    },
+    "invalid": {
+      "begin": "^\\s*[^\\s#]",
+      "end": "(?!)"
+    }
+  }
+}

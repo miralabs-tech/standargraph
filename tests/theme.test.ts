@@ -9,6 +9,7 @@ import { layout } from "../src/layout";
 import { renderSvg } from "../src/svg";
 import {
   lightTheme,
+  PALETTES,
   resolveTheme,
   THEMES,
   themeStyle,
@@ -40,8 +41,8 @@ function section(svg: string, id: string): string {
 
 describe("resolveTheme", () => {
   test("names and a missing option resolve to the built-in tokens", () => {
-    expect(resolveTheme(undefined)).toEqual({ tokens: THEMES.light, types: {} });
-    expect(resolveTheme("dark")).toEqual({ tokens: THEMES.dark, types: {} });
+    expect(resolveTheme(undefined)).toEqual({ tokens: THEMES.light, types: {}, palette: PALETTES.light });
+    expect(resolveTheme("dark")).toEqual({ tokens: THEMES.dark, types: {}, palette: PALETTES.dark });
   });
 
   test("a theme object overrides the tokens of its base", () => {
@@ -113,8 +114,8 @@ describe("renderSvg with a custom theme", () => {
     expect(unknown).toBeGreaterThan(service);
   });
 
-  test("without types no type rule is emitted", async () => {
-    const svg = renderSvg(await layout(doc));
+  test("without types and without the palette no type rule is emitted", async () => {
+    const svg = renderSvg(await layout(doc), { theme: { palette: false } });
     expect(svg).not.toContain("data-type=\"database\"] .sg-node");
     expect(svg).not.toContain('[data-confidence="unknown"] .sg-node');
   });
@@ -139,7 +140,9 @@ describe("themeStyle", () => {
   test("auto writes the default themes, the dark one under the media query", () => {
     const style = themeStyle("auto");
     expect(style).toBe(
-      `.sg-app,.sg-app .sg-root{${themeVariables("light")}}@media (prefers-color-scheme:dark){.sg-app,.sg-app .sg-root{${themeVariables("dark")}}}`,
+      `.sg-app,.sg-app .sg-root{${themeVariables("light")}}@media (prefers-color-scheme:dark){.sg-app,.sg-app .sg-root{${themeVariables("dark")}}}` +
+        `.sg-app[data-sg-scheme=light],.sg-app[data-sg-scheme=light] .sg-root{${themeVariables("light")}}` +
+        `.sg-app[data-sg-scheme=dark],.sg-app[data-sg-scheme=dark] .sg-root{${themeVariables("dark")}}`,
     );
   });
 
@@ -167,7 +170,10 @@ describe("themeStyle", () => {
       light: { types: { database: { fill: "#ff0000", text: "#00ff00" }, cache: { fill: "#0000ff" } } },
       dark: { base: "dark", types: { cache: { fill: "#000080" } } },
     });
-    const dark = style.slice(style.indexOf("@media (prefers-color-scheme:dark)"));
+    const dark = style.slice(
+      style.indexOf("@media (prefers-color-scheme:dark)"),
+      style.indexOf(".sg-app[data-sg-scheme=light]"),
+    );
     expect(dark).toContain('[data-type="database"] .sg-node{fill:var(--sg-node-fill)}');
     expect(dark).toContain('[data-type="database"] .sg-label{fill:var(--sg-fg)}');
     expect(dark).toContain('[data-type="cache"] .sg-node{fill:#000080}');

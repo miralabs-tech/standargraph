@@ -8,6 +8,14 @@ import { parseSyntax } from "./parser";
 export { VERSION } from "../version";
 export { canonicalize } from "./canonical";
 export type { TextError, TextErrorCode } from "./errors";
+export {
+  highlight,
+  SEMANTIC_TOKEN_MODIFIERS,
+  SEMANTIC_TOKEN_TYPES,
+  type HighlightToken,
+  type SemanticTokenModifier,
+  type SemanticTokenType,
+} from "./highlight";
 export { print, type PrintOptions, type PrintStyle } from "./print";
 
 export type ParseResult =

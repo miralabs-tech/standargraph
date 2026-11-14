@@ -68,11 +68,15 @@
       "import": "./dist/text/index.js"
     },
     "./schema/graph-document.v1.json": "./schema/graph-document.v1.json",
+    "./grammars/standargraph.tmLanguage.json": "./grammars/standargraph.tmLanguage.json",
+    "./language-configuration.json": "./language-configuration.json",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "schema",
+    "grammars",
+    "language-configuration.json",
     "assets",
     "licenses",
     "THIRD_PARTY_NOTICES.md"
@@ -107,7 +111,9 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "typescript": "^7.0.2",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
   },
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",

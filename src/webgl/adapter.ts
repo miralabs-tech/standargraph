@@ -6,7 +6,7 @@ import { type Change, createView, type ItemRef } from "../core/view";
 import type { Document } from "../format";
 import type { LaidOut } from "../layout/types";
 import type { Mounted } from "../html/svg-adapter";
-import { bindInteraction, createPanel, part } from "../html/ui";
+import { bindInteraction, bindScheme, createPanel, part } from "../html/ui";
 
 const IDLE_MS = 150;
 const DIM_OPACITY = 0.25;
@@ -100,21 +100,28 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   const panel = part<HTMLElement>("sg-panel");
   const search = part<HTMLInputElement>("sg-search");
 
-  const style = getComputedStyle(app);
-  const token = (name: string): Rgb => parseColor(style.getPropertyValue(name));
-  const bg = token("--sg-bg");
-  const fg = token("--sg-fg");
-  const muted = token("--sg-muted");
-  const stroke = token("--sg-node-stroke");
-  const edgeColor = token("--sg-edge");
-  const groupFill = css(token("--sg-group-fill"));
-  const groupStroke = css(token("--sg-group-stroke"));
-  const accent = css(token("--sg-accent"));
+  bindScheme(app);
+
   const fonts = "Inter, system-ui, sans-serif";
-  const typed = typeFills(
-    app,
-    [...new Set(graphScene.nodes.flatMap((node) => (node.type === undefined ? [] : [node.type])))],
-  );
+  const typeNames = [
+    ...new Set(graphScene.nodes.flatMap((node) => (node.type === undefined ? [] : [node.type]))),
+  ];
+  const readColors = () => {
+    const style = getComputedStyle(app);
+    const token = (name: string): Rgb => parseColor(style.getPropertyValue(name));
+    return {
+      bg: token("--sg-bg"),
+      fg: token("--sg-fg"),
+      muted: token("--sg-muted"),
+      stroke: token("--sg-node-stroke"),
+      edge: token("--sg-edge"),
+      groupFill: css(token("--sg-group-fill")),
+      groupStroke: css(token("--sg-group-stroke")),
+      accent: css(token("--sg-accent")),
+      typed: typeFills(app, typeNames),
+    };
+  };
+  let colors = readColors();
 
   const view = createView(graphScene);
   const panelControl = createPanel(view, doc, panel);
@@ -122,15 +129,30 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   const graph = new Graph({ multi: true, type: "directed" });
   const confidence = (meta: { provenance?: { confidence?: string } } | undefined) =>
     meta?.provenance?.confidence;
-  for (const node of graphScene.nodes) {
+  const nodeColors = (node: (typeof graphScene.nodes)[number]) => {
+    const { bg, fg, muted, stroke, typed } = colors;
     const level = confidence(node.meta);
-    const base = (node.type === undefined ? undefined : typed.get(node.type)) ?? stroke;
+    const own = node.type === undefined ? undefined : typed.get(node.type);
+    const base = own ?? stroke;
     const fill =
       level === "unknown"
         ? mix(muted, bg, 0.55)
         : level === "inferred"
           ? mix(base, bg, 0.88)
-          : mix(base, bg, 0.75);
+          : own ?? mix(base, bg, 0.75);
+    return { color: css(fill), labelColor: css(contrast(fill, fg) >= contrast(fill, bg) ? fg : bg) };
+  };
+  const edgeColorOf = (edge: (typeof graphScene.edges)[number]): string => {
+    const level = confidence(edge.meta);
+    return css(
+      level === "unknown"
+        ? mix(colors.edge, colors.bg, 0.7)
+        : level === "inferred"
+          ? mix(colors.edge, colors.bg, 0.4)
+          : colors.edge,
+    );
+  };
+  for (const node of graphScene.nodes) {
     graph.addNode(node.id, {
       x: node.x + node.width / 2,
       y: -(node.y + node.height / 2),
@@ -138,33 +160,25 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
       aspect: node.width / node.height,
       shape: node.shape === "diamond" ? diamondShape.name : node.shape === "circle" ? circleShape.name : rectangleShape.name,
       label: node.label,
-      color: css(fill),
-      labelColor: css(contrast(fill, fg) >= contrast(fill, bg) ? fg : bg),
+      ...nodeColors(node),
     });
   }
   for (const edge of graphScene.edges) {
     if (!graph.hasNode(edge.from) || !graph.hasNode(edge.to)) continue;
-    const level = confidence(edge.meta);
-    const color =
-      level === "unknown"
-        ? mix(edgeColor, bg, 0.7)
-        : level === "inferred"
-          ? mix(edgeColor, bg, 0.4)
-          : edgeColor;
     graph.addEdgeWithKey(edge.id, edge.from, edge.to, {
       size: EDGE_SIZE,
-      color: css(color),
+      color: edgeColorOf(edge),
       directed: edge.directed,
     });
   }
 
   let hl = view.highlight();
   let selected = view.selected();
-  const accentSelected: Partial<NodeDisplayData> = {
+  const accentSelected = (): Partial<NodeDisplayData> => ({
     backdropVisibility: "visible",
-    backdropColor: accent,
+    backdropColor: colors.accent,
     backdropPadding: 4,
-  };
+  });
   const dimmedNode: Partial<NodeDisplayData> = { opacity: DIM_OPACITY, labelVisibility: "hidden" };
 
   let labelUnit = 1;
@@ -211,13 +225,13 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
       const out: Partial<NodeDisplayData> = {};
       if (hl.focused && !hl.active.has(`node:${key}`)) Object.assign(out, dimmedNode);
       if (selected !== null && selected.kind === "node" && selected.id === key) {
-        Object.assign(out, accentSelected);
+        Object.assign(out, accentSelected());
       }
       return out;
     },
     edgeReducer(key) {
       if (selected !== null && selected.kind === "edge" && selected.id === key) {
-        return { color: accent, size: EDGE_SIZE * 2 };
+        return { color: colors.accent, size: EDGE_SIZE * 2 };
       }
       if (hl.focused && !hl.active.has(`edge:${key}`)) return { opacity: DIM_OPACITY };
       return {};
@@ -283,10 +297,11 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
       ratio * camera.y,
     );
     context.lineWidth = 1 / camera.scale;
+    const { groupFill, groupStroke } = colors;
     context.fillStyle = groupFill;
     context.strokeStyle = groupStroke;
     const captions = view.lod().edgeLabels;
-    const labelFill = css(muted);
+    const labelFill = css(colors.muted);
     context.font = `600 12px ${fonts}`;
     context.textBaseline = "top";
     for (const ref of view.visible().items) {
@@ -387,6 +402,16 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
       applyCamera();
       drawGroups();
     },
+  });
+
+  app.addEventListener("sg-scheme", () => {
+    colors = readColors();
+    for (const node of graphScene.nodes) graph.mergeNodeAttributes(node.id, nodeColors(node));
+    for (const edge of graphScene.edges) {
+      if (graph.hasEdge(edge.id)) graph.setEdgeAttribute(edge.id, "color", edgeColorOf(edge));
+    }
+    drawGroups();
+    sigma.refresh();
   });
 
   sigma.resize();

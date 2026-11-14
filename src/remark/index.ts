@@ -6,6 +6,7 @@ import { renderHtml } from "../html/render";
 import { layout } from "../layout";
 import { formatLoadErrors } from "../shared/errors";
 import { renderSvg } from "../svg/render";
+import { lightTheme, type ThemeName } from "../svg/theme";
 import { loadSource } from "../text";
 
 export { VERSION } from "../version";
@@ -13,7 +14,7 @@ export { VERSION } from "../version";
 export type RemarkStandargraphOptions = {
   outDir?: string;
   publicPath?: string;
-  theme?: "light" | "dark" | "auto";
+  theme?: ThemeName | "auto";
 };
 
 function escapeHtml(value: string): string {
@@ -49,7 +50,7 @@ async function convert(
     const laidOut = await layout(document);
     const hash = createHash("sha256").update(source).digest("hex").slice(0, 12);
     const svg = renderSvg(laidOut, {
-      theme: options.theme === "dark" ? "dark" : "light",
+      theme: lightTheme(options.theme),
       standalone: false,
       idPrefix: `sg${hash}`,
     }).trim();

@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "..");
 const PACKAGE = "@miralabs-tech/standargraph";
 const SUBPATHS = ["core", "format", "layout", "svg", "html", "export", "webgl", "remark", "text", "mermaid"];
+const EDITOR_FILES = ["grammars/standargraph.tmLanguage.json", "language-configuration.json"];
 const failures: string[] = [];
 
 function report(name: string, ok: boolean, detail = ""): void {
@@ -53,6 +54,21 @@ try {
     );
     const result = run(["node", probe], project);
     report(`import ${subpath}`, result.code === 0, result.code === 0 ? "" : result.stderr.trim().split("\n")[0] ?? "");
+  }
+
+  for (const file of EDITOR_FILES) {
+    const installed = join(project, "node_modules", PACKAGE, file);
+    let parsed = false;
+    try {
+      parsed = typeof JSON.parse(readFileSync(installed, "utf8")) === "object";
+    } catch {}
+    report(`editor file ${file} installed and valid JSON`, parsed);
+    writeFileSync(
+      probe,
+      `const m = await import(${JSON.stringify(`${PACKAGE}/${file}`)}, { with: { type: "json" } }); if (typeof m.default !== "object") process.exit(3);`,
+    );
+    const result = run(["node", probe], project);
+    report(`import ${file}`, result.code === 0, result.code === 0 ? "" : result.stderr.trim().split("\n")[0] ?? "");
   }
 
   const binDir = join(project, "node_modules", ".bin");

@@ -15,10 +15,38 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,38%) 1f
 .pane{display:flex;flex-direction:column;min-width:0;min-height:0}
 .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #8884}
 .bar button,.bar select{font:inherit;padding:3px 8px}
-#source{flex:1;min-height:0;width:100%;resize:none;border:0;padding:12px;font:13px/1.5 ui-monospace,Consolas,monospace;background:Canvas;color:CanvasText;outline:none;tab-size:2}
+#editor{position:relative;flex:1;min-height:0;background:var(--ed-bg,Canvas);color:var(--ed-fg,CanvasText)}
+#highlight,#source{position:absolute;inset:0;margin:0;padding:12px;border:0;font:13px/1.5 ui-monospace,Consolas,monospace;letter-spacing:normal;tab-size:2;white-space:pre;word-wrap:normal;overflow-wrap:normal}
+#highlight{overflow:hidden;pointer-events:none;color:var(--ed-fg,CanvasText)}
+#highlight code{display:block;font:inherit;min-width:max-content;padding:0 24px 24px 0}
+#source{width:100%;height:100%;resize:none;overflow:auto;outline:none;background:transparent;color:transparent;caret-color:var(--ed-fg,CanvasText)}
+#source::selection{background:rgba(110,150,255,.38)}
+.tk-comment{color:var(--tk-comment);font-style:italic}
+.tk-keyword{color:var(--tk-keyword)}
+.tk-operator{color:var(--tk-operator)}
+.tk-string{color:var(--tk-string)}
+.tk-number{color:var(--tk-number)}
+.tk-property{color:var(--tk-property)}
+.tk-type{color:var(--tk-type)}
+.tk-variable{color:var(--tk-variable)}
+.tk-namespace{color:var(--tk-namespace)}
+.tk-enumMember{color:var(--tk-enumMember)}
 #errors{margin:0;padding:8px 12px 8px 28px;max-height:30%;overflow:auto;border-top:1px solid #8884;color:#c0392b;font:12px/1.5 ui-monospace,Consolas,monospace}
 #errors:empty{display:none}
 #preview{position:relative;flex:1;min-height:0}
+#theme{border-bottom:1px solid #8884;max-height:45%;overflow:auto}
+#theme summary{cursor:pointer;padding:6px 12px;font-weight:600}
+.theme-body{display:grid;gap:8px;padding:4px 12px 10px}
+.theme-row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.theme-body select,.theme-body button{font:inherit;padding:3px 8px}
+.theme-body fieldset{margin:0;padding:6px 10px;border:1px solid #8884;border-radius:6px}
+.theme-body legend{padding:0 4px;font-size:12px;opacity:.8}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 12px}
+.swatches label{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px}
+.type-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:12px}
+.type-row b{min-width:90px;overflow-wrap:anywhere}
+.theme-body input[type=color]{width:36px;height:22px;padding:0;border:1px solid #8886;background:none}
+#types:empty::before{content:"No typed item in this document";font-size:12px;opacity:.7}
 #status{margin-left:auto;font-size:12px;opacity:.7}
 @media (max-width:760px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
 </style>
@@ -35,7 +63,10 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,38%) 1f
 <select id="example"></select>
 <span id="status" role="status"></span>
 </div>
-<textarea id="source" spellcheck="false" aria-label="Diagram source in the text syntax or JSON"></textarea>
+<div id="editor">
+<pre id="highlight" aria-hidden="true"><code></code></pre>
+<textarea id="source" spellcheck="false" wrap="off" aria-label="Diagram source in the text syntax or JSON"></textarea>
+</div>
 <ul id="errors" aria-label="Errors"></ul>
 </section>
 <section class="pane">
@@ -45,6 +76,28 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,38%) 1f
 <button id="download-sg" type="button" disabled>Download .sg</button>
 <button id="download-mmd" type="button" disabled>Download .mmd</button>
 </div>
+<details id="theme">
+<summary>Theme</summary>
+<div class="theme-body">
+<div class="theme-row">
+<label for="palette">Palette</label>
+<select id="palette"></select>
+<label for="scheme">Scheme</label>
+<select id="scheme">
+<option value="auto">Auto</option>
+<option value="light">Light</option>
+<option value="dark">Dark</option>
+</select>
+<label><input id="palette-off" type="checkbox"> Palette off</label>
+</div>
+<fieldset><legend>Tokens</legend><div id="tokens" class="swatches"></div></fieldset>
+<fieldset><legend>Colors per type</legend><div id="types"></div></fieldset>
+<div class="theme-row">
+<button id="theme-reset" type="button">Reset</button>
+<button id="download-theme" type="button">Download theme.json</button>
+</div>
+</div>
+</details>
 <div id="preview"></div>
 </section>
 </main>

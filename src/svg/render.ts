@@ -46,14 +46,16 @@ import type {
 import type { Cardinality, Meta, Shape } from "../format";
 import { esc } from "./escape";
 import {
+  type EffectiveTheme,
   escapedTheme,
-  type ResolvedTheme,
   resolveTheme,
   type ThemeOption,
   type ThemeTokens,
   themeVariables,
   type TypeStyle,
   typeRules,
+  typesPresent,
+  withPalette,
 } from "./theme";
 
 export type RenderOptions = {
@@ -162,7 +164,7 @@ function css(tokens: ThemeTokens, types: Types): string {
   ].join("");
 }
 
-function defs(theme: Theme, resolved: ResolvedTheme, styles: boolean): string {
+function defs(theme: Theme, resolved: EffectiveTheme, styles: boolean): string {
   return [
     "<defs>",
     styles ? `<style>${css(resolved.tokens, resolved.types)}</style>` : "",
@@ -937,7 +939,7 @@ function unreachable(value: never): never {
 }
 
 export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string {
-  const resolved = resolveTheme(options.theme);
+  const resolved = withPalette(resolveTheme(options.theme), typesPresent(laidOut));
   const { tokens: theme, types } = escapedTheme(resolved);
   const standalone = options.standalone ?? true;
   const width = n(laidOut.width);

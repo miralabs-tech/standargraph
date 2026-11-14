@@ -68,8 +68,8 @@ export type Ast =
   | { kind: "er"; header: Header; body: ErStmt[] }
   | { kind: "tree"; header: Header; body: TreeLine[] };
 
-const KINDS: readonly Kind[] = ["graph", "sequence", "state", "er", "tree"];
-const FLAGS = new Set(["pk", "fk", "uk", "null"]);
+export const KINDS: readonly Kind[] = ["graph", "sequence", "state", "er", "tree"];
+export const FLAGS = new Set(["pk", "fk", "uk", "null"]);
 const CARDINALITIES: ReadonlyMap<string, Cardinality> = new Map([
   ["1", "one"],
   ["0..1", "zero-or-one"],
@@ -83,7 +83,7 @@ const OPERATOR_TOKENS: ReadonlyMap<string, OpSymbol> = new Map([
   ["REPLY", "-->"],
   ["DOTS", ".."],
 ]);
-const OPERATOR_WORDS: ReadonlyMap<string, OpSymbol> = new Map([
+export const OPERATOR_WORDS: ReadonlyMap<string, OpSymbol> = new Map([
   ["to", "->"],
   ["with", "--"],
   ["async", "->>"],

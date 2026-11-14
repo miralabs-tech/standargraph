@@ -330,3 +330,63 @@ test("export with mermaid and --markdown prints the snippet, then the Mermaid co
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("--theme nord colors the export with the palette", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  try {
+    expect(
+      await run(["export", "examples/architecture.json", "--format", "svg,html", "--out", dir, "--theme", "nord"]),
+    ).toBe(0);
+    expect(readFileSync(join(dir, "architecture.svg"), "utf8")).toContain("--sg-bg:#2e3440");
+    const page = readFileSync(join(dir, "architecture.html"), "utf8");
+    expect(page).toContain("--sg-bg:#2e3440");
+    expect(page).not.toContain(".sg-app[data-sg-scheme");
+    expect(page).not.toContain('class="sg-scheme"');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--no-palette removes the automatic type colors and the default stays on", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  try {
+    expect(await run(["export", "examples/architecture.json", "--format", "svg", "--out", dir])).toBe(0);
+    expect(readFileSync(join(dir, "architecture.svg"), "utf8")).toContain("[data-type=");
+    expect(
+      await run(["export", "examples/architecture.json", "--format", "svg,html", "--out", dir, "--no-palette"]),
+    ).toBe(0);
+    expect(readFileSync(join(dir, "architecture.svg"), "utf8")).not.toContain("[data-type=");
+    expect(readFileSync(join(dir, "architecture.html"), "utf8")).not.toContain("[data-type=");
+    expect(
+      await run(["export", "examples/architecture.json", "--format", "svg", "--out", dir, "--theme", "dark", "--no-palette"]),
+    ).toBe(0);
+    expect(readFileSync(join(dir, "architecture.svg"), "utf8")).toContain("--sg-bg:#0f172a");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a theme file with a palette name as base and palette false is accepted", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  try {
+    const file = join(dir, "theme.json");
+    writeFileSync(file, JSON.stringify({ base: "solarized-light", palette: false, tokens: { accent: "#ff0000" } }));
+    expect(
+      await run(["export", "examples/architecture.json", "--format", "svg", "--out", dir, "--theme", file]),
+    ).toBe(0);
+    const svg = readFileSync(join(dir, "architecture.svg"), "utf8");
+    expect(svg).toContain("--sg-bg:#fdf6e3");
+    expect(svg).toContain("--sg-accent:#ff0000");
+    expect(svg).not.toContain("[data-type=");
+    writeFileSync(file, JSON.stringify({ base: "sepia" }));
+    expect(
+      await run(["export", "examples/architecture.json", "--format", "svg", "--out", dir, "--theme", file]),
+    ).toBe(2);
+    writeFileSync(file, JSON.stringify({ palette: true }));
+    expect(
+      await run(["export", "examples/architecture.json", "--format", "svg", "--out", dir, "--theme", file]),
+    ).toBe(2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -68,7 +68,8 @@ Every command reads JSON or the [text syntax](#text-syntax): the format is detec
 | `--format <list>` | Comma-separated: `svg`, `html`, `png`, `pdf`, `mermaid` (default `svg,html`); `mermaid` writes `<base>.mmd` and prints its warnings on stderr |
 | `--out <dir>` | Output directory (default: the input file directory) |
 | `--name <base>` | Output base name (default: the input file name without `.json` or `.sg`) |
-| `--theme <theme>` | `light`, `dark`, `auto` (default `auto`) or a `.json` theme file, see [docs/theming.md](./docs/theming.md) |
+| `--theme <theme>` | `auto` (default), a palette name (`light`, `dark`, `nord`, `solarized-light`, `solarized-dark`, `high-contrast`) or a `.json` theme file, see [docs/theming.md](./docs/theming.md) |
+| `--no-palette` | Turn off the automatic color per item `type` |
 | `--scale <n>` | PNG scale factor (default 2) |
 | `--renderer <name>` | HTML renderer: `auto`, `svg` or `webgl` (default `auto`) |
 | `--markdown` | Print `[![title](base.svg)](base.html)`, a Markdown snippet linking the SVG preview to the HTML page; with `mermaid` in `--format`, a fenced `mermaid` code block follows |
@@ -288,9 +289,19 @@ build -> check
 ```
 ````
 
+#### Syntax highlighting
+
+The package ships a TextMate grammar (`@miralabs-tech/standargraph/grammars/standargraph.tmLanguage.json`, scope `source.standargraph`), a `language-configuration.json` and `highlight(source)` in the `/text` subpath, which returns tokens typed with the LSP semantic token types. The online demo colors its editor with `highlight()`. A VS Code extension will consume these files from its own repository. See [docs/syntax-highlighting.md](./docs/syntax-highlighting.md).
+
 ### Theming
 
-A theme is a set of color tokens plus optional colors per node `type`, given as `--theme <file.json>` on the CLI or as the `theme` option of the API. See [docs/theming.md](./docs/theming.md).
+A theme is a set of color tokens plus optional colors per node `type`, given as `--theme <file.json>` on the CLI or as the `theme` option of the API. Six palettes come ready to use, as `theme: "nord"` or `--theme nord`: `light`, `dark`, `nord`, `solarized-light`, `solarized-dark` and `high-contrast`, each with a contrast of at least 4.5:1 for its text.
+
+- A typed item with no color of its own gets one from the palette of the theme, chosen by a stable hash of its `type`. `palette: false` in the theme, or `--no-palette`, turns it off, and a `types` entry always wins.
+- With `"auto"` or a `{ light, dark }` pair, the interactive page and `mount()` show a toolbar button that cycles `auto`, `light` and `dark`, kept in `localStorage`.
+- The online demo has a theme panel: a palette, the tokens, a color per type, and a `theme.json` to download for `--theme`.
+
+See [docs/theming.md](./docs/theming.md).
 
 ### GitHub Action
 
@@ -341,7 +352,7 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 - **Metadata**: provenance (`confirmed`, `inferred`, `unknown`), coverage and freshness on documents, nodes, edges and groups; low-confidence items are drawn muted.
 - **Layout**: ELK layered layout for graphs, groups, state machines and entity-relation diagrams, a dedicated layout for sequence diagrams, a tidy or mindmap layout for trees, text measured with embedded Inter metrics so SVG and HTML agree.
 - **Shapes**: 11 node shapes on `graph` and `tree` nodes, drawn in SVG and cut at the outline by the edges (see [Shapes](#shapes)).
-- **Theming**: color tokens and colors per node `type`, one object for SVG, HTML, PNG and PDF, a `--theme <file.json>` option (see [docs/theming.md](./docs/theming.md)).
+- **Theming**: six named palettes, an automatic color per node `type`, a light, dark and auto switch, color tokens and colors per node `type`, one object for SVG, HTML, PNG and PDF, a `--theme <name|file.json>` option (see [docs/theming.md](./docs/theming.md)).
 - **Renderers**: SVG, interactive HTML (pan, zoom, hover, selection, search, panel, keyboard, light and dark themes), and WebGL through Sigma.js.
 - **WebGL above 2000 nodes**: the HTML export of a `graph` switches to WebGL automatically past 2000 nodes (`--renderer` overrides it). On the v1 gate, 10 000 nodes in WebGL hold a median of 303 FPS (p5 285.7) with the display refresh as the cap, and a median of 58.1 FPS (p5 54.3) uncapped, on an Intel Core i7-14700KF with an NVIDIA GeForce RTX 4070 Ti SUPER in Microsoft Edge 157. Details in [docs/bench.md](./docs/bench.md).
 - **Offline single-file HTML**: fonts and runtime are embedded, nothing is fetched.
@@ -367,6 +378,7 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 
 - [Headless core and adapters](./docs/headless.md)
 - [Theming](./docs/theming.md)
+- [Syntax highlighting for `.sg`](./docs/syntax-highlighting.md)
 - [Mermaid export](./docs/mermaid.md)
 - [Benchmark and layout times](./docs/bench.md)
 - [JSON Schema of the format v1](./schema/graph-document.v1.json)

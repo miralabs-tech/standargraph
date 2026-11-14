@@ -5,7 +5,13 @@ import { layout } from "../layout";
 import type { LaidOut } from "../layout/types";
 import { formatErrors, formatLoadErrors } from "../shared/errors";
 import { renderSvg } from "../svg/render";
-import { lightTheme, type PageThemeOption, themeStyle } from "../svg/theme";
+import {
+  isAdaptive,
+  lightTheme,
+  type PageThemeOption,
+  themeStyle,
+  typesPresent,
+} from "../svg/theme";
 import { loadSource } from "../text";
 import { appMarkup, STYLE, svgViewport, WEBGL_VIEWPORT } from "./shell";
 import { withScope } from "./ui";
@@ -84,11 +90,11 @@ export async function mount(
       );
 
   const style = globalThis.document.createElement("style");
-  style.textContent = STYLE + themeStyle(theme);
+  style.textContent = STYLE + themeStyle(theme, typesPresent(scene));
   container.classList.add("sg-mount");
   if (getComputedStyle(container).position === "static") container.style.position = "relative";
   container.replaceChildren(style);
-  container.insertAdjacentHTML("beforeend", appMarkup(title, viewport));
+  container.insertAdjacentHTML("beforeend", appMarkup(title, viewport, isAdaptive(theme)));
 
   const start = useWebgl
     ? (await import("../webgl/adapter")).startWebgl

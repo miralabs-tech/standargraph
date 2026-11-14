@@ -109,7 +109,7 @@ The view changes state instantly and never schedules anything, so animation belo
 - Hover, selection, search: `view.hover`, `view.select` and `view.search` change `view.highlight()` and `view.selected()`. A single `sigma.refresh` per animation frame re-runs Sigma's `nodeReducer` and `edgeReducer`, which read those values (dimmed items get a lower opacity, the selected node a backdrop in the accent color, the selected edge the accent color).
 - Hit testing: `view.hitTest`, not Sigma's GPU picking, so hover and click cost the same as in the SVG page.
 - Level of detail: Sigma's `renderLabels` follows `view.lod().labels`; group captions follow `view.lod().edgeLabels`.
-- Colors come from the light or dark theme variables of the page (`--sg-*`), read once at start. `meta.provenance.confidence` of `unknown` gives a muted node fill and a faded edge, `inferred` a lighter node fill and a half-faded edge. Dash patterns are not used.
+- Colors come from the light or dark theme variables of the page (`--sg-*`), read at start and read again on each color scheme switch. A typed node whose type has a color (from the automatic palette or from `theme.types`) uses that fill as is; an untyped node uses the node stroke color mixed toward the background. `meta.provenance.confidence` of `unknown` gives a muted node fill and a faded edge, `inferred` a lighter node fill and a half-faded edge. Dash patterns are not used.
 - Node shapes: `diamond` and `circle` are drawn with their own shape; every other `shape` (including `rect`, `pill`, `cylinder`) is drawn as a rounded rectangle.
 - Not drawn in WebGL: node type captions, edge labels and arrowheads.
 

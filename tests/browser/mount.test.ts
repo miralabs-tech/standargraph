@@ -528,6 +528,204 @@ describe("mount() with the WebGL renderer and typed colors", () => {
     expect(state).toEqual({ fill: "rgb(255, 0, 0)", stroke: "rgb(136, 0, 0)", left: 0 });
   });
 
+  test("a typed node is drawn with its type fill as is, not mixed toward the background", async () => {
+    const box = await page.evaluate(() => {
+      const w = window as any;
+      const item = w.m1.view.item({ kind: "node", id: "SettingsTable" });
+      const camera = w.m1.view.camera();
+      const origin = document.querySelector("#a .sg-viewport")!.getBoundingClientRect();
+      return {
+        left: origin.left + camera.x + item.x * camera.scale,
+        top: origin.top + camera.y + item.y * camera.scale,
+        width: item.width * camera.scale,
+        height: item.height * camera.scale,
+      };
+    });
+    const png = await page.screenshot();
+    const red = await page.evaluate(
+      async ([bytes, rect]) => {
+        const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes as number[])]));
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext("2d")!;
+        context.drawImage(bitmap, 0, 0);
+        const box = rect as { left: number; top: number; width: number; height: number };
+        const data = context.getImageData(
+          Math.round(box.left),
+          Math.round(box.top),
+          Math.round(box.width),
+          Math.round(box.height),
+        ).data;
+        let red = 0;
+        for (let index = 0; index < data.length; index += 4) {
+          const [r, g, b] = [data[index]!, data[index + 1]!, data[index + 2]!];
+          if (r > 245 && g < 12 && b < 12) red++;
+        }
+        return red;
+      },
+      [[...png], box] as const,
+    );
+    expect(red).toBeGreaterThan(100);
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
+async function background(page: Page): Promise<string> {
+  return page.evaluate(() => getComputedStyle(document.querySelector("#a .sg-app")!).backgroundColor);
+}
+
+describe("mount() with the color scheme switch", () => {
+  const errors: string[] = [];
+  let page: Page;
+  let url = "";
+
+  beforeAll(async () => {
+    url = await bundle("scheme", "{}");
+    page = await open(url, errors);
+    await page.emulateMedia({ colorScheme: "light" });
+    await mountBoth(page, example("architecture"), example("protocol"));
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("the button cycles auto, light and dark and the forced scheme wins over the media query", async () => {
+    const label = () => page.getAttribute("#a .sg-scheme", "aria-label");
+    expect(await label()).toBe("Color scheme: auto");
+    expect(await page.getAttribute("#a .sg-app", "data-sg-scheme")).toBeNull();
+    expect(await background(page)).toBe("rgb(255, 255, 255)");
+
+    await page.click("#a .sg-scheme");
+    expect(await label()).toBe("Color scheme: light");
+    expect(await page.getAttribute("#a .sg-scheme", "title")).toBe("Color scheme: light");
+    expect(await page.getAttribute("#a .sg-app", "data-sg-scheme")).toBe("light");
+    expect(await background(page)).toBe("rgb(255, 255, 255)");
+
+    await page.click("#a .sg-scheme");
+    expect(await label()).toBe("Color scheme: dark");
+    expect(await page.getAttribute("#a .sg-app", "data-sg-scheme")).toBe("dark");
+    expect(await background(page)).toBe("rgb(15, 23, 42)");
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.click("#a .sg-scheme");
+    expect(await page.getAttribute("#a .sg-app", "data-sg-scheme")).toBeNull();
+    expect(await background(page)).toBe("rgb(15, 23, 42)");
+    await page.click("#a .sg-scheme");
+    expect(await page.getAttribute("#a .sg-app", "data-sg-scheme")).toBe("light");
+    expect(await background(page)).toBe("rgb(255, 255, 255)");
+    await page.emulateMedia({ colorScheme: "light" });
+  });
+
+  test("a change updates only its own instance", async () => {
+    expect(await page.getAttribute("#a .sg-app", "data-sg-scheme")).toBe("light");
+    expect(await page.getAttribute("#b .sg-app", "data-sg-scheme")).toBeNull();
+    expect(await page.getAttribute("#b .sg-scheme", "aria-label")).toBe("Color scheme: auto");
+  });
+
+  test("the choice is kept in localStorage and applied again after a reload", async () => {
+    await page.click("#a .sg-scheme");
+    expect(await page.evaluate(() => localStorage.getItem("standargraph-scheme"))).toBe("dark");
+    await page.reload();
+    await mountBoth(page, example("architecture"), example("protocol"));
+    expect(await page.getAttribute("#a .sg-app", "data-sg-scheme")).toBe("dark");
+    expect(await page.getAttribute("#b .sg-app", "data-sg-scheme")).toBe("dark");
+    expect(await page.getAttribute("#a .sg-scheme", "aria-label")).toBe("Color scheme: dark");
+    expect(await background(page)).toBe("rgb(15, 23, 42)");
+  });
+
+  test("a broken localStorage leaves the page on the system scheme", async () => {
+    const broken = await open(url, errors);
+    await broken.addInitScript(() => {
+      Object.defineProperty(window, "localStorage", {
+        get() {
+          throw new Error("denied");
+        },
+      });
+    });
+    await broken.reload();
+    await mountBoth(broken, example("architecture"), example("protocol"));
+    expect(await broken.getAttribute("#a .sg-app", "data-sg-scheme")).toBeNull();
+    await broken.click("#a .sg-scheme");
+    expect(await broken.getAttribute("#a .sg-app", "data-sg-scheme")).toBe("light");
+    await broken.close();
+  });
+
+  test("a typed node follows the palette of the forced scheme", async () => {
+    await page.click("#a .sg-scheme");
+    const fills = await page.evaluate(() => {
+      const fill = () => getComputedStyle(document.querySelector('#a [data-type="database"] .sg-node')!).fill;
+      const app = document.querySelector("#a .sg-app")!;
+      app.setAttribute("data-sg-scheme", "light");
+      const light = fill();
+      app.setAttribute("data-sg-scheme", "dark");
+      return { light, dark: fill() };
+    });
+    expect(fills.light).not.toBe(fills.dark);
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
+describe("mount() with a fixed theme", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("fixed", '{ theme: "nord" }'), errors);
+    await mountBoth(page, example("architecture"), example("protocol"));
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("the switch is not shown and the palette name sets the background", async () => {
+    expect(await page.evaluate(() => document.querySelectorAll(".sg-scheme").length)).toBe(0);
+    expect(await background(page)).toBe("rgb(46, 52, 64)");
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
+describe("mount() with the WebGL renderer and the color scheme switch", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("webgl-scheme", '{ renderer: "webgl" }'), errors);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate(async (doc) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", doc);
+    }, example("architecture"));
+    await page.waitForFunction(
+      () => document.querySelectorAll('.sg-app[data-sg-ready="1"]').length === 1,
+      null,
+      { timeout: 30000 },
+    );
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("switching to dark recolors the app and the canvas keeps drawing", async () => {
+    await page.click("#a .sg-scheme");
+    await page.click("#a .sg-scheme");
+    expect(await page.getAttribute("#a .sg-app", "data-sg-scheme")).toBe("dark");
+    expect(await background(page)).toBe("rgb(15, 23, 42)");
+    expect(await page.evaluate(() => document.querySelectorAll("#a .sg-gl canvas").length)).toBeGreaterThan(0);
+  });
+
   test("no page errors", () => {
     expect(errors).toEqual([]);
   });

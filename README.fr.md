@@ -68,7 +68,8 @@ Chaque commande lit du JSON ou la [syntaxe texte](#syntaxe-texte) : le format es
 | `--format <liste>` | Liste séparée par des virgules : `svg`, `html`, `png`, `pdf`, `mermaid` (défaut `svg,html`) ; `mermaid` écrit `<base>.mmd` et affiche ses avertissements sur stderr |
 | `--out <dir>` | Dossier de sortie (défaut : le dossier du fichier d'entrée) |
 | `--name <base>` | Nom de base des sorties (défaut : le nom du fichier d'entrée sans `.json` ni `.sg`) |
-| `--theme <thème>` | `light`, `dark`, `auto` (défaut `auto`) ou un fichier de thème `.json`, voir [docs/theming.md](./docs/theming.md) |
+| `--theme <thème>` | `auto` (défaut), un nom de palette (`light`, `dark`, `nord`, `solarized-light`, `solarized-dark`, `high-contrast`) ou un fichier de thème `.json`, voir [docs/theming.md](./docs/theming.md) |
+| `--no-palette` | Coupe la couleur automatique par `type` d'élément |
 | `--scale <n>` | Facteur d'échelle du PNG (défaut 2) |
 | `--renderer <nom>` | Rendu HTML : `auto`, `svg` ou `webgl` (défaut `auto`) |
 | `--markdown` | Affiche `[![titre](base.svg)](base.html)`, un extrait Markdown qui lie l'aperçu SVG à la page HTML ; avec `mermaid` dans `--format`, un bloc de code `mermaid` suit |
@@ -288,9 +289,19 @@ build -> check
 ```
 ````
 
+#### Coloration syntaxique
+
+Le paquet livre une grammaire TextMate (`@miralabs-tech/standargraph/grammars/standargraph.tmLanguage.json`, scope `source.standargraph`), un `language-configuration.json` et `highlight(source)` dans le sous-chemin `/text`, qui renvoie des jetons typés avec les types de jetons sémantiques du LSP. La démo en ligne colore son éditeur avec `highlight()`. Une extension VS Code les consommera depuis son propre dépôt. Voir [docs/syntax-highlighting.md](./docs/syntax-highlighting.md) (en anglais).
+
 ### Thèmes
 
-Un thème est un ensemble de jetons de couleur plus des couleurs facultatives par `type` de nœud, donné par `--theme <fichier.json>` dans la CLI ou par l'option `theme` de l'API. Voir [docs/theming.md](./docs/theming.md) (en anglais).
+Un thème est un ensemble de jetons de couleur plus des couleurs facultatives par `type` de nœud, donné par `--theme <fichier.json>` dans la CLI ou par l'option `theme` de l'API. Six palettes sont prêtes à l'emploi, en `theme: "nord"` ou `--theme nord` : `light`, `dark`, `nord`, `solarized-light`, `solarized-dark` et `high-contrast`, chacune avec un contraste d'au moins 4,5:1 pour son texte.
+
+- Un élément typé sans couleur propre en reçoit une de la palette du thème, choisie par un hachage stable de son `type`. `palette: false` dans le thème, ou `--no-palette`, la coupe, et une entrée de `types` l'emporte toujours.
+- Avec `"auto"` ou une paire `{ light, dark }`, la page interactive et `mount()` affichent dans la barre d'outils un bouton qui fait défiler `auto`, `light` et `dark`, gardé dans `localStorage`.
+- La démo en ligne a un panneau de thème : une palette, les jetons, une couleur par type, et un `theme.json` à télécharger pour `--theme`.
+
+Voir [docs/theming.md](./docs/theming.md) (en anglais).
 
 ### GitHub Action
 
@@ -341,7 +352,7 @@ npm install -g @miralabs-tech/standargraph   # puis : standargraph export graph.
 - **Métadonnées** : provenance (`confirmed`, `inferred`, `unknown`), couverture et fraîcheur sur les documents, nœuds, arêtes et groupes ; les éléments à faible confiance sont dessinés atténués.
 - **Mise en page** : layout ELK en couches pour les graphes, les groupes, les machines à états et les diagrammes entité-relation, layout dédié aux diagrammes de séquence, layout arbre ou mindmap pour les arbres, texte mesuré avec les métriques d'Inter embarquées pour que SVG et HTML s'accordent.
 - **Formes** : 11 formes de nœud sur les nœuds `graph` et `tree`, dessinées en SVG et coupées au contour par les arêtes (voir [Formes](#formes)).
-- **Thèmes** : jetons de couleur et couleurs par `type` de nœud, un seul objet pour le SVG, le HTML, le PNG et le PDF, option `--theme <fichier.json>` (voir [docs/theming.md](./docs/theming.md), en anglais).
+- **Thèmes** : six palettes nommées, une couleur automatique par `type` de nœud, un sélecteur clair, sombre et auto, des jetons de couleur et des couleurs par `type` de nœud, un seul objet pour le SVG, le HTML, le PNG et le PDF, option `--theme <nom|fichier.json>` (voir [docs/theming.md](./docs/theming.md), en anglais).
 - **Rendus** : SVG, HTML interactif (déplacement, zoom, survol, sélection, recherche, panneau, clavier, thèmes clair et sombre), et WebGL via Sigma.js.
 - **WebGL au-delà de 2000 nœuds** : l'export HTML d'un `graph` bascule automatiquement en WebGL au-delà de 2000 nœuds (`--renderer` force le choix). Sur la porte v1, 10 000 nœuds en WebGL tiennent une médiane de 303 FPS (p5 285,7) plafonnée par le rafraîchissement de l'écran, et une médiane de 58,1 FPS (p5 54,3) sans plafond, sur un Intel Core i7-14700KF avec une NVIDIA GeForce RTX 4070 Ti SUPER dans Microsoft Edge 157. Détails dans [docs/bench.md](./docs/bench.md).
 - **HTML hors ligne en un fichier** : polices et runtime embarqués, rien n'est téléchargé.
@@ -367,6 +378,7 @@ npm install -g @miralabs-tech/standargraph   # puis : standargraph export graph.
 
 - [Cœur headless et adaptateurs](./docs/headless.md) (anglais)
 - [Thèmes](./docs/theming.md) (anglais)
+- [Coloration syntaxique de `.sg`](./docs/syntax-highlighting.md) (anglais)
 - [Export Mermaid](./docs/mermaid.md) (anglais)
 - [Benchmark et temps de mise en page](./docs/bench.md) (anglais)
 - [JSON Schema du format v1](./schema/graph-document.v1.json)

@@ -9,7 +9,7 @@ import {
 } from "../core/view";
 import type { Document } from "../format";
 import type { LaidOut } from "../layout/types";
-import { bindInteraction, createPanel, part } from "./ui";
+import { bindInteraction, bindScheme, createPanel, part } from "./ui";
 
 const IDLE_MS = 150;
 const CULL_MIN_ITEMS = 400;
@@ -24,6 +24,7 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
   const svg = stage.querySelector("svg");
   if (svg === null) return undefined;
   const root: SVGSVGElement = svg;
+  bindScheme(part<HTMLElement>("sg-app"));
 
   const view = createView(scene);
   const panelControl = createPanel(view, doc, panel);
