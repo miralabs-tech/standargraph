@@ -53,6 +53,7 @@ standargraph export graph.json                              # graph.svg and grap
 standargraph export graph.json --format svg,html,png,pdf --out out --theme dark
 standargraph export graph.json --renderer webgl             # force the WebGL page
 standargraph export graph.json --markdown                   # also print a Markdown preview snippet
+standargraph export graph.json --format mermaid             # graph.mmd, for GitHub Markdown (see docs/mermaid.md)
 standargraph layout graph.json                              # graph.positioned.json: every node gets its computed position
 standargraph convert graph.json                             # graph.sg, the same document in the text syntax
 standargraph convert graph.sg --to json --out out/graph.json
@@ -62,13 +63,13 @@ Every command reads JSON or the [text syntax](#text-syntax): the format is detec
 
 | Option | Meaning |
 | --- | --- |
-| `--format <list>` | Comma-separated: `svg`, `html`, `png`, `pdf` (default `svg,html`) |
+| `--format <list>` | Comma-separated: `svg`, `html`, `png`, `pdf`, `mermaid` (default `svg,html`); `mermaid` writes `<base>.mmd` and prints its warnings on stderr |
 | `--out <dir>` | Output directory (default: the input file directory) |
 | `--name <base>` | Output base name (default: the input file name without `.json` or `.sg`) |
 | `--theme <theme>` | `light`, `dark`, `auto` (default `auto`) or a `.json` theme file, see [docs/theming.md](./docs/theming.md) |
 | `--scale <n>` | PNG scale factor (default 2) |
 | `--renderer <name>` | HTML renderer: `auto`, `svg` or `webgl` (default `auto`) |
-| `--markdown` | Print `[![title](base.svg)](base.html)`, a Markdown snippet linking the SVG preview to the HTML page |
+| `--markdown` | Print `[![title](base.svg)](base.html)`, a Markdown snippet linking the SVG preview to the HTML page; with `mermaid` in `--format`, a fenced `mermaid` code block follows |
 
 ### JavaScript
 
@@ -95,6 +96,14 @@ import { exportDocument } from "@miralabs-tech/standargraph/export";
 
 const out = await exportDocument(graphDocument, { formats: ["svg", "png", "pdf"], theme: "light", scale: 2 });
 // out.svg is a string, out.png and out.pdf are Uint8Array
+```
+
+Mermaid text for GitHub Markdown, from `/mermaid` (`formats: ["mermaid"]` in `exportDocument()` returns the same text as a string, without the warnings):
+
+```ts
+import { toMermaid } from "@miralabs-tech/standargraph/mermaid";
+
+const { text, warnings } = toMermaid(graphDocument);
 ```
 
 Mount an interactive graph in a page (`mount(container, document, { theme, title, renderer })`). When every node has a `position`, ELK is skipped; otherwise the layout runs in a Web Worker and the main thread stays free. Several instances can live on one page:
@@ -313,6 +322,7 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 - **Export**: SVG, HTML, PNG and PDF from the CLI or `exportDocument()`, PNG and PDF without a browser (resvg WASM and PDFKit).
 - **Headless core**: view controller with camera, hit testing, culling, level of detail and highlight, usable in Node, Bun, a worker or a browser.
 - **Text syntax**: every kind as plain text (`.sg`), in a symbol or a word form, with line and column errors, `print()` back to text and `standargraph convert` between the two formats (see [Text syntax](#text-syntax)).
+- **Mermaid export**: every kind as Mermaid text with `toMermaid()` or `--format mermaid`, with the losses reported as warnings (see [docs/mermaid.md](./docs/mermaid.md)).
 - **Embedding**: `mount()` for applications, with an on-demand layout worker, and a remark plugin for Markdown.
 
 ---
@@ -331,6 +341,7 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 
 - [Headless core and adapters](./docs/headless.md)
 - [Theming](./docs/theming.md)
+- [Mermaid export](./docs/mermaid.md)
 - [Benchmark and layout times](./docs/bench.md)
 - [JSON Schema of the format v1](./schema/graph-document.v1.json)
 - [Examples](./examples)

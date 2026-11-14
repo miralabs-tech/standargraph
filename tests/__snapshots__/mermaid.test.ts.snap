@@ -1,0 +1,266 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`examples agent-output matches its snapshot 1`] = `
+{
+  "text": 
+"---
+title: "Files touched by the settings view"
+---
+flowchart TD
+  settings_view("src/views/SettingsView.tsx")
+  use_settings("src/hooks/useSettings.ts")
+  settings_api("src/api/settings.ts")
+  settings_controller("server/settings.controller.ts")
+  settings_migration("db/migrations/0042_settings.sql")
+  settings_view -->|"imports"| use_settings
+  use_settings -.->|"imports"| settings_api
+  settings_api -.->|"http call"| settings_controller
+  settings_controller -.->|"touches schema"| settings_migration
+"
+,
+  "warnings": [
+    "metadata dropped",
+    "type dropped",
+  ],
+}
+`;
+
+exports[`examples architecture matches its snapshot 1`] = `
+{
+  "text": 
+"---
+title: "Settings page flow"
+---
+flowchart TD
+  subgraph frontend ["Frontend"]
+    GeneralSettings("GeneralSettings")
+    ThemeSelector("ThemeSelector")
+    useSettings("useSettings")
+  end
+  subgraph backend ["Backend"]
+    PatchSettings("PATCH /api/settings")
+    SettingsController("settings.controller")
+    SettingsService("SettingsService")
+  end
+  subgraph storage ["Storage"]
+    SettingsRepository("SettingsRepository")
+    SettingsTable("settings table")
+  end
+  GeneralSettings -->|"renders"| ThemeSelector
+  GeneralSettings -->|"uses"| useSettings
+  useSettings -->|"calls"| PatchSettings
+  PatchSettings -->|"handles"| SettingsController
+  SettingsController -->|"delegates"| SettingsService
+  SettingsService -->|"uses"| SettingsRepository
+  SettingsRepository -->|"reads/writes"| SettingsTable
+"
+,
+  "warnings": [
+    "type dropped",
+  ],
+}
+`;
+
+exports[`examples deploy-flowchart matches its snapshot 1`] = `
+{
+  "text": 
+"---
+title: "Deploy pipeline"
+---
+flowchart TD
+  start(["Merge to main"])
+  config[/"Load config"/]
+  build["Build image"]
+  tests[["Run tests"]]
+  green{"Green?"}
+  registry[("Registry")]
+  prepare{{"Prepare rollout"}}
+  report["Release notes"]
+  alarm(("Alert"))
+  done(("Live"))
+  start --> config
+  config --> build
+  build --> tests
+  tests --> green
+  green -->|"yes"| registry
+  green -->|"no"| alarm
+  registry --> prepare
+  prepare --> report
+  prepare --> done
+"
+,
+  "warnings": [
+    "type dropped",
+    "shape "document" written as a rectangle",
+    "shape "ellipse" written as a circle",
+  ],
+}
+`;
+
+exports[`examples order-state matches its snapshot 1`] = `
+{
+  "text": 
+"---
+title: "Order lifecycle"
+---
+stateDiagram-v2
+  direction LR
+  state "Pending" as pending
+  pending : entry / reserve stock
+  state "Paid" as paid
+  state "Cancelled" as cancelled
+  state "Fulfilment" as fulfilment
+  state fulfilment {
+    state "Picking" as picking
+    state "Shipped" as shipped
+    [*] --> picking
+    picking --> shipped : handed to carrier / notify customer
+  }
+  state check <<choice>>
+  [*] --> pending
+  pending --> paid : payment received
+  pending --> cancelled : timeout [after 30 min]
+  paid --> fulfilment
+  shipped --> check : delivery report
+  check --> [*] : [delivered]
+  check --> cancelled : [lost]
+  cancelled --> [*]
+"
+,
+  "warnings": [
+    "metadata dropped",
+  ],
+}
+`;
+
+exports[`examples protocol matches its snapshot 1`] = `
+{
+  "text": 
+"---
+title: "OAuth 2.0 authorization code flow with PKCE"
+---
+sequenceDiagram
+  participant browser as Browser
+  participant app as App
+  participant auth as Authorization server
+  participant api as API
+  browser->>app: Click sign in
+  app->>app: Generate code_verifier and code_challenge
+  app-->>browser: Redirect to /authorize with code_challenge
+  browser->>auth: GET /authorize
+  auth-->>browser: Login and consent, redirect with code
+  browser-)app: Callback with authorization code
+  app->>auth: POST /token with code and code_verifier
+  auth-->>app: Access token and refresh token
+  app->>api: GET /resource with bearer token
+  api-->>app: Protected resource
+"
+,
+  "warnings": [
+    "type dropped",
+  ],
+}
+`;
+
+exports[`examples repo-tree matches its snapshot 1`] = `
+{
+  "text": 
+"---
+title: "Repository layout"
+---
+flowchart TD
+  repo(["standargraph"])
+  src("src")
+  format("format")
+  layout("layout")
+  svg("svg")
+  html("html")
+  tests("tests")
+  browser("browser")
+  examples("examples")
+  readme["README.md"]
+  repo --- src
+  src --- format
+  src --- layout
+  src --- svg
+  src --- html
+  repo --- tests
+  tests --- browser
+  repo --- examples
+  repo --- readme
+"
+,
+  "warnings": [
+    "type dropped",
+    "description dropped",
+    "shape "document" written as a rectangle",
+  ],
+}
+`;
+
+exports[`examples roadmap-mindmap matches its snapshot 1`] = `
+{
+  "text": 
+"---
+title: "StandarGraph v1"
+---
+mindmap
+  standargraph_v1(StandarGraph v1)
+    format(Format)
+      n_graph(graph)
+      sequence(sequence)
+      state_er_tree(state, er, tree)
+    render(Rendering)
+      svg(SVG)
+      webgl(WebGL)
+    text_syntax_j8("\`Text syntax [J8]\`")
+    github(GitHub)
+      mermaid_export(Mermaid export)
+      pages_demo(Pages demo)
+"
+,
+  "warnings": [
+    "description dropped",
+  ],
+}
+`;
+
+exports[`examples shop-er matches its snapshot 1`] = `
+{
+  "text": 
+"---
+title: "Shop orders"
+---
+erDiagram
+  direction TB
+  customer["Customer"] {
+    uuid id PK
+    varchar(255) email UK
+    text name
+  }
+  order["Order"] {
+    uuid id PK
+    uuid customer_id FK
+    timestamp placed_at
+    text note "free text from checkout"
+  }
+  order_item["Order item"] {
+    uuid order_id PK, FK
+    uuid product_id PK, FK
+    int quantity
+  }
+  product["Product"] {
+    uuid id PK
+    decimal(10_2) price
+  }
+  customer ||..o{ order : "places"
+  order ||--|{ order_item : "contains"
+  product ||--o{ order_item : "appears in"
+"
+,
+  "warnings": [
+    "nullable dropped",
+    "type dropped",
+  ],
+}
+`;

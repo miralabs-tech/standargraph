@@ -263,3 +263,70 @@ test("convert returns 1 on an invalid text document", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("export --format mermaid writes a .mmd file, prints warnings on stderr and exits 0", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const seen = capture();
+  const printed: string[] = [];
+  const original = process.stdout.write;
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    printed.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+    return true;
+  }) as typeof process.stdout.write;
+  let code: number;
+  try {
+    code = await run(["export", "examples/shop-er.json", "--format", "mermaid", "--out", dir]);
+  } finally {
+    process.stdout.write = original;
+    seen.restore();
+  }
+  try {
+    expect(code).toBe(0);
+    const file = join(dir, "shop-er.mmd");
+    expect(readFileSync(file, "utf8").startsWith('---\ntitle: "Shop orders"\n---\nerDiagram\n')).toBe(true);
+    expect(existsSync(join(dir, "shop-er.svg"))).toBe(false);
+    expect(seen.stderr.join("")).toContain("warning: nullable dropped\n");
+    expect(printed.join("")).not.toContain("```mermaid");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("export with mermaid and --markdown prints the snippet, then the Mermaid code block", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const seen = capture();
+  const printed: string[] = [];
+  const original = process.stdout.write;
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    printed.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+    return true;
+  }) as typeof process.stdout.write;
+  let code: number;
+  try {
+    code = await run([
+      "export",
+      "examples/protocol.sg",
+      "--format",
+      "svg,mermaid",
+      "--out",
+      dir,
+      "--markdown",
+    ]);
+  } finally {
+    process.stdout.write = original;
+    seen.restore();
+  }
+  try {
+    expect(code).toBe(0);
+    expect(existsSync(join(dir, "protocol.svg"))).toBe(true);
+    const mermaid = readFileSync(join(dir, "protocol.mmd"), "utf8");
+    const output = printed.join("");
+    const snippet = output.indexOf("[![");
+    const block = output.indexOf("```mermaid\n");
+    expect(snippet).toBeGreaterThan(-1);
+    expect(block).toBeGreaterThan(snippet);
+    expect(output.endsWith(`\`\`\`mermaid\n${mermaid}\`\`\`\n`)).toBe(true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

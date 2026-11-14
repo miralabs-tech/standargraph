@@ -2,6 +2,7 @@ import { type Document, validate } from "../format";
 import { renderHtml } from "../html/render";
 import { layout } from "../layout";
 import { round } from "../layout/shared";
+import { toMermaid } from "../mermaid";
 import { formatErrors, formatLoadErrors } from "../shared/errors";
 import { renderSvg } from "../svg/render";
 import { lightTheme, type PageThemeOption } from "../svg/theme";
@@ -23,7 +24,7 @@ export {
 export { type PdfOptions, renderPdf } from "./pdf";
 export { type PngOptions, renderPng } from "./png";
 
-export const EXPORT_FORMATS = ["svg", "html", "png", "pdf"] as const;
+export const EXPORT_FORMATS = ["svg", "html", "png", "pdf", "mermaid"] as const;
 
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
@@ -35,7 +36,9 @@ export type ExportOptions = {
   renderer?: "auto" | "svg" | "webgl";
 };
 
-export type ExportResult = { [K in ExportFormat]?: K extends "svg" | "html" ? string : Uint8Array };
+export type ExportResult = {
+  [K in ExportFormat]?: K extends "svg" | "html" | "mermaid" ? string : Uint8Array;
+};
 
 export async function exportDocument(
   input: unknown,
@@ -55,30 +58,36 @@ export async function exportDocument(
     }
     document = result.document;
   }
-  const laidOut = await layout(document);
   const theme = options.theme ?? "auto";
   const flatTheme = lightTheme(theme);
   const formats = options.formats ?? ["svg", "html"];
+  const rendered = formats.filter(
+    (format): format is Exclude<ExportFormat, "mermaid"> => format !== "mermaid",
+  );
   const output: ExportResult = {};
-  for (const format of formats) {
-    if (format === "svg") {
-      output.svg = renderSvg(laidOut, { theme: flatTheme });
-    } else if (format === "html") {
-      output.html = renderHtml(document, laidOut, {
-        theme,
-        title: options.title,
-        renderer: options.renderer,
-      });
-    } else {
-      const svg = renderSvg(laidOut, { theme: flatTheme, styles: false });
-      output[format] =
-        format === "png"
-          ? await renderPng(svg, { scale: options.scale })
-          : await renderPdf(svg, {
-              width: round(laidOut.width),
-              height: round(laidOut.height),
-            });
+  if (rendered.length > 0) {
+    const laidOut = await layout(document);
+    for (const format of rendered) {
+      if (format === "svg") {
+        output.svg = renderSvg(laidOut, { theme: flatTheme });
+      } else if (format === "html") {
+        output.html = renderHtml(document, laidOut, {
+          theme,
+          title: options.title,
+          renderer: options.renderer,
+        });
+      } else {
+        const svg = renderSvg(laidOut, { theme: flatTheme, styles: false });
+        output[format] =
+          format === "png"
+            ? await renderPng(svg, { scale: options.scale })
+            : await renderPdf(svg, {
+                width: round(laidOut.width),
+                height: round(laidOut.height),
+              });
+      }
     }
   }
+  if (rendered.length < formats.length) output.mermaid = toMermaid(document).text;
   return output;
 }

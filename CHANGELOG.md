@@ -22,6 +22,7 @@ All notable changes to this project are documented in this file. The format foll
 - Text syntax for every kind (`.sg`), in a symbol form and a word form, with `parse()`, `print()`, `canonicalize()`, `sniff()` and `loadSource()` in `@miralabs-tech/standargraph/text`, errors reported as `line:column: message [code]`, and a `.sg` twin of every example.
 - CLI `convert <file> [--to json|text] [--out <file>]` between JSON and the text syntax; `validate`, `export` and `layout` read either format, detected from the content.
 - `mount()` and `exportDocument()` accept a string in JSON or the text syntax.
+- Mermaid export for the five kinds: `toMermaid()` in `@miralabs-tech/standargraph/mermaid`, the `mermaid` format of `exportDocument()` and `--format mermaid` on the CLI (`<base>.mmd`, warnings on stderr, and a fenced `mermaid` block after `--markdown`), with the losses documented in `docs/mermaid.md`.
 - Playwright benchmark (`bun run bench`) with results published in `docs/bench.md`: 10 000 nodes in WebGL hold a median of 303 FPS capped and 58.1 FPS uncapped.
 - Node smoke test of the packed package, browser tests of `mount()`, a CLI `--markdown` test and GitHub CI.
 - MIT license, third-party notices and the EPL-2.0 and MPL-2.0 texts in `licenses/`.

@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "..");
 const PACKAGE = "@miralabs-tech/standargraph";
-const SUBPATHS = ["core", "format", "layout", "svg", "html", "export", "webgl", "remark", "text"];
+const SUBPATHS = ["core", "format", "layout", "svg", "html", "export", "webgl", "remark", "text", "mermaid"];
 const failures: string[] = [];
 
 function report(name: string, ok: boolean, detail = ""): void {

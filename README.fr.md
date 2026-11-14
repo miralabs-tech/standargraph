@@ -53,6 +53,7 @@ standargraph export graph.json                              # graph.svg et graph
 standargraph export graph.json --format svg,html,png,pdf --out out --theme dark
 standargraph export graph.json --renderer webgl             # force la page WebGL
 standargraph export graph.json --markdown                   # affiche aussi un extrait Markdown d'aperçu
+standargraph export graph.json --format mermaid             # graph.mmd, pour le Markdown de GitHub (voir docs/mermaid.md)
 standargraph layout graph.json                              # graph.positioned.json : chaque nœud reçoit sa position calculée
 standargraph convert graph.json                             # graph.sg, le même document en syntaxe texte
 standargraph convert graph.sg --to json --out out/graph.json
@@ -62,13 +63,13 @@ Chaque commande lit du JSON ou la [syntaxe texte](#syntaxe-texte) : le format es
 
 | Option | Rôle |
 | --- | --- |
-| `--format <liste>` | Liste séparée par des virgules : `svg`, `html`, `png`, `pdf` (défaut `svg,html`) |
+| `--format <liste>` | Liste séparée par des virgules : `svg`, `html`, `png`, `pdf`, `mermaid` (défaut `svg,html`) ; `mermaid` écrit `<base>.mmd` et affiche ses avertissements sur stderr |
 | `--out <dir>` | Dossier de sortie (défaut : le dossier du fichier d'entrée) |
 | `--name <base>` | Nom de base des sorties (défaut : le nom du fichier d'entrée sans `.json` ni `.sg`) |
 | `--theme <thème>` | `light`, `dark`, `auto` (défaut `auto`) ou un fichier de thème `.json`, voir [docs/theming.md](./docs/theming.md) |
 | `--scale <n>` | Facteur d'échelle du PNG (défaut 2) |
 | `--renderer <nom>` | Rendu HTML : `auto`, `svg` ou `webgl` (défaut `auto`) |
-| `--markdown` | Affiche `[![titre](base.svg)](base.html)`, un extrait Markdown qui lie l'aperçu SVG à la page HTML |
+| `--markdown` | Affiche `[![titre](base.svg)](base.html)`, un extrait Markdown qui lie l'aperçu SVG à la page HTML ; avec `mermaid` dans `--format`, un bloc de code `mermaid` suit |
 
 ### JavaScript
 
@@ -95,6 +96,14 @@ import { exportDocument } from "@miralabs-tech/standargraph/export";
 
 const out = await exportDocument(graphDocument, { formats: ["svg", "png", "pdf"], theme: "light", scale: 2 });
 // out.svg est une chaîne, out.png et out.pdf sont des Uint8Array
+```
+
+Du texte Mermaid pour le Markdown de GitHub, depuis `/mermaid` (`formats: ["mermaid"]` dans `exportDocument()` renvoie le même texte sous forme de chaîne, sans les avertissements) :
+
+```ts
+import { toMermaid } from "@miralabs-tech/standargraph/mermaid";
+
+const { text, warnings } = toMermaid(graphDocument);
 ```
 
 Monter un graphe interactif dans une page (`mount(container, document, { theme, title, renderer })`). Quand chaque nœud a une `position`, ELK est ignoré ; sinon la mise en page tourne dans un Web Worker et le thread principal reste libre. Plusieurs instances peuvent coexister sur une page :
@@ -313,6 +322,7 @@ npm install -g @miralabs-tech/standargraph   # puis : standargraph export graph.
 - **Export** : SVG, HTML, PNG et PDF depuis la CLI ou `exportDocument()`, PNG et PDF sans navigateur (resvg WASM et PDFKit).
 - **Cœur headless** : contrôleur de vue avec caméra, hit testing, culling, niveau de détail et surbrillance, utilisable dans Node, Bun, un worker ou un navigateur.
 - **Syntaxe texte** : chaque type en texte brut (`.sg`), en forme à symboles ou à mots, avec des erreurs en ligne et colonne, `print()` pour revenir au texte et `standargraph convert` entre les deux formats (voir [Syntaxe texte](#syntaxe-texte)).
+- **Export Mermaid** : chaque type en texte Mermaid avec `toMermaid()` ou `--format mermaid`, les pertes étant signalées par des avertissements (voir [docs/mermaid.md](./docs/mermaid.md), en anglais).
 - **Intégration** : `mount()` pour les applications, avec un worker de mise en page à la demande, et un plugin remark pour le Markdown.
 
 ---
@@ -331,6 +341,7 @@ npm install -g @miralabs-tech/standargraph   # puis : standargraph export graph.
 
 - [Cœur headless et adaptateurs](./docs/headless.md) (anglais)
 - [Thèmes](./docs/theming.md) (anglais)
+- [Export Mermaid](./docs/mermaid.md) (anglais)
 - [Benchmark et temps de mise en page](./docs/bench.md) (anglais)
 - [JSON Schema du format v1](./schema/graph-document.v1.json)
 - [Exemples](./examples)

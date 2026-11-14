@@ -59,6 +59,10 @@
       "types": "./dist/remark/index.d.ts",
       "import": "./dist/remark/index.js"
     },
+    "./mermaid": {
+      "types": "./dist/mermaid/index.d.ts",
+      "import": "./dist/mermaid/index.js"
+    },
     "./text": {
       "types": "./dist/text/index.d.ts",
       "import": "./dist/text/index.js"
@@ -77,7 +81,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "bun scripts/clean.ts && bun build src/cli.ts src/core/index.ts src/format/index.ts src/layout/index.ts src/svg/index.ts src/webgl/index.ts src/remark/index.ts src/html/index.ts src/export/index.ts src/text/index.ts --root src --outdir dist --splitting --target node --format esm --packages external && tsc -p tsconfig.build.json",
+    "build": "bun scripts/clean.ts && bun build src/cli.ts src/core/index.ts src/format/index.ts src/layout/index.ts src/svg/index.ts src/webgl/index.ts src/remark/index.ts src/html/index.ts src/export/index.ts src/text/index.ts src/mermaid/index.ts --root src --outdir dist --splitting --target node --format esm --packages external && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "schema": "bun scripts/schema.ts",
     "metrics": "bun scripts/font-metrics.ts",

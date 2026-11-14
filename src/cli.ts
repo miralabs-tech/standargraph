@@ -2,6 +2,7 @@
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { ExportResult } from "./export";
 import type { Document } from "./format/schema";
 import { formatLoadErrors } from "./shared/errors";
 import { type PageThemeOption, THEMES } from "./svg/theme";
@@ -12,7 +13,7 @@ const USAGE = `Usage: standargraph <command> [options]
 
 Commands:
   validate <file>    Validate a document (JSON or text syntax) against format v1
-  export <file>      Export a document to SVG, HTML, PNG or PDF
+  export <file>      Export a document to SVG, HTML, PNG, PDF or Mermaid
   layout <file>      Write the graph document with every node position computed (JSON)
   convert <file>     Convert a document between JSON and the text syntax
 
@@ -24,13 +25,13 @@ Layout options:
   --out <file>       Output file (default: <input>.positioned.json next to the input)
 
 Export options:
-  --format <list>    Comma-separated formats: svg, html, png, pdf (default: svg,html)
+  --format <list>    Comma-separated formats: svg, html, png, pdf, mermaid (default: svg,html)
   --out <dir>        Output directory (default: the input file directory)
   --name <base>      Output base name (default: the input file name without .json or .sg)
   --theme <theme>    light, dark, auto or a theme file ending in .json (default: auto)
   --scale <n>        PNG scale factor (default: 2)
   --renderer <name>  HTML renderer: auto, svg or webgl (default: auto)
-  --markdown         Print a Markdown snippet linking the SVG preview to the HTML page
+  --markdown         Print a Markdown snippet linking the SVG preview to the HTML page, then the Mermaid code block when mermaid is exported
 
 Options:
   -v, --version    Print the version
@@ -74,7 +75,7 @@ function runValidate(file: string | undefined): number {
   return 0;
 }
 
-const FORMATS = ["svg", "html", "png", "pdf"] as const;
+const FORMATS = ["svg", "html", "png", "pdf", "mermaid"] as const;
 type Format = (typeof FORMATS)[number];
 type Renderer = "auto" | "svg" | "webgl";
 
@@ -157,7 +158,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     }
   }
   if (file === undefined) {
-    return fail("Usage: standargraph export <file> [--format svg,html,png,pdf] [--out <dir>] [--name <base>] [--theme light|dark|auto|<file.json>] [--scale <n>] [--renderer auto|svg|webgl] [--markdown]");
+    return fail("Usage: standargraph export <file> [--format svg,html,png,pdf,mermaid] [--out <dir>] [--name <base>] [--theme light|dark|auto|<file.json>] [--scale <n>] [--renderer auto|svg|webgl] [--markdown]");
   }
   const formats: Format[] = [];
   for (const item of (values.get("--format") ?? "svg,html").split(",")) {
@@ -207,19 +208,29 @@ async function runExport(args: string[]): Promise<number> {
   const document = read.document;
   const base = parsed.name ?? baseName(parsed.file);
   const directory = parsed.out ?? dirname(parsed.file);
-  const { exportDocument } = await import("./export");
-  const output = await exportDocument(document, {
-    formats: parsed.formats,
-    theme: parsed.theme,
-    scale: parsed.scale,
-    renderer: parsed.renderer,
-  });
+  const rendered = parsed.formats.filter((format) => format !== "mermaid");
+  let output: ExportResult = {};
+  if (rendered.length > 0) {
+    const { exportDocument } = await import("./export");
+    output = await exportDocument(document, {
+      formats: rendered,
+      theme: parsed.theme,
+      scale: parsed.scale,
+      renderer: parsed.renderer,
+    });
+  }
+  if (rendered.length < parsed.formats.length) {
+    const { toMermaid } = await import("./mermaid");
+    const result = toMermaid(document);
+    for (const warning of result.warnings) process.stderr.write(`warning: ${warning}\n`);
+    output.mermaid = result.text;
+  }
   try {
     mkdirSync(directory, { recursive: true });
     for (const format of parsed.formats) {
       const data = output[format];
       if (data === undefined) continue;
-      const target = join(directory, `${base}.${format}`);
+      const target = join(directory, `${base}.${format === "mermaid" ? "mmd" : format}`);
       writeFileSync(target, data);
       process.stdout.write(`wrote ${target}\n`);
     }
@@ -231,6 +242,9 @@ async function runExport(args: string[]): Promise<number> {
   if (parsed.markdown) {
     const title = document.title ?? base;
     process.stdout.write(`[![${title}](${base}.svg)](${base}.html)\n`);
+    if (output.mermaid !== undefined) {
+      process.stdout.write(`\`\`\`mermaid\n${output.mermaid}\`\`\`\n`);
+    }
   }
   return 0;
 }
