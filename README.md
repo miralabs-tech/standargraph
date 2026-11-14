@@ -53,6 +53,7 @@ standargraph export graph.json                              # graph.svg and grap
 standargraph export graph.json --format svg,html,png,pdf --out out --theme dark
 standargraph export graph.json --renderer webgl             # force the WebGL page
 standargraph export graph.json --markdown                   # also print a Markdown preview snippet
+standargraph layout graph.json                              # graph.positioned.json: every node gets its computed position
 ```
 
 `validate` exits 0 when the document is valid, 1 with one `path: message` line per error otherwise, 2 when the file cannot be read.
@@ -159,18 +160,7 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 ## 🚧 Limits
 
 - **Layout of large graphs is slow.** ELK lays out 10 000 nodes in about 44 s (5 000 nodes: 13 s, 2 000: 3.7 s; see [docs/bench.md](./docs/bench.md)). Rendering is not the bottleneck. A faster layout for large graphs is coming soon.
-- **Precompute positions for large graphs.** Once every node has a `position`, ELK is skipped by `layout()`, `mount()` and the exports. `standargraph export` runs the layout once and the HTML page it writes carries the result: opening it never lays anything out again. To keep positions in your own documents, write the `x` and `y` of each laid-out node back into the node's `position` and store the document:
-
-  ```ts
-  const scene = await layout(graphDocument);
-  const positioned = {
-    ...graphDocument,
-    nodes: graphDocument.nodes.map((node) => {
-      const placed = scene.nodes.find((item) => item.id === node.id)!;
-      return { ...node, position: { x: placed.x, y: placed.y } };
-    }),
-  };
-  ```
+- **Precompute positions for large graphs.** Once every node has a `position`, ELK is skipped by `layout()`, `mount()` and the exports. `standargraph export` runs the layout once and the HTML page it writes carries the result: opening it never lays anything out again. To keep positions in your documents, run `standargraph layout graph.json` (or `--out <file>`): it writes the same document with a `position` on every node, which then renders without ELK.
 
 - The remark plugin output does not render on GitHub. In a README, use the SVG written by the CLI, linked to its HTML page (`--markdown` prints the snippet).
 - Node type captions, edge labels and arrowheads are not drawn by the WebGL renderer, and sequence diagrams are always drawn as SVG.

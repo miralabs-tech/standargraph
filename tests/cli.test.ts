@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { run } from "../src/cli";
+import { validate } from "../src/format";
+import { layout } from "../src/layout";
 
 test("--version returns 0", () => {
   expect(run(["--version"])).toBe(0);
@@ -117,4 +119,29 @@ test("export --markdown writes the SVG and prints a snippet linking it to the HT
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("layout writes the document with a position on every node, and the result skips ELK", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const target = join(dir, "architecture.positioned.json");
+  try {
+    expect(await run(["layout", "examples/architecture.json", "--out", target])).toBe(0);
+    const positioned = JSON.parse(readFileSync(target, "utf8"));
+    expect(validate(positioned).ok).toBe(true);
+    expect(positioned.nodes.every((node: { position?: unknown }) => node.position !== undefined)).toBe(true);
+    const original = await layout(JSON.parse(readFileSync("examples/architecture.json", "utf8")));
+    const again = await layout(positioned);
+    if (original.kind !== "graph" || again.kind !== "graph") throw new Error("expected graph scenes");
+    for (const node of original.nodes) {
+      const same = again.nodes.find((item) => item.id === node.id)!;
+      expect([same.x, same.y]).toEqual([node.x, node.y]);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("layout refuses a sequence document and an unknown option", async () => {
+  expect(await run(["layout", "examples/protocol.json", "--out", join(tmpdir(), "never.json")])).toBe(1);
+  expect(await run(["layout", "examples/architecture.json", "--nope"])).toBe(2);
 });

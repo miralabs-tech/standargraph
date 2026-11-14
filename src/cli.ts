@@ -10,6 +10,10 @@ const USAGE = `Usage: standargraph <command> [options]
 Commands:
   validate <file>    Validate a graph document (JSON) against format v1
   export <file>      Export a graph document to SVG, HTML, PNG or PDF
+  layout <file>      Write the graph document with every node position computed
+
+Layout options:
+  --out <file>       Output file (default: <input>.positioned.json next to the input)
 
 Export options:
   --format <list>    Comma-separated formats: svg, html, png, pdf (default: svg,html)
@@ -180,6 +184,70 @@ async function runExport(args: string[]): Promise<number> {
   return 0;
 }
 
+async function runLayout(args: string[]): Promise<number> {
+  let file: string | undefined;
+  let out: string | undefined;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg === "--out") {
+      out = args[++index];
+      if (out === undefined) return fail("Missing value for --out") ?? 2;
+    } else if (arg.startsWith("--out=")) {
+      out = arg.slice("--out=".length);
+    } else if (arg.startsWith("--")) {
+      return fail(`Unknown option: ${arg}`) ?? 2;
+    } else if (file === undefined) {
+      file = arg;
+    } else {
+      return fail(`Unexpected argument: ${arg}`) ?? 2;
+    }
+  }
+  if (file === undefined) return fail("Usage: standargraph layout <file> [--out <file>]") ?? 2;
+  let input: unknown;
+  try {
+    input = JSON.parse(readFileSync(file, "utf8"));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Cannot read ${file}: ${reason}\n`);
+    return 2;
+  }
+  const result = validate(input);
+  if (!result.ok) {
+    for (const error of result.errors) {
+      process.stderr.write(`${error.path}: ${error.message}\n`);
+    }
+    return 1;
+  }
+  const document = result.document;
+  if (document.kind !== "graph") {
+    process.stderr.write("Only graph documents carry node positions\n");
+    return 1;
+  }
+  const { layout } = await import("./layout");
+  const scene = await layout(document);
+  if (scene.kind !== "graph") return 1;
+  const placed = new Map(scene.nodes.map((node) => [node.id, node]));
+  const positioned = {
+    ...document,
+    nodes: document.nodes.map((node) => {
+      const item = placed.get(node.id);
+      return item === undefined ? node : { ...node, position: { x: item.x, y: item.y } };
+    }),
+  };
+  const target =
+    out ?? join(dirname(file), `${basename(file, extname(file) === ".json" ? ".json" : "")}.positioned.json`);
+  try {
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, `${JSON.stringify(positioned, null, 2)}\n`);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Cannot write ${target}: ${reason}\n`);
+    return 2;
+  }
+  process.stdout.write(`wrote ${target}\n`);
+  return 0;
+}
+
 export function run(argv: string[]): number | Promise<number> {
   const [command, ...rest] = argv;
   if (command === undefined || command === "--help" || command === "-h") {
@@ -195,6 +263,9 @@ export function run(argv: string[]): number | Promise<number> {
   }
   if (command === "export") {
     return runExport(rest);
+  }
+  if (command === "layout") {
+    return runLayout(rest);
   }
   process.stderr.write(`Unknown command: ${command}\n`);
   return 1;

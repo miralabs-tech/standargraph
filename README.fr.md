@@ -53,6 +53,7 @@ standargraph export graph.json                              # graph.svg et graph
 standargraph export graph.json --format svg,html,png,pdf --out out --theme dark
 standargraph export graph.json --renderer webgl             # force la page WebGL
 standargraph export graph.json --markdown                   # affiche aussi un extrait Markdown d'aperçu
+standargraph layout graph.json                              # graph.positioned.json : chaque nœud reçoit sa position calculée
 ```
 
 `validate` sort avec le code 0 quand le document est valide, 1 avec une ligne `chemin: message` par erreur sinon, 2 quand le fichier n'est pas lisible.
@@ -159,18 +160,7 @@ npm install -g @miralabs-tech/standargraph   # puis : standargraph export graph.
 ## 🚧 Limites
 
 - **La mise en page des grands graphes est lente.** ELK met en page 10 000 nœuds en environ 44 s (5 000 nœuds : 13 s, 2 000 : 3,7 s ; voir [docs/bench.md](./docs/bench.md)). Le rendu n'est pas le goulot. Une mise en page plus rapide pour les grands graphes arrive bientôt.
-- **Précalculez les positions des grands graphes.** Dès que chaque nœud a une `position`, ELK est ignoré par `layout()`, `mount()` et les exports. `standargraph export` calcule la mise en page une fois et la page HTML qu'il écrit porte le résultat : l'ouvrir ne remet jamais rien en page. Pour garder les positions dans vos propres documents, réécrivez le `x` et le `y` de chaque nœud mis en page dans la `position` du nœud et stockez le document :
-
-  ```ts
-  const scene = await layout(graphDocument);
-  const positioned = {
-    ...graphDocument,
-    nodes: graphDocument.nodes.map((node) => {
-      const placed = scene.nodes.find((item) => item.id === node.id)!;
-      return { ...node, position: { x: placed.x, y: placed.y } };
-    }),
-  };
-  ```
+- **Précalculez les positions des grands graphes.** Dès que chaque nœud a une `position`, ELK est ignoré par `layout()`, `mount()` et les exports. `standargraph export` calcule la mise en page une fois et la page HTML qu'il écrit porte le résultat : l'ouvrir ne remet jamais rien en page. Pour garder les positions dans vos documents, lancez `standargraph layout graph.json` (ou `--out <fichier>`) : la commande écrit le même document avec une `position` sur chaque nœud, qui s'affiche ensuite sans ELK.
 
 - La sortie du plugin remark ne s'affiche pas sur GitHub. Dans un README, utilisez le SVG écrit par la CLI, lié à sa page HTML (`--markdown` affiche l'extrait).
 - Le rendu WebGL ne dessine ni les légendes de type de nœud, ni les libellés d'arêtes, ni les pointes de flèche, et les diagrammes de séquence sont toujours dessinés en SVG.
