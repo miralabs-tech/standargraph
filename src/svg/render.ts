@@ -26,6 +26,8 @@ import type { Meta } from "../format";
 export type RenderOptions = {
   theme?: "light" | "dark";
   standalone?: boolean;
+  styles?: boolean;
+  idPrefix?: string;
 };
 
 type Theme = {
@@ -154,9 +156,17 @@ function confidenceDash(meta: Meta | undefined): string | undefined {
   return undefined;
 }
 
+function variables(theme: Theme): string {
+  return `--sg-bg:${theme.bg};--sg-fg:${theme.fg};--sg-muted:${theme.muted};--sg-node-fill:${theme.nodeFill};--sg-node-stroke:${theme.nodeStroke};--sg-unknown-fill:${theme.unknownFill};--sg-group-fill:${theme.groupFill};--sg-group-stroke:${theme.groupStroke};--sg-edge:${theme.edge};--sg-label-bg:${theme.labelBg};--sg-accent:${theme.accent};--sg-lifeline:${theme.lifeline}`;
+}
+
+export function themeVariables(name: "light" | "dark"): string {
+  return variables(THEMES[name]);
+}
+
 function css(theme: Theme): string {
   return [
-    `.sg-root{--sg-bg:${theme.bg};--sg-fg:${theme.fg};--sg-muted:${theme.muted};--sg-node-fill:${theme.nodeFill};--sg-node-stroke:${theme.nodeStroke};--sg-unknown-fill:${theme.unknownFill};--sg-group-fill:${theme.groupFill};--sg-group-stroke:${theme.groupStroke};--sg-edge:${theme.edge};--sg-label-bg:${theme.labelBg};--sg-accent:${theme.accent};--sg-lifeline:${theme.lifeline}}`,
+    `.sg-root{${variables(theme)}}`,
     ".sg-bg{fill:var(--sg-bg)}",
     ".sg-text{fill:var(--sg-fg)}",
     ".sg-muted{fill:var(--sg-muted)}",
@@ -172,10 +182,10 @@ function css(theme: Theme): string {
   ].join("");
 }
 
-function defs(theme: Theme): string {
+function defs(theme: Theme, styles: boolean): string {
   return [
     "<defs>",
-    `<style>${css(theme)}</style>`,
+    styles ? `<style>${css(theme)}</style>` : "",
     `<marker id="sg-arrow-filled" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-filled" d="M0,0 L10,5 L0,10 z" fill="${theme.edge}" stroke="${theme.edge}" stroke-width="1" stroke-linejoin="round"/></marker>`,
     `<marker id="sg-arrow-open" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-open" d="M1,1 L9,5 L1,9" fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>`,
     "</defs>",
@@ -368,10 +378,10 @@ export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string
     laidOut.kind === "graph"
       ? renderGraph(laidOut, theme)
       : renderSequence(laidOut, theme);
-  return [
+  const svg = [
     `${head} class="sg-root" version="1.1" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="Inter, system-ui, sans-serif">`,
     title,
-    defs(theme),
+    defs(theme, options.styles ?? true),
     `<rect class="sg-bg" x="0" y="0" width="${width}" height="${height}" fill="${theme.bg}"/>`,
     body,
     "</svg>",
@@ -379,4 +389,9 @@ export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string
   ]
     .filter((part, index, all) => part !== "" || index === all.length - 1)
     .join("\n");
+  const prefix = options.idPrefix;
+  if (prefix === undefined || prefix === "sg") return svg;
+  return svg
+    .replaceAll('id="sg-', `id="${esc(prefix)}-`)
+    .replaceAll("url(#sg-", `url(#${esc(prefix)}-`);
 }

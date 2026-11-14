@@ -7,4 +7,6 @@ Status: pre-v1
 
 ## License
 
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
+Licensed under the [MIT license](LICENSE).
+
+Bundled third-party assets keep their own licenses: Inter font (SIL OFL 1.1, `assets/fonts/OFL.txt`).

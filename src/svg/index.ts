@@ -1,2 +1,2 @@
 export { VERSION } from "../version";
-export { type RenderOptions, renderSvg } from "./render";
+export { type RenderOptions, renderSvg, themeVariables } from "./render";

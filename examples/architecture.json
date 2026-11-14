@@ -3,7 +3,7 @@
   "version": 1,
   "kind": "graph",
   "title": "Settings page flow",
-  "direction": "right",
+  "direction": "down",
   "groups": [
     { "id": "frontend", "label": "Frontend" },
     { "id": "backend", "label": "Backend" },
