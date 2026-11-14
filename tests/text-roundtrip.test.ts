@@ -73,6 +73,21 @@ const GRAPH_EDGE_CASES: Document = {
   ],
 };
 
+const NUMBER_EDGE_CASES: Document = {
+  version: 1,
+  kind: "graph",
+  nodes: [
+    {
+      id: "tiny",
+      position: { x: 1e-7, y: 1e21 },
+      meta: { coverage: 1e-7, data: { small: 1e-7, big: 1e21, negative: -1.5e-9, zero: -0 } },
+    },
+    { id: "negzero", position: { x: -0, y: -0 } },
+    { id: "plain", position: { x: -10, y: 2.5 } },
+  ],
+  edges: [{ from: "tiny", to: "negzero", meta: { data: { n: -0 } } }],
+};
+
 const EMPTY_ARRAYS: Document = {
   version: 1,
   kind: "graph",
@@ -213,6 +228,7 @@ const CORPUS: readonly [string, Document][] = [
   ["generate(300, seed 1)", generate({ nodes: 300, seed: 1 })],
   ["graph edge cases", GRAPH_EDGE_CASES],
   ["empty arrays", EMPTY_ARRAYS],
+  ["number edge cases", NUMBER_EDGE_CASES],
   ["sequence edge cases", SEQUENCE_EDGE_CASES],
   ["state edge cases", STATE_EDGE_CASES],
   ["state with empty transitions", STATE_EMPTY_TRANSITIONS],
@@ -353,6 +369,16 @@ describe("print output", () => {
     const text = print(readJson("roadmap-mindmap.json") as Document);
     expect(text).toContain("Rendering [id=\"render\"]");
     expect(text).not.toContain('Format [');
+  });
+
+  test("numbers in exponent form and negative zero are written so they read back", () => {
+    const text = print(NUMBER_EDGE_CASES);
+    expect(text).toContain("x=1e-7, y=1e+21");
+    expect(text).toContain("x=-0, y=-0");
+    expect(text).toContain("data.zero=-0");
+    const node = (reparse(text) as any).nodes.find((item: { id: string }) => item.id === "negzero");
+    expect(Object.is(node.position.x, -0)).toBe(true);
+    expect(Object.is(node.position.y, -0)).toBe(true);
   });
 
   test("data keys are bare only when they form a whole identifier", () => {

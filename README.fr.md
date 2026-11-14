@@ -54,15 +54,17 @@ standargraph export graph.json --format svg,html,png,pdf --out out --theme dark
 standargraph export graph.json --renderer webgl             # force la page WebGL
 standargraph export graph.json --markdown                   # affiche aussi un extrait Markdown d'aperçu
 standargraph layout graph.json                              # graph.positioned.json : chaque nœud reçoit sa position calculée
+standargraph convert graph.json                             # graph.sg, le même document en syntaxe texte
+standargraph convert graph.sg --to json --out out/graph.json
 ```
 
-`validate` sort avec le code 0 quand le document est valide, 1 avec une ligne `chemin: message` par erreur sinon, 2 quand le fichier n'est pas lisible.
+Chaque commande lit du JSON ou la [syntaxe texte](#syntaxe-texte) : le format est détecté par le contenu, jamais par l'extension du fichier. `validate` sort avec le code 0 quand le document est valide, 1 avec une ligne `chemin: message` par erreur JSON (ou une ligne `fichier:ligne:col: message [code]` par erreur de texte) sinon, 2 quand le fichier n'est pas lisible. `layout` écrit toujours du JSON. `convert` écrit l'autre format que celui de l'entrée, sauf si `--to json|text` en décide autrement, et sort avec le code 2 et `Output would overwrite the input` quand la sortie est le fichier d'entrée.
 
 | Option | Rôle |
 | --- | --- |
 | `--format <liste>` | Liste séparée par des virgules : `svg`, `html`, `png`, `pdf` (défaut `svg,html`) |
 | `--out <dir>` | Dossier de sortie (défaut : le dossier du fichier d'entrée) |
-| `--name <base>` | Nom de base des sorties (défaut : le nom du fichier d'entrée sans `.json`) |
+| `--name <base>` | Nom de base des sorties (défaut : le nom du fichier d'entrée sans `.json` ni `.sg`) |
 | `--theme <thème>` | `light`, `dark`, `auto` (défaut `auto`) ou un fichier de thème `.json`, voir [docs/theming.md](./docs/theming.md) |
 | `--scale <n>` | Facteur d'échelle du PNG (défaut 2) |
 | `--renderer <nom>` | Rendu HTML : `auto`, `svg` ou `webgl` (défaut `auto`) |
@@ -103,7 +105,7 @@ import { mount } from "@miralabs-tech/standargraph/html";
 const { view, destroy } = await mount(document.getElementById("graph")!, graphDocument, { renderer: "auto" });
 ```
 
-Pipelines Markdown, avec le plugin remark (il transforme les blocs de code ` ```standargraph ` contenant un document JSON en SVG en ligne, lié à une page HTML autonome quand `outDir` est défini) :
+Pipelines Markdown, avec le plugin remark (il transforme les blocs de code ` ```standargraph ` et ` ```sg ` contenant un document JSON ou la syntaxe texte en SVG en ligne, lié à une page HTML autonome quand `outDir` est défini) :
 
 ```ts
 import { unified } from "unified";
@@ -233,6 +235,48 @@ Une liste plate de nœuds liés par `parent`, mise en page en arbre « tidy » (
 
 Les formes sont dans le document ; les couleurs n'y sont jamais. Elles viennent du thème.
 
+### Syntaxe texte
+
+Chaque type se laisse aussi écrire en texte brut, dans des fichiers nommés `.sg` par convention. Un graphe en forme à symboles :
+
+```
+graph "Release flow" [direction=right]
+
+live "Live" [shape=pill]
+group ci "CI" {
+  build "Build image" [shape=rect]
+  check "Green?" [shape=diamond]
+}
+
+build -> check
+check -> live "yes"
+```
+
+Le même graphe en forme à mots, où `to`, `with`, `async`, `reply` et `via` remplacent les opérateurs et `do` ... `end` remplace les accolades :
+
+```
+graph "Release flow" [direction=right]
+
+live "Live" [shape=pill]
+group ci "CI" do
+  build "Build image" [shape=rect]
+  check "Green?" [shape=diamond]
+end
+
+build to check
+check to live "yes"
+```
+
+Les deux formes se lisent comme le même document. `examples/` contient un jumeau `.sg` de chaque exemple JSON. Le sous-chemin `/text` exporte `parse`, `print`, `canonicalize`, `sniff` et `loadSource` ; une chaîne passée à `mount()` ou à `exportDocument()` passe par `loadSource`, et `standargraph convert` transforme un format en l'autre. Dans un Markdown, un bloc ` ```sg ` (ou ` ```standargraph `) contient l'un ou l'autre format :
+
+````md
+```sg
+graph "Release flow"
+
+build -> check
+```
+````
+
 ### Thèmes
 
 Un thème est un ensemble de jetons de couleur plus des couleurs facultatives par `type` de nœud, donné par `--theme <fichier.json>` dans la CLI ou par l'option `theme` de l'API. Voir [docs/theming.md](./docs/theming.md) (en anglais).
@@ -268,6 +312,7 @@ npm install -g @miralabs-tech/standargraph   # puis : standargraph export graph.
 - **HTML hors ligne en un fichier** : polices et runtime embarqués, rien n'est téléchargé.
 - **Export** : SVG, HTML, PNG et PDF depuis la CLI ou `exportDocument()`, PNG et PDF sans navigateur (resvg WASM et PDFKit).
 - **Cœur headless** : contrôleur de vue avec caméra, hit testing, culling, niveau de détail et surbrillance, utilisable dans Node, Bun, un worker ou un navigateur.
+- **Syntaxe texte** : chaque type en texte brut (`.sg`), en forme à symboles ou à mots, avec des erreurs en ligne et colonne, `print()` pour revenir au texte et `standargraph convert` entre les deux formats (voir [Syntaxe texte](#syntaxe-texte)).
 - **Intégration** : `mount()` pour les applications, avec un worker de mise en page à la demande, et un plugin remark pour le Markdown.
 
 ---

@@ -67,6 +67,10 @@ const CARDINALITY_TEXT: Readonly<Record<Cardinality, string>> = {
   "zero-or-more": "0..*",
 };
 
+function numberText(value: number): string {
+  return Object.is(value, -0) ? "-0" : String(value);
+}
+
 function quote(value: string): string {
   return `"${value.replace(ESCAPED, (char) => ESCAPES[char] ?? `\\u{${char.charCodeAt(0).toString(16)}}`)}"`;
 }
@@ -102,13 +106,17 @@ function metaPairs(meta: Meta | undefined): Pair[] {
     if (provenance.confidence !== undefined) pairs.push(["confidence", provenance.confidence]);
     if (provenance.tool !== undefined) pairs.push(["tool", quote(provenance.tool)]);
   }
-  if (meta.coverage !== undefined) pairs.push(["coverage", String(meta.coverage)]);
+  if (meta.coverage !== undefined) pairs.push(["coverage", numberText(meta.coverage)]);
   if (meta.freshness !== undefined) pairs.push(["freshness", quote(meta.freshness)]);
   for (const [name, value] of Object.entries(meta.data ?? {})) {
     const key = `data.${name}`;
     pairs.push([
       IDENT.test(key) ? key : backticked(key),
-      typeof value === "string" ? quote(value) : String(value),
+      typeof value === "string"
+        ? quote(value)
+        : typeof value === "number"
+          ? numberText(value)
+          : String(value),
     ]);
   }
   return pairs;
@@ -128,7 +136,7 @@ function fieldPairs(item: Fields, withId: boolean): Pair[] {
   if (item.link !== undefined) pairs.push(["link", quote(item.link)]);
   if (item.description !== undefined) pairs.push(["description", quote(item.description)]);
   if (item.position !== undefined) {
-    pairs.push(["x", String(item.position.x)], ["y", String(item.position.y)]);
+    pairs.push(["x", numberText(item.position.x)], ["y", numberText(item.position.y)]);
   }
   pairs.push(...metaPairs(item.meta));
   return pairs;

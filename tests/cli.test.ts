@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { run } from "../src/cli";
 import { validate } from "../src/format";
 import { layout } from "../src/layout";
+import { canonicalize, loadSource, sniff } from "../src/text";
 
 test("--version returns 0", () => {
   expect(run(["--version"])).toBe(0);
@@ -144,4 +145,121 @@ test("layout writes the document with a position on every node, and the result s
 test("layout refuses a sequence document and an unknown option", async () => {
   expect(await run(["layout", "examples/protocol.json", "--out", join(tmpdir(), "never.json")])).toBe(1);
   expect(await run(["layout", "examples/architecture.json", "--nope"])).toBe(2);
+});
+
+function capture(): { stderr: string[]; restore: () => void } {
+  const stderr: string[] = [];
+  const original = process.stderr.write;
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    stderr.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+    return true;
+  }) as typeof process.stderr.write;
+  return {
+    stderr,
+    restore: () => {
+      process.stderr.write = original;
+    },
+  };
+}
+
+test("validate accepts a text example and reports text errors as file:line:col with the code", () => {
+  expect(run(["validate", "examples/architecture.sg"])).toBe(0);
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const seen = capture();
+  try {
+    const file = join(dir, "bad.sg");
+    writeFileSync(file, "graph\n\na %\n");
+    expect(run(["validate", file])).toBe(1);
+    seen.restore();
+    expect(seen.stderr.join("")).toContain(`${file}:3:3: Unexpected character "%" [E_TOKEN]`);
+  } finally {
+    seen.restore();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("export reads a text document and removes .sg from the output base name", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  try {
+    expect(await run(["export", "examples/architecture.sg", "--format", "svg", "--out", dir])).toBe(0);
+    expect(statSync(join(dir, "architecture.svg")).size).toBeGreaterThan(0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("layout on a text document still writes JSON", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  try {
+    const file = join(dir, "architecture.sg");
+    writeFileSync(file, readFileSync("examples/architecture.sg", "utf8"));
+    expect(await run(["layout", file])).toBe(0);
+    const positioned = JSON.parse(readFileSync(join(dir, "architecture.positioned.json"), "utf8"));
+    expect(validate(positioned).ok).toBe(true);
+    expect(positioned.nodes.every((node: { position?: unknown }) => node.position !== undefined)).toBe(true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("convert goes both ways and keeps the document", () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  try {
+    const json = join(dir, "architecture.json");
+    expect(run(["convert", "examples/architecture.sg", "--out", json])).toBe(0);
+    const direct = loadSource(readFileSync("examples/architecture.sg", "utf8"));
+    const converted = loadSource(readFileSync(json, "utf8"));
+    if (!direct.ok || !converted.ok) throw new Error("expected both to load");
+    expect(converted.document).toEqual(direct.document);
+
+    const copy = join(dir, "copy.json");
+    writeFileSync(copy, readFileSync("examples/architecture.json", "utf8"));
+    expect(run(["convert", copy])).toBe(0);
+    const text = readFileSync(join(dir, "copy.sg"), "utf8");
+    expect(sniff(text)).toBe("text");
+    const back = loadSource(text);
+    const original = loadSource(readFileSync(copy, "utf8"));
+    if (!back.ok || !original.ok) throw new Error("expected both to load");
+    expect(back.document).toEqual(canonicalize(original.document));
+
+    const forced = join(dir, "forced.sg");
+    expect(run(["convert", copy, "--to", "text", "--out", forced])).toBe(0);
+    expect(readFileSync(forced, "utf8")).toBe(text);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("convert refuses to overwrite its input and rejects bad arguments with 2", () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const seen = capture();
+  try {
+    const file = join(dir, "same.json");
+    writeFileSync(file, readFileSync("examples/architecture.json", "utf8"));
+    expect(run(["convert", file, "--to", "json"])).toBe(2);
+    expect(run(["convert", file, "--out", file])).toBe(2);
+    expect(run(["convert", file, "--to", "yaml"])).toBe(2);
+    expect(run(["convert", file, "--nope"])).toBe(2);
+    expect(run(["convert"])).toBe(2);
+    seen.restore();
+    expect(seen.stderr.join("")).toContain("Output would overwrite the input");
+    expect(readFileSync(file, "utf8")).toBe(readFileSync("examples/architecture.json", "utf8"));
+  } finally {
+    seen.restore();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("convert returns 1 on an invalid text document", () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const seen = capture();
+  try {
+    const file = join(dir, "bad.sg");
+    writeFileSync(file, "graph\n\na %\n");
+    expect(run(["convert", file])).toBe(1);
+    expect(existsSync(join(dir, "bad.json"))).toBe(false);
+  } finally {
+    seen.restore();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

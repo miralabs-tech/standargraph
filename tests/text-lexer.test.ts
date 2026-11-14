@@ -44,6 +44,14 @@ describe("glued operators", () => {
     expect(lex("coverage=0.5")).toEqual(["IDENT(coverage)", "PUNCT(=)", "NUMBER(0.5)"]);
   });
 
+  test("numbers with an exponent", () => {
+    expect(lex("x=1e-7")).toEqual(["IDENT(x)", "PUNCT(=)", "NUMBER(1e-7)"]);
+    expect(lex("x=1e+21")).toEqual(["IDENT(x)", "PUNCT(=)", "NUMBER(1e+21)"]);
+    expect(lex("x=-2.5E3")).toEqual(["IDENT(x)", "PUNCT(=)", "NUMBER(-2.5E3)"]);
+    expect(lex("x=-0")).toEqual(["IDENT(x)", "PUNCT(=)", "NUMBER(-0)"]);
+    expect(lex("1e")).toEqual(["NUMBER(1)", "IDENT(e)"]);
+  });
+
   test("paths stay one identifier", () => {
     expect(lex("src/api.ts")).toEqual(["IDENT(src/api.ts)"]);
   });

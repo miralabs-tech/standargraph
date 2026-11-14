@@ -1,17 +1,24 @@
 #!/usr/bin/env node
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validate } from "./format/validate";
+import type { Document } from "./format/schema";
+import { formatLoadErrors } from "./shared/errors";
 import { type PageThemeOption, THEMES } from "./svg/theme";
+import { loadSource, print } from "./text";
 import { VERSION } from "./version";
 
 const USAGE = `Usage: standargraph <command> [options]
 
 Commands:
-  validate <file>    Validate a graph document (JSON) against format v1
-  export <file>      Export a graph document to SVG, HTML, PNG or PDF
-  layout <file>      Write the graph document with every node position computed
+  validate <file>    Validate a document (JSON or text syntax) against format v1
+  export <file>      Export a document to SVG, HTML, PNG or PDF
+  layout <file>      Write the graph document with every node position computed (JSON)
+  convert <file>     Convert a document between JSON and the text syntax
+
+Convert options:
+  --to <format>      json or text (default: the other format than the input)
+  --out <file>       Output file (default: <input base>.json or .sg next to the input)
 
 Layout options:
   --out <file>       Output file (default: <input>.positioned.json next to the input)
@@ -19,7 +26,7 @@ Layout options:
 Export options:
   --format <list>    Comma-separated formats: svg, html, png, pdf (default: svg,html)
   --out <dir>        Output directory (default: the input file directory)
-  --name <base>      Output base name (default: the input file name without .json)
+  --name <base>      Output base name (default: the input file name without .json or .sg)
   --theme <theme>    light, dark, auto or a theme file ending in .json (default: auto)
   --scale <n>        PNG scale factor (default: 2)
   --renderer <name>  HTML renderer: auto, svg or webgl (default: auto)
@@ -30,28 +37,41 @@ Options:
   -h, --help       Show this help
 `;
 
-function runValidate(file: string | undefined): number {
-  if (file === undefined) {
-    process.stderr.write("Usage: standargraph validate <file>\n");
-    return 2;
-  }
-  let input: unknown;
+type Read = { document: Document; format: "json" | "text" };
+
+function readDocument(file: string): Read | number {
+  let source: string;
   try {
-    input = JSON.parse(readFileSync(file, "utf8"));
+    source = readFileSync(file, "utf8");
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     process.stderr.write(`Cannot read ${file}: ${reason}\n`);
     return 2;
   }
-  const result = validate(input);
-  if (result.ok) {
-    process.stdout.write(`valid: ${file}\n`);
-    return 0;
+  const loaded = loadSource(source);
+  if (loaded.ok) return { document: loaded.document, format: loaded.format };
+  if (loaded.format === "json" && loaded.errors[0]?.path === undefined) {
+    process.stderr.write(`Cannot read ${file}: ${loaded.errors[0]?.message}\n`);
+    return 2;
   }
-  for (const error of result.errors) {
-    process.stderr.write(`${error.path}: ${error.message}\n`);
-  }
+  process.stderr.write(`${formatLoadErrors(loaded.errors, file)}\n`);
   return 1;
+}
+
+function baseName(file: string): string {
+  const extension = extname(file);
+  return basename(file, extension === ".json" || extension === ".sg" ? extension : "");
+}
+
+function runValidate(file: string | undefined): number {
+  if (file === undefined) {
+    process.stderr.write("Usage: standargraph validate <file>\n");
+    return 2;
+  }
+  const read = readDocument(file);
+  if (typeof read === "number") return read;
+  process.stdout.write(`valid: ${file}\n`);
+  return 0;
 }
 
 const FORMATS = ["svg", "html", "png", "pdf"] as const;
@@ -182,26 +202,13 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
 async function runExport(args: string[]): Promise<number> {
   const parsed = parseExportArgs(args);
   if (parsed === undefined) return 2;
-  let input: unknown;
-  try {
-    input = JSON.parse(readFileSync(parsed.file, "utf8"));
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Cannot read ${parsed.file}: ${reason}\n`);
-    return 2;
-  }
-  const result = validate(input);
-  if (!result.ok) {
-    for (const error of result.errors) {
-      process.stderr.write(`${error.path}: ${error.message}\n`);
-    }
-    return 1;
-  }
-  const base =
-    parsed.name ?? basename(parsed.file, extname(parsed.file) === ".json" ? ".json" : "");
+  const read = readDocument(parsed.file);
+  if (typeof read === "number") return read;
+  const document = read.document;
+  const base = parsed.name ?? baseName(parsed.file);
   const directory = parsed.out ?? dirname(parsed.file);
   const { exportDocument } = await import("./export");
-  const output = await exportDocument(result.document, {
+  const output = await exportDocument(document, {
     formats: parsed.formats,
     theme: parsed.theme,
     scale: parsed.scale,
@@ -222,7 +229,7 @@ async function runExport(args: string[]): Promise<number> {
     return 2;
   }
   if (parsed.markdown) {
-    const title = result.document.title ?? base;
+    const title = document.title ?? base;
     process.stdout.write(`[![${title}](${base}.svg)](${base}.html)\n`);
   }
   return 0;
@@ -247,22 +254,9 @@ async function runLayout(args: string[]): Promise<number> {
     }
   }
   if (file === undefined) return fail("Usage: standargraph layout <file> [--out <file>]") ?? 2;
-  let input: unknown;
-  try {
-    input = JSON.parse(readFileSync(file, "utf8"));
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Cannot read ${file}: ${reason}\n`);
-    return 2;
-  }
-  const result = validate(input);
-  if (!result.ok) {
-    for (const error of result.errors) {
-      process.stderr.write(`${error.path}: ${error.message}\n`);
-    }
-    return 1;
-  }
-  const document = result.document;
+  const read = readDocument(file);
+  if (typeof read === "number") return read;
+  const document = read.document;
   if (document.kind !== "graph") {
     process.stderr.write("Only graph documents carry node positions\n");
     return 1;
@@ -279,7 +273,7 @@ async function runLayout(args: string[]): Promise<number> {
     }),
   };
   const target =
-    out ?? join(dirname(file), `${basename(file, extname(file) === ".json" ? ".json" : "")}.positioned.json`);
+    out ?? join(dirname(file), `${baseName(file)}.positioned.json`);
   try {
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, `${JSON.stringify(positioned, null, 2)}\n`);
@@ -289,6 +283,56 @@ async function runLayout(args: string[]): Promise<number> {
     return 2;
   }
   process.stdout.write(`wrote ${target}\n`);
+  return 0;
+}
+
+function runConvert(args: string[]): number {
+  let file: string | undefined;
+  let out: string | undefined;
+  let to: string | undefined;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    const equals = arg.indexOf("=");
+    const flag = equals === -1 ? arg : arg.slice(0, equals);
+    if (flag === "--out" || flag === "--to") {
+      const value = equals === -1 ? args[++index] : arg.slice(equals + 1);
+      if (value === undefined) return fail(`Missing value for ${flag}`) ?? 2;
+      if (flag === "--out") out = value;
+      else to = value;
+    } else if (arg.startsWith("--")) {
+      return fail(`Unknown option: ${arg}`) ?? 2;
+    } else if (file === undefined) {
+      file = arg;
+    } else {
+      return fail(`Unexpected argument: ${arg}`) ?? 2;
+    }
+  }
+  if (file === undefined) {
+    return fail("Usage: standargraph convert <file> [--to json|text] [--out <file>]") ?? 2;
+  }
+  if (to !== undefined && to !== "json" && to !== "text") {
+    return fail(`Unknown format: ${to}`) ?? 2;
+  }
+  const read = readDocument(file);
+  if (typeof read === "number") return read;
+  const target = to ?? (read.format === "json" ? "text" : "json");
+  const output =
+    out ?? join(dirname(file), `${baseName(file)}.${target === "json" ? "json" : "sg"}`);
+  if (resolve(output) === resolve(file)) {
+    return fail("Output would overwrite the input") ?? 2;
+  }
+  try {
+    mkdirSync(dirname(output), { recursive: true });
+    writeFileSync(
+      output,
+      target === "json" ? `${JSON.stringify(read.document, null, 2)}\n` : print(read.document),
+    );
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Cannot write ${output}: ${reason}\n`);
+    return 2;
+  }
+  process.stdout.write(`wrote ${output}\n`);
   return 0;
 }
 
@@ -310,6 +354,9 @@ export function run(argv: string[]): number | Promise<number> {
   }
   if (command === "layout") {
     return runLayout(rest);
+  }
+  if (command === "convert") {
+    return runConvert(rest);
   }
   process.stderr.write(`Unknown command: ${command}\n`);
   return 1;

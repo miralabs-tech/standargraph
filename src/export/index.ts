@@ -2,9 +2,10 @@ import { type Document, validate } from "../format";
 import { renderHtml } from "../html/render";
 import { layout } from "../layout";
 import { round } from "../layout/shared";
-import { formatErrors } from "../shared/errors";
+import { formatErrors, formatLoadErrors } from "../shared/errors";
 import { renderSvg } from "../svg/render";
 import { lightTheme, type PageThemeOption } from "../svg/theme";
+import { loadSource } from "../text";
 import { renderPdf } from "./pdf";
 import { renderPng } from "./png";
 
@@ -40,11 +41,20 @@ export async function exportDocument(
   input: unknown,
   options: ExportOptions = {},
 ): Promise<ExportResult> {
-  const result = validate(input);
-  if (!result.ok) {
-    throw new Error(`Invalid document:\n${formatErrors(result.errors)}`);
+  let document: Document;
+  if (typeof input === "string") {
+    const loaded = loadSource(input);
+    if (!loaded.ok) {
+      throw new Error(`Invalid document:\n${formatLoadErrors(loaded.errors)}`);
+    }
+    document = loaded.document;
+  } else {
+    const result = validate(input);
+    if (!result.ok) {
+      throw new Error(`Invalid document:\n${formatErrors(result.errors)}`);
+    }
+    document = result.document;
   }
-  const document: Document = result.document;
   const laidOut = await layout(document);
   const theme = options.theme ?? "auto";
   const flatTheme = lightTheme(theme);

@@ -282,6 +282,52 @@ describe("mount() with an ER diagram", () => {
   });
 });
 
+describe("mount() with a text source", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("text", "{}"), errors);
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("a string in the text syntax is parsed and drawn", async () => {
+    const source = readFileSync(join(root, "examples", "architecture.sg"), "utf8");
+    const state = await page.evaluate(async (text) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", text);
+      return {
+        ready: document.querySelector("#a .sg-app")?.getAttribute("data-sg-ready"),
+        nodes: document.querySelectorAll("#a [data-kind=node]").length,
+      };
+    }, source);
+    expect(state.ready).toBe("1");
+    expect(state.nodes).toBeGreaterThan(0);
+  });
+
+  test("a text error is thrown with its line and column", async () => {
+    const message = await page.evaluate(async () => {
+      const w = window as any;
+      try {
+        await w.mountInto("b", "graph" + String.fromCharCode(10, 10) + "a %");
+        return "";
+      } catch (error) {
+        return String(error);
+      }
+    });
+    expect(message).toContain("Invalid document:");
+    expect(message).toContain("3:3: Unexpected character");
+    expect(message).toContain("[E_TOKEN]");
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
 describe("mount() with a mindmap", () => {
   const errors: string[] = [];
   let page: Page;

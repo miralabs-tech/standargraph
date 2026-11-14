@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "..");
 const PACKAGE = "@miralabs-tech/standargraph";
-const SUBPATHS = ["core", "format", "layout", "svg", "html", "export", "webgl", "remark"];
+const SUBPATHS = ["core", "format", "layout", "svg", "html", "export", "webgl", "remark", "text"];
 const failures: string[] = [];
 
 function report(name: string, ok: boolean, detail = ""): void {
@@ -69,6 +69,16 @@ try {
   for (const extension of ["svg", "html"]) {
     report(`output ${extension} non-empty`, nonEmpty(join(out, `architecture.${extension}`)));
   }
+
+  const textOut = join(work, "out-text");
+  const textExample = join(root, "examples", "architecture.sg");
+  const textValidated = run(["node", cli, "validate", textExample], project);
+  report("cli validate .sg", textValidated.code === 0, textValidated.code === 0 ? "" : textValidated.stderr.trim());
+  const textExported = run(["node", cli, "export", textExample, "--format", "svg", "--out", textOut], project);
+  report("cli export .sg", textExported.code === 0, textExported.code === 0 ? "" : textExported.stderr.trim());
+  report("output svg from .sg non-empty", nonEmpty(join(textOut, "architecture.svg")));
+  const converted = run(["node", cli, "convert", textExample, "--out", join(textOut, "architecture.json")], project);
+  report("cli convert .sg to json", converted.code === 0 && nonEmpty(join(textOut, "architecture.json")), converted.code === 0 ? "" : converted.stderr.trim());
 } catch (error) {
   if (failures.length === 0) report("setup", false, error instanceof Error ? error.message : String(error));
 } finally {

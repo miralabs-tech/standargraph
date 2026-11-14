@@ -3,9 +3,10 @@ import type { View } from "../core/view";
 import { type Document, validate } from "../format";
 import { layout } from "../layout";
 import type { LaidOut } from "../layout/types";
-import { formatErrors } from "../shared/errors";
+import { formatErrors, formatLoadErrors } from "../shared/errors";
 import { renderSvg } from "../svg/render";
 import { lightTheme, type PageThemeOption, themeStyle } from "../svg/theme";
+import { loadSource } from "../text";
 import { appMarkup, STYLE, svgViewport, WEBGL_VIEWPORT } from "./shell";
 import { withScope } from "./ui";
 
@@ -54,9 +55,16 @@ export async function mount(
   input: unknown,
   options: MountOptions = {},
 ): Promise<Mounted> {
-  const result = validate(input);
-  if (!result.ok) throw new Error(`Invalid document:\n${formatErrors(result.errors)}`);
-  const document = result.document;
+  let document: Document;
+  if (typeof input === "string") {
+    const loaded = loadSource(input);
+    if (!loaded.ok) throw new Error(`Invalid document:\n${formatLoadErrors(loaded.errors)}`);
+    document = loaded.document;
+  } else {
+    const result = validate(input);
+    if (!result.ok) throw new Error(`Invalid document:\n${formatErrors(result.errors)}`);
+    document = result.document;
+  }
   const needsWorker =
     (document.kind === "graph" && !hasPositions(document)) ||
     document.kind === "state" ||

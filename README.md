@@ -54,15 +54,17 @@ standargraph export graph.json --format svg,html,png,pdf --out out --theme dark
 standargraph export graph.json --renderer webgl             # force the WebGL page
 standargraph export graph.json --markdown                   # also print a Markdown preview snippet
 standargraph layout graph.json                              # graph.positioned.json: every node gets its computed position
+standargraph convert graph.json                             # graph.sg, the same document in the text syntax
+standargraph convert graph.sg --to json --out out/graph.json
 ```
 
-`validate` exits 0 when the document is valid, 1 with one `path: message` line per error otherwise, 2 when the file cannot be read.
+Every command reads JSON or the [text syntax](#text-syntax): the format is detected from the content, never from the file extension. `validate` exits 0 when the document is valid, 1 with one `path: message` line per JSON error (or one `file:line:col: message [code]` line per text error) otherwise, 2 when the file cannot be read. `layout` always writes JSON. `convert` writes the other format than the input unless `--to json|text` says otherwise, and exits 2 with `Output would overwrite the input` when the output is the input file.
 
 | Option | Meaning |
 | --- | --- |
 | `--format <list>` | Comma-separated: `svg`, `html`, `png`, `pdf` (default `svg,html`) |
 | `--out <dir>` | Output directory (default: the input file directory) |
-| `--name <base>` | Output base name (default: the input file name without `.json`) |
+| `--name <base>` | Output base name (default: the input file name without `.json` or `.sg`) |
 | `--theme <theme>` | `light`, `dark`, `auto` (default `auto`) or a `.json` theme file, see [docs/theming.md](./docs/theming.md) |
 | `--scale <n>` | PNG scale factor (default 2) |
 | `--renderer <name>` | HTML renderer: `auto`, `svg` or `webgl` (default `auto`) |
@@ -103,7 +105,7 @@ import { mount } from "@miralabs-tech/standargraph/html";
 const { view, destroy } = await mount(document.getElementById("graph")!, graphDocument, { renderer: "auto" });
 ```
 
-Markdown pipelines, with the remark plugin (it turns ` ```standargraph ` code blocks holding a JSON document into an inline SVG, linked to a standalone HTML page when `outDir` is set):
+Markdown pipelines, with the remark plugin (it turns ` ```standargraph ` and ` ```sg ` code blocks holding a JSON document or the text syntax into an inline SVG, linked to a standalone HTML page when `outDir` is set):
 
 ```ts
 import { unified } from "unified";
@@ -233,6 +235,48 @@ A flat list of nodes linked by `parent`, laid out as a tidy tree (`"layout": "tr
 
 Shapes live in the document; colors never do. They come from the theme.
 
+### Text syntax
+
+Every kind can also be written as plain text, in files conventionally named `.sg`. A graph in the symbol form:
+
+```
+graph "Release flow" [direction=right]
+
+live "Live" [shape=pill]
+group ci "CI" {
+  build "Build image" [shape=rect]
+  check "Green?" [shape=diamond]
+}
+
+build -> check
+check -> live "yes"
+```
+
+The same graph in the word form, where `to`, `with`, `async`, `reply` and `via` replace the operators and `do` ... `end` replaces the braces:
+
+```
+graph "Release flow" [direction=right]
+
+live "Live" [shape=pill]
+group ci "CI" do
+  build "Build image" [shape=rect]
+  check "Green?" [shape=diamond]
+end
+
+build to check
+check to live "yes"
+```
+
+Both forms read to the same document. `examples/` holds a `.sg` twin of every JSON example. The `/text` subpath exports `parse`, `print`, `canonicalize`, `sniff` and `loadSource`; a string passed to `mount()` or `exportDocument()` goes through `loadSource`, and `standargraph convert` turns one format into the other. In Markdown, a ` ```sg ` fence (or ` ```standargraph `) holds either format:
+
+````md
+```sg
+graph "Release flow"
+
+build -> check
+```
+````
+
 ### Theming
 
 A theme is a set of color tokens plus optional colors per node `type`, given as `--theme <file.json>` on the CLI or as the `theme` option of the API. See [docs/theming.md](./docs/theming.md).
@@ -268,6 +312,7 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 - **Offline single-file HTML**: fonts and runtime are embedded, nothing is fetched.
 - **Export**: SVG, HTML, PNG and PDF from the CLI or `exportDocument()`, PNG and PDF without a browser (resvg WASM and PDFKit).
 - **Headless core**: view controller with camera, hit testing, culling, level of detail and highlight, usable in Node, Bun, a worker or a browser.
+- **Text syntax**: every kind as plain text (`.sg`), in a symbol or a word form, with line and column errors, `print()` back to text and `standargraph convert` between the two formats (see [Text syntax](#text-syntax)).
 - **Embedding**: `mount()` for applications, with an on-demand layout worker, and a remark plugin for Markdown.
 
 ---

@@ -18,7 +18,10 @@ All notable changes to this project are documented in this file. The format foll
 - Interactive single-file HTML viewer built on the core with frame batching, label level of detail and culling, and `mount()` for applications: several instances per page, layout in an on-demand Web Worker, listeners removed on `destroy()`.
 - WebGL adapter built on Sigma.js, with an automatic switch from the SVG renderer above 2000 nodes and a `--renderer` override.
 - CLI `standargraph` with `validate`, `layout` (writes the document with every node position computed) and `export` to SVG, HTML, PNG and PDF, and a `--markdown` option that prints a preview snippet.
-- Remark plugin (`@miralabs-tech/standargraph/remark`) that renders ` ```standargraph ` code blocks as inline SVG, linked to a standalone HTML page.
+- Remark plugin (`@miralabs-tech/standargraph/remark`) that renders ` ```standargraph ` and ` ```sg ` code blocks, holding JSON or the text syntax, as inline SVG, linked to a standalone HTML page.
+- Text syntax for every kind (`.sg`), in a symbol form and a word form, with `parse()`, `print()`, `canonicalize()`, `sniff()` and `loadSource()` in `@miralabs-tech/standargraph/text`, errors reported as `line:column: message [code]`, and a `.sg` twin of every example.
+- CLI `convert <file> [--to json|text] [--out <file>]` between JSON and the text syntax; `validate`, `export` and `layout` read either format, detected from the content.
+- `mount()` and `exportDocument()` accept a string in JSON or the text syntax.
 - Playwright benchmark (`bun run bench`) with results published in `docs/bench.md`: 10 000 nodes in WebGL hold a median of 303 FPS capped and 58.1 FPS uncapped.
 - Node smoke test of the packed package, browser tests of `mount()`, a CLI `--markdown` test and GitHub CI.
 - MIT license, third-party notices and the EPL-2.0 and MPL-2.0 texts in `licenses/`.
