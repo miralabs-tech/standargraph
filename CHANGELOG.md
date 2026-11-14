@@ -23,6 +23,7 @@ All notable changes to this project are documented in this file. The format foll
 - CLI `convert <file> [--to json|text] [--out <file>]` between JSON and the text syntax; `validate`, `export` and `layout` read either format, detected from the content.
 - `mount()` and `exportDocument()` accept a string in JSON or the text syntax.
 - Mermaid export for the five kinds: `toMermaid()` in `@miralabs-tech/standargraph/mermaid`, the `mermaid` format of `exportDocument()` and `--format mermaid` on the CLI (`<base>.mmd`, warnings on stderr, and a fenced `mermaid` block after `--markdown`), with the losses documented in `docs/mermaid.md`.
+- GitHub Action (`action.yml`, composite) that renders `.sg` files with the published CLI in `write` or `check` mode without committing, an example workflow in `docs/diagrams-workflow.yml`, and a CI job that runs it from the local checkout.
 - Playwright benchmark (`bun run bench`) with results published in `docs/bench.md`: 10 000 nodes in WebGL hold a median of 303 FPS capped and 58.1 FPS uncapped.
 - Node smoke test of the packed package, browser tests of `mount()`, a CLI `--markdown` test and GitHub CI.
 - MIT license, third-party notices and the EPL-2.0 and MPL-2.0 texts in `licenses/`.

@@ -290,6 +290,30 @@ build -> check
 
 Un thème est un ensemble de jetons de couleur plus des couleurs facultatives par `type` de nœud, donné par `--theme <fichier.json>` dans la CLI ou par l'option `theme` de l'API. Voir [docs/theming.md](./docs/theming.md) (en anglais).
 
+### GitHub Action
+
+L'action composite à la racine du dépôt rend vos fichiers `.sg` avec la CLI publiée. Elle ne commite ni ne pousse jamais.
+
+```yaml
+- uses: actions/checkout@v4
+- uses: miralabs-tech/standargraph@v1
+  with:
+    files: "docs/**/*.sg"
+    mode: check
+```
+
+| Entrée | Défaut | Rôle |
+| --- | --- | --- |
+| `files` | `**/*.sg` | Fichiers à rendre |
+| `formats` | `svg` | Formats d'export |
+| `theme` | `light` | Thème du rendu |
+| `out` | vide (à côté du source) | Dossier de sortie |
+| `version` | la version du paquet de la ref de l'action | Version npm de `@miralabs-tech/standargraph` lancée |
+| `mode` | `write` | `write` rend ; `check` rend puis échoue, en listant les fichiers, si une sortie diffère de l'arbre de travail ou manque |
+| `cli-path` | vide | Chemin d'un `dist/cli.js` construit localement, utilisé à la place du paquet npm (CI de ce dépôt) |
+
+[docs/diagrams-workflow.yml](./docs/diagrams-workflow.yml) est un workflow d'exemple qui rend à chaque push et commite le résultat avec de simples commandes `git`. Copiez-le dans `.github/workflows/diagrams.yml`.
+
 ---
 
 ## 📦 Installation

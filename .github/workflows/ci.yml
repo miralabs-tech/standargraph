@@ -45,3 +45,28 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx playwright-core install --with-deps chromium
       - run: bun run test:browser
+
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - uses: ./
+        with:
+          files: examples/*.sg
+          formats: svg,mermaid
+          out: action-out
+          cli-path: dist/cli.js
+          mode: write
+      - run: git add action-out
+      - uses: ./
+        with:
+          files: examples/*.sg
+          formats: svg,mermaid
+          out: action-out
+          cli-path: dist/cli.js
+          mode: check

@@ -290,6 +290,30 @@ build -> check
 
 A theme is a set of color tokens plus optional colors per node `type`, given as `--theme <file.json>` on the CLI or as the `theme` option of the API. See [docs/theming.md](./docs/theming.md).
 
+### GitHub Action
+
+The composite action at the root of the repository renders your `.sg` files with the published CLI and never commits or pushes.
+
+```yaml
+- uses: actions/checkout@v4
+- uses: miralabs-tech/standargraph@v1
+  with:
+    files: "docs/**/*.sg"
+    mode: check
+```
+
+| Input | Default | Meaning |
+| --- | --- | --- |
+| `files` | `**/*.sg` | Files to render |
+| `formats` | `svg` | Export formats |
+| `theme` | `light` | Theme of the render |
+| `out` | empty (next to the source) | Output directory |
+| `version` | the package version of the action ref | npm version of `@miralabs-tech/standargraph` to run |
+| `mode` | `write` | `write` renders; `check` renders and fails, listing the files, when an output differs from the working tree or is missing |
+| `cli-path` | empty | Path of a locally built `dist/cli.js`, used instead of the npm package (CI of this repository) |
+
+[docs/diagrams-workflow.yml](./docs/diagrams-workflow.yml) is an example workflow that renders on push and commits the result with plain `git` commands. Copy it to `.github/workflows/diagrams.yml`.
+
 ---
 
 ## 📦 Install

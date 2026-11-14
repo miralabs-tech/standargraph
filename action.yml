@@ -1,0 +1,99 @@
+name: StandarGraph diagrams
+description: Render StandarGraph diagram files with the published CLI, and fail when the committed outputs are stale. The action never commits.
+author: miralabs-tech
+
+inputs:
+  files:
+    description: Glob of the files to render, one pattern per line or space separated.
+    default: "**/*.sg"
+  formats:
+    description: Comma-separated export formats (svg, html, png, pdf, mermaid).
+    default: svg
+  theme:
+    description: Theme of the render (light, dark, auto or a theme file ending in .json).
+    default: light
+  out:
+    description: Output directory. Empty writes next to each source file.
+    default: ""
+  version:
+    description: Version of @miralabs-tech/standargraph to run. Empty uses the version in the package.json of the action ref.
+    default: ""
+  mode:
+    description: write renders the files, check renders them and fails when an output differs from the working tree.
+    default: write
+  cli-path:
+    description: Path of a locally built CLI (dist/cli.js) to run with node instead of the published package.
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - name: Render diagrams
+      shell: bash
+      env:
+        SG_FILES: ${{ inputs.files }}
+        SG_FORMATS: ${{ inputs.formats }}
+        SG_THEME: ${{ inputs.theme }}
+        SG_OUT: ${{ inputs.out }}
+        SG_VERSION: ${{ inputs.version }}
+        SG_MODE: ${{ inputs.mode }}
+        SG_CLI_PATH: ${{ inputs.cli-path }}
+        SG_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        shopt -s globstar nullglob
+
+        case "$SG_MODE" in
+          write | check) ;;
+          *) echo "Invalid mode: $SG_MODE (expected write or check)" >&2; exit 2 ;;
+        esac
+
+        if [ -n "$SG_CLI_PATH" ]; then
+          cli=(node "$SG_CLI_PATH")
+        else
+          version="$SG_VERSION"
+          if [ -z "$version" ]; then
+            version="$(node -p "require(process.argv[1]).version" "$SG_ACTION_PATH/package.json")"
+          fi
+          cli=(npx -y "@miralabs-tech/standargraph@$version")
+        fi
+
+        outputs=()
+        count=0
+        for pattern in $SG_FILES; do
+          for f in $pattern; do
+            [ -f "$f" ] || continue
+            args=(export "$f" --format "$SG_FORMATS" --theme "$SG_THEME")
+            if [ -n "$SG_OUT" ]; then
+              args+=(--out "$SG_OUT")
+              dir="$SG_OUT"
+            else
+              dir="$(dirname "$f")"
+            fi
+            "${cli[@]}" "${args[@]}"
+            count=$((count + 1))
+            base="$(basename "$f")"
+            base="${base%.sg}"
+            base="${base%.json}"
+            IFS=',' read -ra formats <<< "$SG_FORMATS"
+            for format in "${formats[@]}"; do
+              ext="$format"
+              [ "$format" = mermaid ] && ext=mmd
+              outputs+=("$dir/$base.$ext")
+            done
+          done
+        done
+
+        echo "Rendered $count file(s)"
+
+        if [ "$SG_MODE" = check ] && [ "${#outputs[@]}" -gt 0 ]; then
+          stale="$(git diff --name-only -- "${outputs[@]}"; git ls-files --others --exclude-standard -- "${outputs[@]}")"
+          if [ -n "$stale" ]; then
+            echo "Stale or missing diagram outputs:" >&2
+            echo "$stale" | sed 's/^/  /' >&2
+            exit 1
+          fi
+        fi
