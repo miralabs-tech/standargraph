@@ -52,7 +52,7 @@ export function svgViewport(svg: string): string {
 export const WEBGL_VIEWPORT =
   '<main class="sg-viewport"><canvas class="sg-groups"></canvas><div class="sg-gl"></div></main>';
 
-export function appMarkup(title: string, viewport: string): string {
+export function appMarkup(title: string, viewport: string, adaptive = false): string {
   return [
     '<div class="sg-app">',
     '<header class="sg-toolbar">',
@@ -61,6 +61,9 @@ export function appMarkup(title: string, viewport: string): string {
     '<button class="sg-zoom-out" type="button" aria-label="Zoom out">−</button>',
     '<button class="sg-zoom-in" type="button" aria-label="Zoom in">+</button>',
     '<button class="sg-fit" type="button">Fit</button>',
+    ...(adaptive
+      ? ['<button class="sg-scheme" type="button" aria-label="Color scheme: auto" title="Color scheme: auto">Auto</button>']
+      : []),
     "</header>",
     viewport,
     '<aside class="sg-panel" hidden></aside>',

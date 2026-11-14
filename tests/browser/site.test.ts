@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { type Browser, chromium, type Page } from "playwright-core";
 import { buildSite } from "../../scripts/site";
+import { run } from "../../src/cli";
 
 const channel = process.env.STANDARGRAPH_BROWSER_CHANNEL;
 
@@ -110,6 +111,123 @@ describe("a built example page", () => {
     }));
     expect(state.diagram).toBe("graph");
     expect(state.nodes).toBeGreaterThan(0);
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
+describe("the playground theme panel", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  const fill = (type: string) =>
+    page.evaluate(
+      (name) =>
+        (() => {
+          const node = document.querySelector(`#preview [data-type="${name}"] .sg-node`);
+          return node === null ? "" : getComputedStyle(node).fill;
+        })(),
+      type,
+    );
+  const background = () =>
+    page.evaluate(() => {
+      const app = document.querySelector("#preview .sg-app");
+      return app === null ? "" : getComputedStyle(app).backgroundColor;
+    });
+  async function waitFor(expected: string, read: () => Promise<string>): Promise<void> {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if ((await read()) === expected) return;
+      await page.waitForTimeout(100);
+    }
+    expect(await read()).toBe(expected);
+  }
+
+  beforeAll(async () => {
+    page = await open(pathToFileURL(join(site, "index.html")).href, errors);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.waitForSelector('#preview .sg-app[data-sg-ready="1"]', { timeout: 30000 });
+    await page.click("#theme summary");
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("the palette select lists auto and the six names, with a color input per token and per type", async () => {
+    const state = await page.evaluate(() => ({
+      palettes: [...document.querySelectorAll("#palette option")].map((option) => (option as HTMLOptionElement).value),
+      tokens: document.querySelectorAll("#tokens input[type=color]").length,
+      types: [...document.querySelectorAll('#types input[data-key="fill"]')].map((input) => (input as HTMLInputElement).dataset.type),
+    }));
+    expect(state.palettes).toEqual(["auto", "light", "dark", "nord", "solarized-light", "solarized-dark", "high-contrast"]);
+    expect(state.tokens).toBe(13);
+    expect(state.types).toContain("database");
+    expect(state.types).toContain("service");
+  });
+
+  test("a palette name re-renders the preview and a fixed palette hides the scheme switch", async () => {
+    await page.selectOption("#palette", "nord");
+    await waitFor("rgb(46, 52, 64)", background);
+    expect(await page.evaluate(() => document.querySelectorAll("#preview .sg-scheme").length)).toBe(0);
+    expect(await page.evaluate(() => (document.getElementById("scheme") as HTMLSelectElement).disabled)).toBe(true);
+  });
+
+  test("a type color input changes the node fill", async () => {
+    await page.fill('#types input[data-type="database"][data-key="fill"]', "#ff0000");
+    await waitFor("rgb(255, 0, 0)", () => fill("database"));
+  });
+
+  test("palette off removes the automatic type colors", async () => {
+    await page.click("#theme-reset");
+    await waitFor("rgb(255, 255, 255)", background);
+    const colored = await fill("service");
+    await page.check("#palette-off");
+    await waitFor("rgb(255, 255, 255)", () => fill("service"));
+    expect(colored).not.toBe("rgb(255, 255, 255)");
+    await page.uncheck("#palette-off");
+    await waitFor(colored, () => fill("service"));
+  });
+
+  test("the scheme select forces dark on an auto palette", async () => {
+    await page.selectOption("#scheme", "dark");
+    await waitFor("rgb(15, 23, 42)", background);
+    expect(await page.getAttribute("#preview .sg-app", "data-sg-scheme")).toBe("dark");
+    expect(await page.getAttribute("#preview .sg-scheme", "aria-label")).toBe("Color scheme: dark");
+    await page.selectOption("#scheme", "auto");
+    await waitFor("rgb(255, 255, 255)", background);
+  });
+
+  test("Download theme.json gives a file the CLI accepts", async () => {
+    await page.selectOption("#palette", "nord");
+    await waitFor("rgb(46, 52, 64)", background);
+    await page.fill('#types input[data-type="database"][data-key="fill"]', "#ff0000");
+    await waitFor("rgb(255, 0, 0)", () => fill("database"));
+    const [download] = await Promise.all([page.waitForEvent("download"), page.click("#download-theme")]);
+    expect(download.suggestedFilename()).toBe("theme.json");
+    const file = join(directory, "theme.json");
+    await download.saveAs(file);
+    const theme = JSON.parse(readFileSync(file, "utf8"));
+    expect(theme.base).toBe("nord");
+    expect(theme.types.database.fill).toBe("#ff0000");
+    expect(await run(["export", "examples/architecture.json", "--format", "svg", "--out", directory, "--theme", file])).toBe(0);
+    const svg = readFileSync(join(directory, "architecture.svg"), "utf8");
+    expect(svg).toContain("--sg-bg:#2e3440");
+    expect(svg).toContain("#ff0000");
+  });
+
+  test("the auto palette downloads a light and dark pair the CLI accepts", async () => {
+    await page.selectOption("#palette", "auto");
+    await page.check("#palette-off");
+    const [download] = await Promise.all([page.waitForEvent("download"), page.click("#download-theme")]);
+    const file = join(directory, "pair.json");
+    await download.saveAs(file);
+    const theme = JSON.parse(readFileSync(file, "utf8"));
+    expect(theme.light.base).toBe("light");
+    expect(theme.dark.base).toBe("dark");
+    expect(theme.light.palette).toBe(false);
+    expect(await run(["export", "examples/architecture.json", "--format", "html", "--out", directory, "--theme", file])).toBe(0);
   });
 
   test("no page errors", () => {

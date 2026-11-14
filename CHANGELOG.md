@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Six named palettes, `light`, `dark`, `nord`, `solarized-light`, `solarized-dark` and `high-contrast`, accepted wherever a theme name is: the API, the `remark` plugin, `--theme <name>` and the `base` of a theme file. Each reaches a 4.5:1 contrast for its text, checked by a test.
+- Automatic palette per item type: a typed node, participant, state, entity or tree node with no `theme.types` entry gets a stable color from the palette of its theme, in the SVG attributes, the CSS rules of both blocks of an adaptive theme and WebGL. `palette: false` in a `Theme` and `--no-palette` turn it off; explicit `types` entries and `unknown` confidence still win.
+- Light, dark and auto switch in the toolbar of the interactive HTML page and of `mount()` for an adaptive theme, set by `data-sg-scheme` on `.sg-app`, kept in `localStorage` (`standargraph-scheme`), with forced-scheme blocks that win over the media query.
+- Theme panel in the online demo: palette, light, dark and auto switch, a color input per token and per type of the document, "palette off", live render and a `theme.json` download accepted by `--theme`.
+
+### Changed
+
+- A typed item with no color of its own is now colored by the automatic palette, so the SVG output of typed documents changes unless `palette: false` is set.
+- `Theme.base` accepts every palette name, and `resolveTheme()` also returns the `palette` of the theme.
+
 ## [1.0.0] - 2026-11-14
 
 ### Added

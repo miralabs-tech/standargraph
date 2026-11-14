@@ -50,6 +50,58 @@ const CARDINALITY_NOTATION: Record<Cardinality, string> = {
   "zero-or-more": "0..*",
 };
 
+export type Scheme = "auto" | "light" | "dark";
+
+export const SCHEME_KEY = "standargraph-scheme";
+
+const SCHEME_ORDER: readonly Scheme[] = ["auto", "light", "dark"];
+
+function storedScheme(): Scheme {
+  try {
+    const value = localStorage.getItem(SCHEME_KEY);
+    return value === "light" || value === "dark" ? value : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function storeScheme(scheme: Scheme): void {
+  try {
+    localStorage.setItem(SCHEME_KEY, scheme);
+  } catch {
+    return;
+  }
+}
+
+export function currentScheme(app: HTMLElement): Scheme {
+  const value = app.getAttribute("data-sg-scheme");
+  return value === "light" || value === "dark" ? value : "auto";
+}
+
+export function setScheme(app: HTMLElement, scheme: Scheme, persist = true): void {
+  if (scheme === "auto") app.removeAttribute("data-sg-scheme");
+  else app.setAttribute("data-sg-scheme", scheme);
+  const button = app.querySelector<HTMLButtonElement>(".sg-scheme");
+  if (button !== null) {
+    const label = `Color scheme: ${scheme}`;
+    button.textContent = scheme[0]!.toUpperCase() + scheme.slice(1);
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  }
+  if (persist) storeScheme(scheme);
+  app.dispatchEvent(new CustomEvent("sg-scheme", { bubbles: true, detail: scheme }));
+}
+
+export function bindScheme(app: HTMLElement): void {
+  const button = app.querySelector<HTMLButtonElement>(".sg-scheme");
+  if (button === null) return;
+  setScheme(app, storedScheme(), false);
+  button.addEventListener("click", () => {
+    const next = SCHEME_ORDER[(SCHEME_ORDER.indexOf(currentScheme(app)) + 1) % SCHEME_ORDER.length]!;
+    setScheme(app, next);
+  });
+}
+
 export type PanelControl = { update(): void; destroy(): void };
 
 export function createPanel(view: View, doc: Document, panel: HTMLElement): PanelControl {
