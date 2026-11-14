@@ -1,10 +1,28 @@
 {
-  "name": "standargraph",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@miralabs-tech/standargraph",
+  "version": "1.0.0",
   "type": "module",
   "license": "MIT",
   "description": "Declarative graph and diagram rendering",
+  "keywords": [
+    "graph",
+    "diagram",
+    "svg",
+    "webgl",
+    "elk",
+    "sequence-diagram",
+    "visualization",
+    "cli",
+    "remark"
+  ],
+  "homepage": "https://github.com/miralabs-tech/standargraph#readme",
+  "bugs": {
+    "url": "https://github.com/miralabs-tech/standargraph/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miralabs-tech/standargraph.git"
+  },
   "bin": {
     "standargraph": "dist/cli.js"
   },
@@ -47,7 +65,9 @@
   "files": [
     "dist",
     "schema",
-    "assets"
+    "assets",
+    "licenses",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "engines": {
     "node": ">=20"
@@ -60,7 +80,10 @@
     "runtime": "bun scripts/build-runtime.ts",
     "generate": "bun scripts/generate.ts",
     "bench": "bun bench/run.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "prepublishOnly": "bun run typecheck && bun test && bun run build",
+    "smoke": "bun tools/smoke.ts",
+    "test:browser": "bun test --config=bunfig.browser.toml tests/browser"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
@@ -85,5 +108,9 @@
     "pdfkit": "^0.20.2",
     "sigma": "^4.0.6",
     "svg-to-pdfkit": "^0.1.8"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

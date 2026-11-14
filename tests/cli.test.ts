@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { run } from "../src/cli";
@@ -79,6 +79,41 @@ test("export reports validation errors with 1", async () => {
     const file = join(dir, "bad.json");
     writeFileSync(file, JSON.stringify({ version: 2, kind: "graph", nodes: [] }));
     expect(await run(["export", file, "--out", dir])).toBe(1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("export --markdown writes the SVG and prints a snippet linking it to the HTML page", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const printed: string[] = [];
+  const original = process.stdout.write;
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    printed.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+    return true;
+  }) as typeof process.stdout.write;
+  let code: number;
+  try {
+    code = await run([
+      "export",
+      "examples/architecture.json",
+      "--format",
+      "svg,html",
+      "--out",
+      dir,
+      "--markdown",
+    ]);
+  } finally {
+    process.stdout.write = original;
+  }
+  try {
+    expect(code).toBe(0);
+    const svg = join(dir, "architecture.svg");
+    expect(existsSync(svg)).toBe(true);
+    expect(statSync(svg).size).toBeGreaterThan(0);
+    expect(existsSync(join(dir, "architecture.html"))).toBe(true);
+    const snippet = printed.join("").split("\n").find((line) => line.startsWith("[!["));
+    expect(snippet).toMatch(/^\[!\[[^\]]+\]\(architecture\.svg\)\]\(architecture\.html\)$/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -7,7 +7,7 @@ Status: pre-v1
 
 ## Headless core
 
-The layout and the view (camera, hit testing, culling, level of detail, highlight) live in `standargraph/core` and never touch the DOM, so any renderer can be built on them. See [docs/headless.md](docs/headless.md).
+The layout and the view (camera, hit testing, culling, level of detail, highlight) live in `@miralabs-tech/standargraph/core` and never touch the DOM, so any renderer can be built on them. See [docs/headless.md](docs/headless.md).
 
 ## License
 

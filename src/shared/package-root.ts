@@ -9,7 +9,7 @@ function isPackageRoot(directory: string): boolean {
   const file = join(directory, "package.json");
   if (!existsSync(file)) return false;
   try {
-    return (JSON.parse(readFileSync(file, "utf8")) as { name?: unknown }).name === "standargraph";
+    return (JSON.parse(readFileSync(file, "utf8")) as { name?: unknown }).name === "@miralabs-tech/standargraph";
   } catch {
     return false;
   }

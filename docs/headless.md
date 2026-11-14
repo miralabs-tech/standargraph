@@ -1,9 +1,9 @@
 # Headless core
 
-`standargraph/core` is the part of StandarGraph that never touches a browser. It validates a document, lays it out, and exposes a **view**: camera, hit testing, culling, level of detail, hover, selection and search. The SVG renderer and the HTML page are adapters on top of it. Anything else (a canvas, WebGL, a UI kit, a terminal) is another adapter, and it animates however it likes.
+`@miralabs-tech/standargraph/core` is the part of StandarGraph that never touches a browser. It validates a document, lays it out, and exposes a **view**: camera, hit testing, culling, level of detail, hover, selection and search. The SVG renderer and the HTML page are adapters on top of it. Anything else (a canvas, WebGL, a UI kit, a terminal) is another adapter, and it animates however it likes.
 
 ```ts
-import { createView, layout, type ItemRef } from "standargraph/core";
+import { createView, layout, type ItemRef } from "@miralabs-tech/standargraph/core";
 ```
 
 Nothing under `src/core`, `src/format` or `src/layout` uses `document`, `window` or `requestAnimationFrame`, so the core runs in Node, Bun, a worker or a browser. A test enforces it.
@@ -30,7 +30,7 @@ The view does not know about pixels, devices or frames: call `setViewport(width,
 ## A minimal canvas adapter
 
 ```ts
-import { createView, layout } from "standargraph/core";
+import { createView, layout } from "@miralabs-tech/standargraph/core";
 
 const scene = await layout(await (await fetch("graph.json")).json());
 const canvas = document.querySelector("canvas")!;
@@ -82,7 +82,7 @@ The view changes state instantly and never schedules anything, so animation belo
 
 ## The WebGL adapter
 
-`standargraph/webgl` renders a graph with [Sigma.js](https://www.sigmajs.org) (WebGL) and a 2D canvas for the groups, as a second adapter on the same view. The HTML export picks it above `WEBGL_THRESHOLD` nodes (exported from `standargraph/core`, a plain constant); `renderer: "svg" | "webgl" | "auto"` on `renderHtml` and `--renderer` on the CLI override the choice. Sequence diagrams are always drawn as SVG.
+`@miralabs-tech/standargraph/webgl` renders a graph with [Sigma.js](https://www.sigmajs.org) (WebGL) and a 2D canvas for the groups, as a second adapter on the same view. The HTML export picks it above `WEBGL_THRESHOLD` nodes (exported from `@miralabs-tech/standargraph/core`, a plain constant); `renderer: "svg" | "webgl" | "auto"` on `renderHtml` and `--renderer` on the CLI override the choice. Sequence diagrams are always drawn as SVG.
 
 **The view stays the source of truth.** Sigma's mouse and touch captors are killed, and Sigma's camera is never read back. The pointer, wheel, toolbar and keyboard handlers are the same ones the SVG page uses (`src/html/ui.ts`) and call `panBy`, `zoomAt`, `fit`, `hover`, `select` and `search` on the view. Each `camera` change from the view is written to Sigma's camera synchronously (`view.camera()` is converted to a Sigma camera state through a calibration read once from `sigma.graphToViewport`, so scale and translation match exactly), and Sigma renders on its own animation frame. The groups canvas is redrawn in Sigma's `afterRender` from `view.camera()` and `view.visible()`, so both layers always show the same camera.
 
@@ -94,4 +94,4 @@ The view changes state instantly and never schedules anything, so animation belo
 
 ## Mounting in an application
 
-`mount(container, input, options?)` from `standargraph/html` validates a document, builds the scene and renders the SVG or WebGL adapter inside `container`. When every node has a `position`, the scene comes from the precomputed path without running ELK. Otherwise the layout runs in a Web Worker created from an inline Blob, so the main thread stays free during the layout. It returns a promise of `{ view, destroy() }`. One mounted graph per document is supported, because the toolbar and panel use fixed element ids.
+`mount(container, input, options?)` from `@miralabs-tech/standargraph/html` validates a document, builds the scene and renders the SVG or WebGL adapter inside `container`. When every node has a `position`, the scene comes from the precomputed path without running ELK. Otherwise the layout runs in a Web Worker created from an inline Blob, so the main thread stays free during the layout. It returns a promise of `{ view, destroy() }`. One mounted graph per document is supported, because the toolbar and panel use fixed element ids.
