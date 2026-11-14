@@ -34,23 +34,28 @@
   },
   "files": [
     "dist",
-    "schema"
+    "schema",
+    "assets"
   ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "bun scripts/clean.ts && bun build src/cli.ts src/format/index.ts src/layout/index.ts src/svg/index.ts src/webgl/index.ts src/remark/index.ts --root src --outdir dist --target node --format esm && tsc -p tsconfig.build.json",
+    "build": "bun scripts/clean.ts && bun build src/cli.ts src/format/index.ts src/layout/index.ts src/svg/index.ts src/webgl/index.ts src/remark/index.ts --root src --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "schema": "bun scripts/schema.ts",
+    "metrics": "bun scripts/font-metrics.ts",
     "test": "bun test"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
+    "@types/opentype.js": "^1.3.10",
+    "opentype.js": "^2.0.0",
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.52"
+    "@sinclair/typebox": "^0.34.52",
+    "elkjs": "^0.12.1"
   }
 }
