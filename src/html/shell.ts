@@ -21,7 +21,7 @@ export const STYLE = [
   ".sg-stage svg{display:block}",
   ".sg-groups,.sg-gl{position:absolute;inset:0;width:100%;height:100%}",
   ".sg-mount .sg-app{position:absolute}",
-  ".sg-stage [data-kind=node],.sg-stage [data-kind=edge],.sg-stage [data-kind=participant],.sg-stage [data-kind=message]{cursor:pointer}",
+  ".sg-stage [data-kind=node],.sg-stage [data-kind=edge],.sg-stage [data-kind=participant],.sg-stage [data-kind=message],.sg-stage [data-kind=state],.sg-stage [data-kind=transition]{cursor:pointer}",
   ".sg-stage .sg-focus [data-kind]:not(.sg-hl){opacity:.25}",
   ".sg-stage .sg-lod-nolabels .sg-label,.sg-stage .sg-lod-nocaptions .sg-caption,.sg-stage .sg-lod-noedgelabels .sg-edge-label{display:none}",
   ".sg-stage .sg-selected{filter:drop-shadow(0 0 3px var(--sg-accent))}",

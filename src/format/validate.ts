@@ -2,13 +2,16 @@ import { FormatRegistry, type Static, type TSchema } from "@sinclair/typebox";
 import { Value, ValueErrorType } from "@sinclair/typebox/value";
 import {
   FORMAT_VERSION,
+  PSEUDO,
   SHAPES,
   type Document,
   GraphDocumentSchema,
   SequenceDocumentSchema,
+  StateDocumentSchema,
 } from "./schema";
 import { semanticGraphErrors } from "./semantic/graph";
 import { semanticSequenceErrors } from "./semantic/sequence";
+import { semanticStateErrors } from "./semantic/state";
 import type { ValidationError } from "./semantic/shared";
 
 export type { ValidationError };
@@ -48,6 +51,7 @@ function handler<S extends TSchema>(
 const KINDS: Readonly<Record<string, KindHandler>> = {
   graph: handler(GraphDocumentSchema, semanticGraphErrors),
   sequence: handler(SequenceDocumentSchema, semanticSequenceErrors),
+  state: handler(StateDocumentSchema, semanticStateErrors),
 };
 
 const KIND_NAMES = Object.keys(KINDS)
@@ -66,7 +70,9 @@ function structuralErrors(
     } else if (error.type === ValueErrorType.Union) {
       message = error.path.endsWith("/shape")
         ? `Expected one of ${SHAPES.join(", ")}`
-        : "Expected a string, a number or a boolean";
+        : error.path.endsWith("/pseudo")
+          ? `Expected one of ${PSEUDO.join(", ")}`
+          : "Expected a string, a number or a boolean";
     } else if (error.type === ValueErrorType.ObjectAdditionalProperties) {
       message = "Unexpected property";
     } else if (error.type === ValueErrorType.StringFormat) {

@@ -139,6 +139,73 @@ describe("mount() with the SVG renderer", () => {
   });
 });
 
+describe("mount() with a state machine", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("state", "{}"), errors);
+    await page.evaluate(async (doc) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", doc);
+    }, example("order-state"));
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("the layout runs in the worker and the SVG is drawn", async () => {
+    const state = await page.evaluate(() => ({
+      ready: document.querySelector("#a .sg-app")?.getAttribute("data-sg-ready"),
+      diagram: document.querySelector("#a svg")?.getAttribute("data-diagram"),
+      states: document.querySelectorAll("#a [data-kind=state]").length,
+      transitions: document.querySelectorAll("#a [data-kind=transition]").length,
+    }));
+    expect(state).toEqual({ ready: "1", diagram: "state", states: 10, transitions: 10 });
+  });
+
+  test("clicking a composite selects it and opens its panel", async () => {
+    await page.evaluate(() => (window as any).m1.view.fit());
+    const point = await page.evaluate(() => {
+      const rect = document.querySelector("#a [data-id=fulfilment] rect")!.getBoundingClientRect();
+      return { x: rect.left + 6, y: rect.bottom - 6 };
+    });
+    await page.mouse.click(point.x, point.y);
+    expect(await page.evaluate(() => (window as any).m1.view.selected())).toEqual({
+      kind: "state",
+      id: "fulfilment",
+    });
+    expect(await page.evaluate(() => document.querySelector("#a .sg-panel h2")?.textContent)).toBe(
+      "Fulfilment",
+    );
+  });
+
+  test("hovering a composite highlights nothing, hovering a state does", async () => {
+    const composite = await page.evaluate(() => {
+      const rect = document.querySelector("#a [data-id=fulfilment] rect")!.getBoundingClientRect();
+      return { x: rect.left + 6, y: rect.bottom - 6 };
+    });
+    await page.mouse.move(composite.x, composite.y);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as any).m1.view.hovered())).toBeNull();
+    const state = await page.evaluate(() => {
+      const rect = document.querySelector("#a [data-id=paid] rect")!.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    });
+    await page.mouse.move(state.x, state.y);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as any).m1.view.hovered())).toEqual({
+      kind: "state",
+      id: "paid",
+    });
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
 describe("mount() with the WebGL renderer", () => {
   const errors: string[] = [];
   let page: Page;

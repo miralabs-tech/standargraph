@@ -1,5 +1,6 @@
 import type { ItemRef, View } from "../core/view";
-import type { Document, Meta } from "../format";
+import type { Document, Meta, Pseudo } from "../format";
+import { transitionLabel } from "../format/transition-label";
 
 const DRAG_THRESHOLD = 4;
 const UNSAFE_LINK = /^[\s\u0000-\u001f]*(javascript|data|vbscript):/i;
@@ -32,6 +33,15 @@ function element<K extends keyof HTMLElementTagNameMap>(
   if (className !== undefined) created.className = className;
   return created;
 }
+
+const PSEUDO_NAMES: Record<Pseudo, string> = {
+  initial: "Initial",
+  final: "Final",
+  choice: "Choice",
+  fork: "Fork",
+  join: "Join",
+  history: "History",
+};
 
 export type PanelControl = { update(): void; destroy(): void };
 
@@ -91,7 +101,10 @@ export function createPanel(view: View, doc: Document, panel: HTMLElement): Pane
 
   const nodesById = new Map<string, number>();
   if (doc.kind === "graph") doc.nodes.forEach((node, index) => nodesById.set(node.id, index));
+  const statesById = new Map<string, number>();
+  if (doc.kind === "state") doc.states.forEach((state, index) => statesById.set(state.id, index));
   let edgesById: Map<string, number> | undefined;
+  let transitionsById: Map<string, number> | undefined;
 
   function describe(kind: string, id: string): void {
     const list = element("dl");
@@ -136,6 +149,38 @@ export function createPanel(view: View, doc: Document, panel: HTMLElement): Pane
       row(list, "Kind", "Message");
       row(list, "Connection", `${item.from} → ${item.to}`);
       row(list, "Style", item.style ?? "sync");
+    } else if (kind === "state" && doc.kind === "state") {
+      const item = doc.states[statesById.get(id) ?? -1];
+      if (item === undefined) return;
+      title = item.label ?? item.id;
+      meta = item.meta;
+      row(list, "Kind", item.pseudo === undefined ? "State" : PSEUDO_NAMES[item.pseudo]);
+      if (item.type !== undefined) row(list, "Type", item.type);
+      if (item.actions !== undefined && item.actions.length > 0) {
+        const actions = element("div");
+        for (const action of item.actions) actions.appendChild(element("div", action));
+        row(list, "Actions", actions);
+      }
+      if (item.description !== undefined) row(list, "Description", item.description);
+      if (item.link !== undefined) row(list, "Link", linkValue(item.link));
+    } else if (kind === "transition" && doc.kind === "state") {
+      const transitions = doc.transitions ?? [];
+      if (transitionsById === undefined) {
+        transitionsById = new Map();
+        transitions.forEach((transition, position) => {
+          const key = transition.id ?? `t${position}`;
+          if (!transitionsById!.has(key)) transitionsById!.set(key, position);
+        });
+      }
+      const item = transitions[transitionsById.get(id) ?? -1];
+      if (item === undefined) return;
+      title = transitionLabel(item) || `${item.from} → ${item.to}`;
+      meta = item.meta;
+      row(list, "Connection", `${item.from} → ${item.to}`);
+      if (item.event !== undefined) row(list, "Event", item.event);
+      if (item.guard !== undefined) row(list, "Guard", item.guard);
+      if (item.action !== undefined) row(list, "Action", item.action);
+      if (item.type !== undefined) row(list, "Type", item.type);
     } else {
       return;
     }

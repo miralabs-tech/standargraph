@@ -1,6 +1,8 @@
 import { FONT_METRICS, type FontWeight } from "../layout/font-metrics";
 import { LINE_HEIGHT, measureText } from "../layout/measure";
 import {
+  ACTIONS_GAP,
+  boxSize,
   CAPTION_FONT,
   EDGE_LABEL_FONT,
   GROUP_FONT,
@@ -27,6 +29,9 @@ import type {
   LaidOutNode,
   LaidOutParticipant,
   LaidOutSequence,
+  LaidOutState,
+  LaidOutStateMachine,
+  LaidOutTransition,
 } from "../layout/types";
 import type { Meta, Shape } from "../format";
 import { esc } from "./escape";
@@ -470,6 +475,215 @@ function renderSequence(laid: LaidOutSequence, theme: Theme, types: Types): stri
   ].join("");
 }
 
+function nodeLook(
+  meta: Meta | undefined,
+  type: string | undefined,
+  theme: Theme,
+  types: Types,
+): { cls: string; paint: string; typed: TypeStyle } {
+  const unknown = confidenceOf(meta) === "unknown";
+  const typed = typeStyleOf(types, type);
+  const fill = unknown ? theme.unknownFill : (typed.fill ?? theme.nodeFill);
+  const stroke = typed.stroke ?? theme.nodeStroke;
+  return {
+    cls: unknown ? "sg-node sg-unknown" : "sg-node",
+    paint: `fill="${fill}" stroke="${stroke}" stroke-width="1.5"${dashAttr(confidenceDash(meta))}`,
+    typed,
+  };
+}
+
+function actionLines(
+  actions: readonly string[],
+  x: number,
+  top: number,
+  theme: Theme,
+): string {
+  return actions
+    .map((action, index) =>
+      textLines(
+        action,
+        x,
+        top + index * LINE_HEIGHT * CAPTION_FONT.size,
+        CAPTION_FONT,
+        "sg-muted sg-caption",
+        theme.muted,
+        "start",
+      ),
+    )
+    .join("");
+}
+
+function pseudoBody(item: LaidOutState, theme: Theme, types: Types): string {
+  const cx = item.x + item.width / 2;
+  const cy = item.y + item.height / 2;
+  const look = nodeLook(item.meta, item.type, theme, types);
+  const circle = (r: number, cls: string, paint: string): string =>
+    `<circle class="${cls}" cx="${n(cx)}" cy="${n(cy)}" r="${r}" ${paint}/>`;
+  const solid = `fill="${theme.fg}"`;
+  switch (item.pseudo) {
+    case "initial":
+      return circle(10, "sg-pseudo", solid);
+    case "final":
+      return circle(12, look.cls, look.paint) + circle(7, "sg-pseudo", solid);
+    case "history": {
+      const glyph = measureText("H", LABEL_FONT);
+      return (
+        circle(12, look.cls, look.paint) +
+        textLines("H", cx, cy - glyph.height / 2, LABEL_FONT, "sg-text", theme.fg)
+      );
+    }
+    case "choice": {
+      const points = outline("diamond", item)!
+        .map((point) => `${n(point.x)},${n(point.y)}`)
+        .join(" ");
+      return `<polygon class="${look.cls}" points="${points}" ${look.paint}/>`;
+    }
+    default:
+      return `<rect class="sg-pseudo" x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" ${solid}/>`;
+  }
+}
+
+function compositeBody(item: LaidOutState, theme: Theme): string {
+  const rect = `<rect class="sg-group" x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="10" fill="${theme.groupFill}" stroke="${theme.groupStroke}" stroke-width="1"${dashAttr(confidenceDash(item.meta))}/>`;
+  const title = measureText(item.label, GROUP_FONT);
+  const label =
+    item.label === ""
+      ? ""
+      : textLines(
+          item.label,
+          item.x + PAD_X,
+          item.y + 8,
+          GROUP_FONT,
+          "sg-muted sg-label",
+          theme.muted,
+          "start",
+        );
+  const actions = item.actions ?? [];
+  return (
+    rect +
+    label +
+    actionLines(actions, item.x + PAD_X, item.y + 8 + title.height + ACTIONS_GAP / 2, theme)
+  );
+}
+
+function simpleBody(
+  item: LaidOutState,
+  index: number,
+  theme: Theme,
+  types: Types,
+): string {
+  const look = nodeLook(item.meta, item.type, theme, types);
+  const actions = item.actions ?? [];
+  const geometry: Geometry = {
+    tag: "rect",
+    attrs: ` x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="10"`,
+  };
+  let body = `<rect class="${look.cls}"${geometry.attrs} ${look.paint}/>`;
+
+  const header =
+    actions.length === 0 ? item.height : boxSize(item.label, item.type, 80).height;
+  const label = measureText(item.label, LABEL_FONT);
+  const caption =
+    item.type === undefined ? undefined : measureText(item.type, CAPTION_FONT);
+  const top = item.y + (header - label.height - (caption?.height ?? 0)) / 2;
+  const cx = item.x + item.width / 2;
+  body += textLines(
+    item.label,
+    cx,
+    top,
+    LABEL_FONT,
+    "sg-text sg-label",
+    look.typed.text ?? theme.fg,
+  );
+  if (item.type !== undefined) {
+    body += textLines(
+      item.type,
+      cx,
+      top + label.height,
+      CAPTION_FONT,
+      "sg-muted sg-caption",
+      theme.muted,
+    );
+  }
+  if (actions.length > 0) {
+    body += `<line class="sg-divider" x1="${n(item.x)}" y1="${n(item.y + header)}" x2="${n(item.x + item.width)}" y2="${n(item.y + header)}" stroke="${theme.nodeStroke}" stroke-width="1"/>`;
+    body += actionLines(actions, item.x + PAD_X, item.y + header + ACTIONS_GAP, theme);
+  }
+
+  const coverage = item.meta?.coverage;
+  if (coverage !== undefined) {
+    const clip = `sg-clip-${index}`;
+    body =
+      `<clipPath id="${clip}"><rect${geometry.attrs}/></clipPath>` +
+      body +
+      `<rect class="sg-accent" x="${n(item.x)}" y="${n(item.y + item.height - 4)}" width="${n(coverage * item.width)}" height="4" fill="${theme.accent}" clip-path="url(#${clip})"/>`;
+  }
+  return body;
+}
+
+function renderStateItem(
+  item: LaidOutState,
+  index: number,
+  theme: Theme,
+  types: Types,
+): string {
+  const body = item.composite
+    ? compositeBody(item, theme)
+    : item.pseudo !== undefined
+      ? pseudoBody(item, theme, types)
+      : simpleBody(item, index, theme, types);
+  return wrapLink(
+    group(
+      "state",
+      item.id,
+      item.meta,
+      body,
+      data([
+        ["type", item.type],
+        ["confidence", confidenceOf(item.meta)],
+        ["pseudo", item.pseudo],
+        ["composite", item.composite ? "true" : undefined],
+      ]),
+    ),
+    item.link,
+  );
+}
+
+function renderTransition(item: LaidOutTransition, theme: Theme): string {
+  const path = `<path class="sg-edge" d="${pathOf(item.points)}" fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linejoin="round"${dashAttr(confidenceDash(item.meta))} marker-end="url(#sg-arrow-filled)"/>`;
+  const label =
+    item.labelBox === undefined || item.label === undefined
+      ? ""
+      : labelBoxSvg(item.labelBox, item.label, theme, true);
+  return group(
+    "transition",
+    item.id,
+    item.meta,
+    path + label,
+    data([
+      ["type", item.type],
+      ["confidence", confidenceOf(item.meta)],
+      ["from", item.from],
+      ["to", item.to],
+    ]),
+  );
+}
+
+function renderState(laid: LaidOutStateMachine, theme: Theme, types: Types): string {
+  const composites = laid.states
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.composite)
+    .sort((a, b) => a.item.depth - b.item.depth);
+  const simple = laid.states
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => !item.composite);
+  return [
+    ...composites.map(({ item, index }) => renderStateItem(item, index, theme, types)),
+    ...laid.transitions.map((item) => renderTransition(item, theme)),
+    ...simple.map(({ item, index }) => renderStateItem(item, index, theme, types)),
+  ].join("");
+}
+
 function renderScene(laidOut: LaidOut, theme: Theme, types: Types): string {
   switch (laidOut.kind) {
     case "graph":
@@ -477,6 +691,7 @@ function renderScene(laidOut: LaidOut, theme: Theme, types: Types): string {
     case "sequence":
       return renderSequence(laidOut, theme, types);
     case "state":
+      return renderState(laidOut, theme, types);
     case "er":
     case "tree":
       throw new Error(`Rendering of ${laidOut.kind} diagrams is not available yet`);

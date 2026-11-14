@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "kind": "state",
+  "title": "Order lifecycle",
+  "direction": "right",
+  "states": [
+    { "id": "__initial", "pseudo": "initial" },
+    { "id": "pending", "label": "Pending", "actions": ["entry / reserve stock"] },
+    { "id": "paid", "label": "Paid" },
+    {
+      "id": "cancelled",
+      "label": "Cancelled",
+      "meta": { "provenance": { "source": "src/orders/machine.ts", "confidence": "confirmed" } }
+    },
+    { "id": "fulfilment", "label": "Fulfilment" },
+    { "id": "fulfilment__initial", "pseudo": "initial", "parent": "fulfilment" },
+    { "id": "picking", "label": "Picking", "parent": "fulfilment" },
+    { "id": "shipped", "label": "Shipped", "parent": "fulfilment" },
+    { "id": "check", "pseudo": "choice" },
+    { "id": "__final", "pseudo": "final" }
+  ],
+  "transitions": [
+    { "from": "__initial", "to": "pending" },
+    { "from": "fulfilment__initial", "to": "picking" },
+    { "from": "picking", "to": "shipped", "event": "handed to carrier", "action": "notify customer" },
+    { "from": "pending", "to": "paid", "event": "payment received" },
+    { "from": "pending", "to": "cancelled", "event": "timeout", "guard": "after 30 min" },
+    { "from": "paid", "to": "fulfilment" },
+    { "from": "shipped", "to": "check", "event": "delivery report" },
+    { "from": "check", "to": "__final", "guard": "delivered" },
+    { "from": "check", "to": "cancelled", "guard": "lost" },
+    { "from": "cancelled", "to": "__final" }
+  ]
+}

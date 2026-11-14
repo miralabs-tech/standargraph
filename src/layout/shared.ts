@@ -1,4 +1,4 @@
-import { measureText, type TextOptions } from "./measure";
+import { LINE_HEIGHT, measureText, type TextOptions } from "./measure";
 
 export const MARGIN = 20;
 export const LABEL_FONT: TextOptions = { size: 14, weight: "semibold" };
@@ -55,4 +55,15 @@ export function labelBoxSize(label: string): { width: number; height: number } {
 export function groupTopPadding(label: string | undefined): number {
   if (label === undefined || label === "") return PAD_X;
   return Math.ceil(measureText(label, GROUP_FONT).height) + 16;
+}
+
+export const ACTIONS_GAP = 6;
+
+export function actionsHeight(count: number): number {
+  if (count === 0) return 0;
+  return Math.ceil(ACTIONS_GAP + count * LINE_HEIGHT * CAPTION_FONT.size);
+}
+
+export function actionsWidth(actions: readonly string[]): number {
+  return Math.max(0, ...actions.map((action) => measureText(action, CAPTION_FONT).width));
 }

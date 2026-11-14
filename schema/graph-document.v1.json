@@ -738,6 +738,347 @@
           }
         }
       }
+    },
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "version",
+        "kind",
+        "states"
+      ],
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "type": "number"
+        },
+        "kind": {
+          "const": "state",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "const": "down",
+              "type": "string"
+            },
+            {
+              "const": "right",
+              "type": "string"
+            },
+            {
+              "const": "up",
+              "type": "string"
+            },
+            {
+              "const": "left",
+              "type": "string"
+            }
+          ]
+        },
+        "states": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "pseudo": {
+                "anyOf": [
+                  {
+                    "const": "initial",
+                    "type": "string"
+                  },
+                  {
+                    "const": "final",
+                    "type": "string"
+                  },
+                  {
+                    "const": "choice",
+                    "type": "string"
+                  },
+                  {
+                    "const": "fork",
+                    "type": "string"
+                  },
+                  {
+                    "const": "join",
+                    "type": "string"
+                  },
+                  {
+                    "const": "history",
+                    "type": "string"
+                  }
+                ]
+              },
+              "parent": {
+                "type": "string"
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "description": {
+                "type": "string"
+              },
+              "link": {
+                "type": "string"
+              },
+              "meta": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "provenance": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "source"
+                    ],
+                    "properties": {
+                      "source": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "confidence": {
+                        "anyOf": [
+                          {
+                            "const": "confirmed",
+                            "type": "string"
+                          },
+                          {
+                            "const": "inferred",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "tool": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "coverage": {
+                    "minimum": 0,
+                    "maximum": 1,
+                    "type": "number"
+                  },
+                  "freshness": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^(.*)$": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "from",
+              "to"
+            ],
+            "properties": {
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "event": {
+                "type": "string"
+              },
+              "guard": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "meta": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "provenance": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "source"
+                    ],
+                    "properties": {
+                      "source": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "confidence": {
+                        "anyOf": [
+                          {
+                            "const": "confirmed",
+                            "type": "string"
+                          },
+                          {
+                            "const": "inferred",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "tool": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "coverage": {
+                    "minimum": 0,
+                    "maximum": 1,
+                    "type": "number"
+                  },
+                  "freshness": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^(.*)$": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "meta": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "provenance": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "source"
+              ],
+              "properties": {
+                "source": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "confidence": {
+                  "anyOf": [
+                    {
+                      "const": "confirmed",
+                      "type": "string"
+                    },
+                    {
+                      "const": "inferred",
+                      "type": "string"
+                    },
+                    {
+                      "const": "unknown",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "tool": {
+                  "type": "string"
+                }
+              }
+            },
+            "coverage": {
+              "minimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            "freshness": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "data": {
+              "type": "object",
+              "patternProperties": {
+                "^(.*)$": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

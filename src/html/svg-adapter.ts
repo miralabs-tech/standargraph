@@ -140,7 +140,12 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
     if (performance.now() - ui.lastWheel < IDLE_MS) return;
     const hit = view.hitTest(pointer.x, pointer.y);
     ui.pointer = null;
-    view.hover(hit !== null && HOVERABLE.has(hit.kind) ? hit : null);
+    view.hover(hit !== null && hoverable(hit) ? hit : null);
+  }
+
+  function hoverable(ref: ItemRef): boolean {
+    if (!HOVERABLE.has(ref.kind)) return false;
+    return ref.kind !== "state" || view.item({ kind: "state", id: ref.id })?.composite !== true;
   }
 
   function frame(): void {

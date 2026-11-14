@@ -1,4 +1,4 @@
-import type { Meta, Shape } from "../format";
+import type { Meta, Pseudo, Shape } from "../format";
 
 export type Point = { x: number; y: number };
 
@@ -89,8 +89,6 @@ export type LaidOutSequence = {
   messages: LaidOutMessage[];
   lifelineBottom: number;
 };
-
-export type Pseudo = "initial" | "final" | "choice" | "fork" | "join" | "history";
 
 export type LaidOutState = {
   id: string;

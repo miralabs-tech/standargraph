@@ -93,20 +93,20 @@ export const GroupSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const DirectionSchema = Type.Union([
+  Type.Literal("down"),
+  Type.Literal("right"),
+  Type.Literal("up"),
+  Type.Literal("left"),
+]);
+
 export const GraphDocumentSchema = Type.Object(
   {
     $schema: Type.Optional(Type.String()),
     version: Type.Literal(FORMAT_VERSION),
     kind: Type.Literal("graph"),
     title: Type.Optional(Type.String()),
-    direction: Type.Optional(
-      Type.Union([
-        Type.Literal("down"),
-        Type.Literal("right"),
-        Type.Literal("up"),
-        Type.Literal("left"),
-      ]),
-    ),
+    direction: Type.Optional(DirectionSchema),
     nodes: Type.Array(NodeSchema),
     edges: Type.Optional(Type.Array(EdgeSchema)),
     groups: Type.Optional(Type.Array(GroupSchema)),
@@ -155,8 +155,53 @@ export const SequenceDocumentSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const PSEUDO = ["initial", "final", "choice", "fork", "join", "history"] as const;
+
+export const StateSchema = Type.Object(
+  {
+    id: Id,
+    label: Type.Optional(Type.String()),
+    type: Type.Optional(Type.String()),
+    pseudo: Type.Optional(Type.Union(PSEUDO.map((pseudo) => Type.Literal(pseudo)))),
+    parent: Type.Optional(Type.String()),
+    actions: Type.Optional(Type.Array(Type.String())),
+    description: Type.Optional(Type.String()),
+    link: Type.Optional(Type.String()),
+    meta: Type.Optional(MetaSchema),
+  },
+  { additionalProperties: false },
+);
+
+export const TransitionSchema = Type.Object(
+  {
+    id: Type.Optional(Id),
+    from: Type.String(),
+    to: Type.String(),
+    event: Type.Optional(Type.String()),
+    guard: Type.Optional(Type.String()),
+    action: Type.Optional(Type.String()),
+    type: Type.Optional(Type.String()),
+    meta: Type.Optional(MetaSchema),
+  },
+  { additionalProperties: false },
+);
+
+export const StateDocumentSchema = Type.Object(
+  {
+    $schema: Type.Optional(Type.String()),
+    version: Type.Literal(FORMAT_VERSION),
+    kind: Type.Literal("state"),
+    title: Type.Optional(Type.String()),
+    direction: Type.Optional(DirectionSchema),
+    states: Type.Array(StateSchema, { minItems: 1 }),
+    transitions: Type.Optional(Type.Array(TransitionSchema)),
+    meta: Type.Optional(MetaSchema),
+  },
+  { additionalProperties: false },
+);
+
 export const DocumentSchema = Type.Union(
-  [GraphDocumentSchema, SequenceDocumentSchema],
+  [GraphDocumentSchema, SequenceDocumentSchema, StateDocumentSchema],
   {
     $id: "urn:standargraph:graph-document:v1",
     title: "Standargraph document v1",
@@ -172,4 +217,8 @@ export type GraphDocument = Static<typeof GraphDocumentSchema>;
 export type Participant = Static<typeof ParticipantSchema>;
 export type Message = Static<typeof MessageSchema>;
 export type SequenceDocument = Static<typeof SequenceDocumentSchema>;
+export type Pseudo = (typeof PSEUDO)[number];
+export type State = Static<typeof StateSchema>;
+export type Transition = Static<typeof TransitionSchema>;
+export type StateDocument = Static<typeof StateDocumentSchema>;
 export type Document = Static<typeof DocumentSchema>;

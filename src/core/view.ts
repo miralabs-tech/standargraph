@@ -330,7 +330,41 @@ export function createView(scene: LaidOut, options: ViewOptions = {}): View {
     }
     break;
   }
-  case "state":
+  case "state": {
+    const addState = (state: LaidOutState): void => {
+      const index = addEntry("state", state.id, state, state.depth, state.composite);
+      addRect(index, state.x, state.y, state.width, state.height);
+      searchable.push({ index, label: state.label.toLowerCase(), id: state.id.toLowerCase() });
+    };
+    scene.states
+      .filter((state) => state.composite)
+      .sort((a, b) => a.depth - b.depth)
+      .forEach(addState);
+    const transitionIndexes: number[] = [];
+    for (const transition of scene.transitions) {
+      const index = addEntry("transition", transition.id, transition);
+      transitionIndexes.push(index);
+      addPath(index, transition.points);
+      if (transition.labelBox !== undefined) {
+        const box = transition.labelBox;
+        addShape(index, LABEL, box.x, box.y, box.x + box.width, box.y + box.height);
+      }
+    }
+    scene.states.filter((state) => !state.composite).forEach(addState);
+    scene.transitions.forEach((transition, position) => {
+      const transitionKey = entries[transitionIndexes[position]!]!.key;
+      const from = keyOf("state", transition.from);
+      const to = keyOf("state", transition.to);
+      for (const [self, other] of [[from, to], [to, from]] as const) {
+        if (!byKey.has(self)) continue;
+        link(self, transitionKey);
+        if (byKey.has(other)) link(self, other);
+      }
+      if (byKey.has(from)) link(transitionKey, from);
+      if (byKey.has(to)) link(transitionKey, to);
+    });
+    break;
+  }
   case "er":
   case "tree":
     break;

@@ -15,7 +15,7 @@ function pathsOf(input: unknown): string[] {
 }
 
 describe("examples", () => {
-  for (const name of ["architecture.json", "protocol.json", "agent-output.json"]) {
+  for (const name of ["architecture.json", "protocol.json", "agent-output.json", "order-state.json"]) {
     test(`${name} is valid`, () => {
       const result = validate(example(name));
       expect(result.ok).toBe(true);

@@ -1,6 +1,7 @@
 import { validate } from "../format";
 import { layoutGraph } from "./graph";
 import { layoutSequence } from "./sequence";
+import { layoutState } from "./state";
 import type { LaidOut } from "./types";
 
 export { VERSION } from "../version";
@@ -21,6 +22,8 @@ export async function layout(document: unknown): Promise<LaidOut> {
       return layoutGraph(doc);
     case "sequence":
       return layoutSequence(doc);
+    case "state":
+      return layoutState(doc);
     default:
       return unreachable(doc);
   }
