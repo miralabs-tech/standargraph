@@ -1,8 +1,5 @@
-import ELK, {
-  type ElkExtendedEdge,
-  type ElkNode,
-} from "elkjs/lib/elk.bundled.js";
 import type { Edge, GraphDocument, Group, Node } from "../format";
+import { type ElkBoxInput, type ElkEdgeInput, runElk } from "./elk";
 import { measureText } from "./measure";
 import {
   compact,
@@ -22,13 +19,6 @@ import type {
   LaidOutNode,
   Point,
 } from "./types";
-
-const DIRECTIONS = {
-  down: "DOWN",
-  right: "RIGHT",
-  up: "UP",
-  left: "LEFT",
-} as const;
 
 type OrderedGroup = { group: Group; depth: number };
 
@@ -158,144 +148,78 @@ async function layoutWithElk(doc: GraphDocument): Promise<LaidOutGraph> {
     subgroups.set(group.parent, list);
   }
 
-  const nodeElk = (node: Node): ElkNode => {
+  const nodeElk = (node: Node): ElkBoxInput => {
     const size = shapeSize(node.shape, nodeLabel(node), node.type, 80);
     return { id: `n:${node.id}`, width: size.width, height: size.height };
   };
 
-  const groupElk = (group: Group): ElkNode => {
+  const groupElk = (group: Group): ElkBoxInput => {
     const members = nodesByGroup.get(group.id) ?? [];
     const nested = subgroups.get(group.id) ?? [];
     if (members.length === 0 && nested.length === 0) {
       const size = emptyGroupSize(group);
       return { id: `g:${group.id}`, width: size.width, height: size.height };
     }
-    const top = groupTopPadding(group.label);
     return {
       id: `g:${group.id}`,
-      layoutOptions: {
-        "elk.padding": `[top=${top},left=${PAD_X},bottom=${PAD_X},right=${PAD_X}]`,
-        "elk.nodeSize.constraints": "MINIMUM_SIZE",
-        "elk.nodeSize.minimum": `(${Math.ceil(groupLabelWidth(group) + 2 * PAD_X)}, 0)`,
+      width: 0,
+      height: 0,
+      padding: {
+        top: groupTopPadding(group.label),
+        left: PAD_X,
+        bottom: PAD_X,
+        right: PAD_X,
       },
+      minWidth: Math.ceil(groupLabelWidth(group) + 2 * PAD_X),
       children: [...members.map(nodeElk), ...nested.map(groupElk)],
     };
   };
 
   const edges = doc.edges ?? [];
-  const elkEdges: ElkExtendedEdge[] = edges.map((edge, index) => {
-    const elkEdge: ElkExtendedEdge = {
+  const elkEdges: ElkEdgeInput[] = edges.map((edge, index) => {
+    const elkEdge: ElkEdgeInput = {
       id: `e:${index}`,
-      sources: [`n:${edge.from}`],
-      targets: [`n:${edge.to}`],
+      from: `n:${edge.from}`,
+      to: `n:${edge.to}`,
     };
     if (edge.label !== undefined && edge.label !== "") {
       const size = labelBoxSize(edge.label);
-      elkEdge.labels = [
-        {
-          id: `l:${index}`,
-          text: edge.label,
-          width: size.width,
-          height: size.height,
-        },
-      ];
+      elkEdge.label = { width: size.width, height: size.height };
     }
     return elkEdge;
   });
 
-  const root: ElkNode = {
-    id: "root",
-    layoutOptions: {
-      "elk.algorithm": "layered",
-      "elk.direction": DIRECTIONS[doc.direction ?? "down"],
-      "elk.edgeRouting": "ORTHOGONAL",
-      "elk.hierarchyHandling": "INCLUDE_CHILDREN",
-      "elk.spacing.nodeNode": "40",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "60",
-      "elk.padding": `[top=${MARGIN},left=${MARGIN},bottom=${MARGIN},right=${MARGIN}]`,
-    },
-    children: [
+  const result = await runElk(
+    doc.direction ?? "down",
+    [
       ...(nodesByGroup.get(undefined) ?? []).map(nodeElk),
       ...groups
         .filter(({ group }) => group.parent === undefined)
         .map(({ group }) => groupElk(group)),
     ],
-    edges: elkEdges,
-  };
+    elkEdges,
+  );
 
-  const scope = globalThis as unknown as { onmessage?: unknown };
-  const previousHandler = scope.onmessage;
-  let result: ElkNode;
-  try {
-    result = await new ELK().layout(root);
-  } finally {
-    // elkjs registers a global onmessage handler that keeps Bun's event loop alive
-    scope.onmessage = previousHandler;
-  }
-
-  const absolute = new Map<string, Point>();
-  const sizes = new Map<string, { width: number; height: number }>();
-  const walk = (node: ElkNode, ox: number, oy: number): void => {
-    const x = ox + (node.x ?? 0);
-    const y = oy + (node.y ?? 0);
-    absolute.set(node.id, { x, y });
-    sizes.set(node.id, { width: node.width ?? 0, height: node.height ?? 0 });
-    for (const child of node.children ?? []) walk(child, x, y);
-  };
-  walk(result, 0, 0);
-  absolute.set("root", { x: 0, y: 0 });
-
-  const boxOf = (id: string): Box => ({
-    ...(absolute.get(id) ?? { x: 0, y: 0 }),
-    ...(sizes.get(id) ?? { width: 0, height: 0 }),
-  });
-
-  const routedById = new Map<string, ElkExtendedEdge>();
-  for (const routed of result.edges ?? []) routedById.set(routed.id, routed);
+  const boxOf = (id: string): Box =>
+    result.boxes.get(id) ?? { x: 0, y: 0, width: 0, height: 0 };
 
   const shapeById = new Map(doc.nodes.map((node) => [node.id, node.shape]));
   const laidOutEdges = edges.map((edge, index) => {
-    const routed = routedById.get(`e:${index}`);
-    const offset = absolute.get(routed?.container ?? "root") ?? { x: 0, y: 0 };
-    const points: Point[] = [];
-    for (const section of routed?.sections ?? []) {
-      const chain = [
-        section.startPoint,
-        ...(section.bendPoints ?? []),
-        section.endPoint,
-      ];
-      for (const point of chain) {
-        const shifted = { x: point.x + offset.x, y: point.y + offset.y };
-        const last = points[points.length - 1];
-        if (last === undefined || last.x !== shifted.x || last.y !== shifted.y) {
-          points.push(shifted);
-        }
-      }
-    }
-    const label = routed?.labels?.[0];
-    const labelBox: Box | undefined =
-      label === undefined
-        ? undefined
-        : {
-            x: (label.x ?? 0) + offset.x,
-            y: (label.y ?? 0) + offset.y,
-            width: label.width ?? 0,
-            height: label.height ?? 0,
-          };
+    const route = result.routes.get(`e:${index}`);
     const clipped = clipEnds(
-      points,
+      route?.points ?? [],
       shapeById.get(edge.from),
       boxOf(`n:${edge.from}`),
       shapeById.get(edge.to),
       boxOf(`n:${edge.to}`),
     );
-    return laidOutEdge(edge, index, clipped, labelBox);
+    return laidOutEdge(edge, index, clipped, route?.labelBox);
   });
 
   return finish(
     doc,
-    result.width ?? 0,
-    result.height ?? 0,
+    result.width,
+    result.height,
     groups.map(({ group, depth }) =>
       laidOutGroup(group, depth, boxOf(`g:${group.id}`)),
     ),

@@ -7,10 +7,12 @@ export {
   type Change,
   createView,
   type Highlight,
+  HOVERABLE,
   type ItemKind,
   type ItemMap,
   type ItemRef,
   type Lod,
+  sceneItemCount,
   type View,
   type ViewOptions,
 } from "./view";

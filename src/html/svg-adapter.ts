@@ -1,4 +1,12 @@
-import { type Change, createView, type ItemKind, type ItemRef, type View } from "../core/view";
+import {
+  type Change,
+  createView,
+  HOVERABLE,
+  type ItemKind,
+  type ItemRef,
+  sceneItemCount,
+  type View,
+} from "../core/view";
 import type { Document } from "../format";
 import type { LaidOut } from "../layout/types";
 import { bindInteraction, createPanel, part } from "./ui";
@@ -35,11 +43,7 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
     return found;
   }
 
-  const itemCount =
-    scene.kind === "graph"
-      ? scene.groups.length + scene.nodes.length + scene.edges.length
-      : scene.participants.length + scene.messages.length;
-  const culling = itemCount > CULL_MIN_ITEMS;
+  const culling = sceneItemCount(scene) > CULL_MIN_ITEMS;
 
   let lastMove = 0;
   let idleTimer = 0;
@@ -136,7 +140,7 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
     if (performance.now() - ui.lastWheel < IDLE_MS) return;
     const hit = view.hitTest(pointer.x, pointer.y);
     ui.pointer = null;
-    view.hover(hit !== null && (hit.kind === "node" || hit.kind === "participant") ? hit : null);
+    view.hover(hit !== null && HOVERABLE.has(hit.kind) ? hit : null);
   }
 
   function frame(): void {

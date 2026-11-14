@@ -43,7 +43,7 @@ describe("structural errors", () => {
 
   test("unknown kind", () => {
     const doc = example("architecture.json");
-    doc.kind = "tree";
+    doc.kind = "pie";
     expect(pathsOf(doc)).toEqual(["/kind"]);
   });
 

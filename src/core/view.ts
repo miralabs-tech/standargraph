@@ -2,14 +2,29 @@ import { SELF_LOOP_HEIGHT, SELF_LOOP_WIDTH } from "../layout/shared";
 import type {
   LaidOut,
   LaidOutEdge,
+  LaidOutEntity,
   LaidOutGroup,
   LaidOutMessage,
   LaidOutNode,
   LaidOutParticipant,
+  LaidOutRelation,
+  LaidOutState,
+  LaidOutTransition,
+  LaidOutTreeEdge,
+  LaidOutTreeNode,
 } from "../layout/types";
 import { createSpatialIndex, type Rect, type SpatialEntry } from "./spatial";
 
-export type ItemKind = "node" | "edge" | "group" | "participant" | "message";
+export type ItemKind =
+  | "node"
+  | "edge"
+  | "group"
+  | "participant"
+  | "message"
+  | "state"
+  | "transition"
+  | "entity"
+  | "relation";
 export type ItemRef = { kind: ItemKind; id: string };
 export type Camera = { x: number; y: number; scale: number };
 export type ViewOptions = {
@@ -30,12 +45,44 @@ export type Change =
   | "visible";
 
 export type ItemMap = {
-  node: LaidOutNode;
-  edge: LaidOutEdge;
+  node: LaidOutNode | LaidOutTreeNode;
+  edge: LaidOutEdge | LaidOutTreeEdge;
   group: LaidOutGroup;
   participant: LaidOutParticipant;
   message: LaidOutMessage;
+  state: LaidOutState;
+  transition: LaidOutTransition;
+  entity: LaidOutEntity;
+  relation: LaidOutRelation;
 };
+
+export const HOVERABLE: ReadonlySet<ItemKind> = new Set<ItemKind>([
+  "node",
+  "participant",
+  "state",
+  "entity",
+]);
+
+export function sceneItemCount(scene: LaidOut): number {
+  switch (scene.kind) {
+    case "graph":
+      return scene.groups.length + scene.nodes.length + scene.edges.length;
+    case "sequence":
+      return scene.participants.length + scene.messages.length;
+    case "state":
+      return scene.states.length + scene.transitions.length;
+    case "er":
+      return scene.entities.length + scene.relations.length;
+    case "tree":
+      return scene.nodes.length + scene.edges.length;
+    default:
+      return unreachable(scene);
+  }
+}
+
+function unreachable(value: never): never {
+  throw new Error(`Unsupported scene: ${JSON.stringify(value)}`);
+}
 
 export interface View {
   readonly scene: LaidOut;
@@ -91,6 +138,7 @@ type Entry = {
   ref: ItemRef;
   key: string;
   depth: number;
+  container: boolean;
   item: unknown;
 };
 
@@ -142,10 +190,16 @@ export function createView(scene: LaidOut, options: ViewOptions = {}): View {
   const neighbors = new Map<string, Set<string>>();
   const searchable: { index: number; label: string; id: string }[] = [];
 
-  function addEntry(kind: ItemKind, id: string, item: unknown, depth = 0): number {
+  function addEntry(
+    kind: ItemKind,
+    id: string,
+    item: unknown,
+    depth = 0,
+    container = false,
+  ): number {
     const index = entries.length;
     const key = keyOf(kind, id);
-    entries.push({ ref: { kind, id }, key, depth, item });
+    entries.push({ ref: { kind, id }, key, depth, container, item });
     byKey.set(key, index);
     return index;
   }
@@ -188,9 +242,10 @@ export function createView(scene: LaidOut, options: ViewOptions = {}): View {
     set.add(b);
   }
 
-  if (scene.kind === "graph") {
+  switch (scene.kind) {
+  case "graph": {
     for (const group of scene.groups) {
-      const index = addEntry("group", group.id, group, group.depth);
+      const index = addEntry("group", group.id, group, group.depth, true);
       addRect(index, group.x, group.y, group.width, group.height);
     }
     const edgeIndexes: number[] = [];
@@ -220,7 +275,9 @@ export function createView(scene: LaidOut, options: ViewOptions = {}): View {
       if (byKey.has(from)) link(edgeKey, from);
       if (byKey.has(to)) link(edgeKey, to);
     });
-  } else {
+    break;
+  }
+  case "sequence": {
     for (const participant of scene.participants) {
       const index = addEntry("participant", participant.id, participant);
       addRect(index, participant.x, participant.y, participant.width, participant.height);
@@ -271,6 +328,14 @@ export function createView(scene: LaidOut, options: ViewOptions = {}): View {
       if (byKey.has(from)) link(messageKey, from);
       if (byKey.has(to)) link(messageKey, to);
     }
+    break;
+  }
+  case "state":
+  case "er":
+  case "tree":
+    break;
+  default:
+    unreachable(scene);
   }
 
   const grid = createSpatialIndex(shapes);
@@ -478,7 +543,7 @@ export function createView(scene: LaidOut, options: ViewOptions = {}): View {
         const entry = entries[shape.entry]!;
         if (shape.role === RECT) {
           if (!contains(shape.box, px, py)) continue;
-          if (entry.ref.kind === "group") {
+          if (entry.container) {
             if (entry.depth > groupDepth || (entry.depth === groupDepth && shape.entry > group)) {
               group = shape.entry;
               groupDepth = entry.depth;

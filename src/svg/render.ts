@@ -470,6 +470,25 @@ function renderSequence(laid: LaidOutSequence, theme: Theme, types: Types): stri
   ].join("");
 }
 
+function renderScene(laidOut: LaidOut, theme: Theme, types: Types): string {
+  switch (laidOut.kind) {
+    case "graph":
+      return renderGraph(laidOut, theme, types);
+    case "sequence":
+      return renderSequence(laidOut, theme, types);
+    case "state":
+    case "er":
+    case "tree":
+      throw new Error(`Rendering of ${laidOut.kind} diagrams is not available yet`);
+    default:
+      return unreachable(laidOut);
+  }
+}
+
+function unreachable(value: never): never {
+  throw new Error(`Unsupported scene: ${JSON.stringify(value)}`);
+}
+
 export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string {
   const resolved = resolveTheme(options.theme);
   const { tokens: theme, types } = escapedTheme(resolved);
@@ -481,10 +500,7 @@ export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string
     : "<svg";
   const title =
     laidOut.title === undefined ? "" : `<title>${esc(laidOut.title)}</title>`;
-  const body =
-    laidOut.kind === "graph"
-      ? renderGraph(laidOut, theme, types)
-      : renderSequence(laidOut, theme, types);
+  const body = renderScene(laidOut, theme, types);
   const svg = [
     `${head} class="sg-root" data-diagram="${laidOut.kind}" version="1.1" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="Inter, system-ui, sans-serif">`,
     title,

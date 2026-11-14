@@ -16,5 +16,16 @@ export async function layout(document: unknown): Promise<LaidOut> {
     throw new Error(`Invalid document:\n${lines.join("\n")}`);
   }
   const doc = result.document;
-  return doc.kind === "graph" ? layoutGraph(doc) : layoutSequence(doc);
+  switch (doc.kind) {
+    case "graph":
+      return layoutGraph(doc);
+    case "sequence":
+      return layoutSequence(doc);
+    default:
+      return unreachable(doc);
+  }
+}
+
+function unreachable(value: never): never {
+  throw new Error(`Unsupported document: ${JSON.stringify(value)}`);
 }
