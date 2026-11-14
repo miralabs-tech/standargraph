@@ -1,0 +1,31 @@
+{
+  "$schema": "../schema/graph-document.v1.json",
+  "version": 1,
+  "kind": "graph",
+  "title": "Settings page flow",
+  "direction": "right",
+  "groups": [
+    { "id": "frontend", "label": "Frontend" },
+    { "id": "backend", "label": "Backend" },
+    { "id": "storage", "label": "Storage" }
+  ],
+  "nodes": [
+    { "id": "GeneralSettings", "label": "GeneralSettings", "type": "page", "group": "frontend" },
+    { "id": "ThemeSelector", "label": "ThemeSelector", "type": "component", "group": "frontend" },
+    { "id": "useSettings", "label": "useSettings", "type": "hook", "group": "frontend" },
+    { "id": "PatchSettings", "label": "PATCH /api/settings", "type": "endpoint", "group": "backend" },
+    { "id": "SettingsController", "label": "settings.controller", "type": "handler", "group": "backend" },
+    { "id": "SettingsService", "label": "SettingsService", "type": "service", "group": "backend" },
+    { "id": "SettingsRepository", "label": "SettingsRepository", "type": "repository", "group": "storage" },
+    { "id": "SettingsTable", "label": "settings table", "type": "database", "group": "storage" }
+  ],
+  "edges": [
+    { "from": "GeneralSettings", "to": "ThemeSelector", "label": "renders", "directed": true },
+    { "from": "GeneralSettings", "to": "useSettings", "label": "uses", "directed": true },
+    { "from": "useSettings", "to": "PatchSettings", "label": "calls", "directed": true },
+    { "from": "PatchSettings", "to": "SettingsController", "label": "handles", "directed": true },
+    { "from": "SettingsController", "to": "SettingsService", "label": "delegates", "directed": true },
+    { "from": "SettingsService", "to": "SettingsRepository", "label": "uses", "directed": true },
+    { "from": "SettingsRepository", "to": "SettingsTable", "label": "reads/writes", "directed": true }
+  ]
+}

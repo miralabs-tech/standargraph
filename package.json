@@ -29,6 +29,7 @@
       "types": "./dist/remark/index.d.ts",
       "import": "./dist/remark/index.js"
     },
+    "./schema/graph-document.v1.json": "./schema/graph-document.v1.json",
     "./package.json": "./package.json"
   },
   "files": [
@@ -41,11 +42,15 @@
   "scripts": {
     "build": "bun scripts/clean.ts && bun build src/cli.ts src/format/index.ts src/layout/index.ts src/svg/index.ts src/webgl/index.ts src/remark/index.ts --root src --outdir dist --target node --format esm && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
+    "schema": "bun scripts/schema.ts",
     "test": "bun test"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.52"
   }
 }

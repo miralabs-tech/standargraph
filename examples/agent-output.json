@@ -1,0 +1,94 @@
+{
+  "$schema": "../schema/graph-document.v1.json",
+  "version": 1,
+  "kind": "graph",
+  "title": "Files touched by the settings view",
+  "direction": "down",
+  "nodes": [
+    {
+      "id": "settings-view",
+      "label": "src/views/SettingsView.tsx",
+      "type": "file",
+      "meta": {
+        "provenance": { "source": "src/views/SettingsView.tsx", "confidence": "confirmed", "tool": "scip" },
+        "coverage": 1,
+        "freshness": "2026-11-14T09:30:00Z"
+      }
+    },
+    {
+      "id": "use-settings",
+      "label": "src/hooks/useSettings.ts",
+      "type": "file",
+      "meta": {
+        "provenance": { "source": "src/hooks/useSettings.ts", "confidence": "confirmed", "tool": "scip" },
+        "coverage": 0.9,
+        "freshness": "2026-11-14T09:30:00Z"
+      }
+    },
+    {
+      "id": "settings-api",
+      "label": "src/api/settings.ts",
+      "type": "file",
+      "meta": {
+        "provenance": { "source": "src/api/settings.ts", "confidence": "inferred", "tool": "static-analysis" },
+        "coverage": 0.6,
+        "freshness": "2026-11-13T18:05:00+01:00"
+      }
+    },
+    {
+      "id": "settings-controller",
+      "label": "server/settings.controller.ts",
+      "type": "file",
+      "meta": {
+        "provenance": { "source": "server/settings.controller.ts", "confidence": "inferred", "tool": "static-analysis" },
+        "coverage": 0.5,
+        "freshness": "2026-11-13T18:05:00+01:00"
+      }
+    },
+    {
+      "id": "settings-migration",
+      "label": "db/migrations/0042_settings.sql",
+      "type": "file",
+      "meta": {
+        "provenance": { "source": "db/migrations/0042_settings.sql", "confidence": "unknown" },
+        "freshness": "2026-11-10T12:00:00Z"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "settings-view",
+      "to": "use-settings",
+      "label": "imports",
+      "directed": true,
+      "meta": { "provenance": { "source": "scip", "confidence": "confirmed", "tool": "scip" } }
+    },
+    {
+      "from": "use-settings",
+      "to": "settings-api",
+      "label": "imports",
+      "directed": true,
+      "meta": { "provenance": { "source": "static-analysis", "confidence": "inferred", "tool": "static-analysis" } }
+    },
+    {
+      "from": "settings-api",
+      "to": "settings-controller",
+      "label": "http call",
+      "directed": true,
+      "meta": { "provenance": { "source": "static-analysis", "confidence": "inferred", "tool": "static-analysis" } }
+    },
+    {
+      "from": "settings-controller",
+      "to": "settings-migration",
+      "label": "touches schema",
+      "directed": true,
+      "meta": { "provenance": { "source": "agent guess", "confidence": "unknown" } }
+    }
+  ],
+  "meta": {
+    "provenance": { "source": "agent run settings-view-audit", "confidence": "inferred", "tool": "static-analysis" },
+    "coverage": 0.75,
+    "freshness": "2026-11-14T09:45:00Z",
+    "data": { "agent": "audit", "run": 12, "complete": false }
+  }
+}

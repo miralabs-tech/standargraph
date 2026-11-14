@@ -1,0 +1,24 @@
+{
+  "$schema": "../schema/graph-document.v1.json",
+  "version": 1,
+  "kind": "sequence",
+  "title": "OAuth 2.0 authorization code flow with PKCE",
+  "participants": [
+    { "id": "browser", "label": "Browser", "type": "client" },
+    { "id": "app", "label": "App", "type": "client" },
+    { "id": "auth", "label": "Authorization server", "type": "service" },
+    { "id": "api", "label": "API", "type": "service" }
+  ],
+  "messages": [
+    { "from": "browser", "to": "app", "label": "Click sign in", "style": "sync" },
+    { "from": "app", "to": "app", "label": "Generate code_verifier and code_challenge", "style": "sync" },
+    { "from": "app", "to": "browser", "label": "Redirect to /authorize with code_challenge", "style": "reply" },
+    { "from": "browser", "to": "auth", "label": "GET /authorize", "style": "sync" },
+    { "from": "auth", "to": "browser", "label": "Login and consent, redirect with code", "style": "reply" },
+    { "from": "browser", "to": "app", "label": "Callback with authorization code", "style": "async" },
+    { "from": "app", "to": "auth", "label": "POST /token with code and code_verifier", "style": "sync" },
+    { "from": "auth", "to": "app", "label": "Access token and refresh token", "style": "reply" },
+    { "from": "app", "to": "api", "label": "GET /resource with bearer token", "style": "sync" },
+    { "from": "api", "to": "app", "label": "Protected resource", "style": "reply" }
+  ]
+}
