@@ -48,7 +48,7 @@ A color value is not validated, but it is escaped. WebGL only reads hexadecimal 
 - Presentation attributes are always written from the resolved tokens, so a PNG or a PDF (rendered without the stylesheet) follows a custom theme.
 - HTML pages and `mount()` write the variables of the light theme, then those of the dark theme under `@media (prefers-color-scheme:dark)`.
   - `"auto"` uses the two built-in themes.
-  - `{ light, dark }` uses the two given themes. Define the same `types` in both, since a type left out of the dark theme keeps its light color.
+  - `{ light, dark }` uses the two given themes. A type colored only in the light theme falls back to the default node colors in dark mode.
   - `"light"`, `"dark"` or a single `Theme` gives a fixed theme.
 - For SVG, PNG and PDF, `"auto"` and `{ light, dark }` give the light theme.
 - CLI: `--theme light|dark|auto|<file.json>`. A value that ends with `.json` is read as a `Theme` or a `{ light, dark }` pair. An unreadable or invalid file exits with 2.

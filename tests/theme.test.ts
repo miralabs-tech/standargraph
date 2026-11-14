@@ -161,6 +161,18 @@ describe("themeStyle", () => {
     expect(style.indexOf("--sg-accent:#111111")).toBeLessThan(media);
     expect(style.indexOf("--sg-accent:#222222")).toBeGreaterThan(media);
   });
+
+  test("a type colored only in the light theme falls back to the default colors in dark mode", () => {
+    const style = themeStyle({
+      light: { types: { database: { fill: "#ff0000", text: "#00ff00" }, cache: { fill: "#0000ff" } } },
+      dark: { base: "dark", types: { cache: { fill: "#000080" } } },
+    });
+    const dark = style.slice(style.indexOf("@media (prefers-color-scheme:dark)"));
+    expect(dark).toContain('[data-type="database"] .sg-node{fill:var(--sg-node-fill)}');
+    expect(dark).toContain('[data-type="database"] .sg-label{fill:var(--sg-fg)}');
+    expect(dark).toContain('[data-type="cache"] .sg-node{fill:#000080}');
+    expect(dark).not.toContain("#ff0000");
+  });
 });
 
 describe("pages and exports", () => {

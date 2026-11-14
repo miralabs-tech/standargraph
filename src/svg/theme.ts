@@ -147,13 +147,32 @@ export function lightTheme(option: PageThemeOption | undefined): ThemeOption {
   return isPair(option) ? option.light : option;
 }
 
+const DEFAULT_TYPE_STYLE: Required<TypeStyle> = {
+  fill: "var(--sg-node-fill)",
+  stroke: "var(--sg-node-stroke)",
+  text: "var(--sg-fg)",
+};
+
+function darkTypes(light: ThemeOption, dark: ThemeOption): Record<string, TypeStyle> {
+  const types: Record<string, TypeStyle> = { ...resolveTheme(dark).types };
+  for (const [type, style] of Object.entries(resolveTheme(light).types)) {
+    const own = types[type] ?? {};
+    const reset: TypeStyle = { ...own };
+    for (const key of ["fill", "stroke", "text"] as const) {
+      if (style[key] !== undefined && own[key] === undefined) reset[key] = DEFAULT_TYPE_STYLE[key];
+    }
+    types[type] = reset;
+  }
+  return types;
+}
+
 export function themeStyle(option: PageThemeOption): string {
   const selector = ".sg-app,.sg-app .sg-root";
   const scope = ".sg-app .sg-root";
-  const block = (theme: ThemeOption): string =>
-    `${selector}{${themeVariables(theme)}}${typeRules(resolveTheme(theme).types, scope)}`;
+  const block = (theme: ThemeOption, types = resolveTheme(theme).types): string =>
+    `${selector}{${themeVariables(theme)}}${typeRules(types, scope)}`;
   const adaptive = (light: ThemeOption, dark: ThemeOption): string =>
-    `${block(light)}@media (prefers-color-scheme:dark){${block(dark)}}`;
+    `${block(light)}@media (prefers-color-scheme:dark){${block(dark, darkTypes(light, dark))}}`;
   if (option === "auto") return adaptive("light", "dark");
   if (isPair(option)) return adaptive(option.light, option.dark);
   return block(option);
