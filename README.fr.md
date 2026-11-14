@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml/badge.svg)](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@miralabs-tech/standargraph)](https://www.npmjs.com/package/@miralabs-tech/standargraph) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org)
 
-> "Diagrammes de graphes et de séquences déclaratifs à partir de JSON, rendus en SVG, HTML interactif, PNG et PDF, avec WebGL au-delà de 2000 nœuds."
+> "Diagrammes déclaratifs à partir de JSON (graphes, séquences, machines à états, entité-relation et arbres), rendus en SVG, HTML interactif, PNG et PDF, avec WebGL au-delà de 2000 nœuds de graphe."
 
 📖 [English](./README.md) · Français
 
-[Démarrage rapide](#-démarrage-rapide) · [Installation](#-installation) · [Fonctionnalités](#-fonctionnalités) · [Limites](#-limites) · [Cœur headless](./docs/headless.md) · [Benchmark](./docs/bench.md) · [Changelog](./CHANGELOG.md)
+[Démarrage rapide](#-démarrage-rapide) · [Installation](#-installation) · [Fonctionnalités](#-fonctionnalités) · [Types de diagrammes](#-types-de-diagrammes) · [Thèmes](./docs/theming.md) · [Limites](#-limites) · [Cœur headless](./docs/headless.md) · [Benchmark](./docs/bench.md) · [Changelog](./CHANGELOG.md)
 
 [![Settings page flow](./docs/assets/architecture.svg)](./docs/assets/architecture.html)
 
@@ -18,7 +18,7 @@ Les deux images ci-dessus sont produites par la CLI (`examples/architecture.json
 
 ## 🧠 Qu'est-ce que StandarGraph ?
 
-Vous décrivez un graphe ou un diagramme de séquence dans un document JSON (`version: 1`, `kind: "graph"` ou `"sequence"`), et StandarGraph le met en page et le rend. Les nœuds, arêtes et groupes peuvent porter des métadonnées facultatives : provenance (source, confiance, outil), couverture et fraîcheur, pour qu'un diagramme produit par un outil ou un agent dise à quel point on peut s'y fier.
+Vous décrivez un diagramme dans un document JSON (`version: 1`, `kind` parmi `"graph"`, `"sequence"`, `"state"`, `"er"` ou `"tree"`), et StandarGraph le met en page et le rend. Les nœuds, arêtes et groupes peuvent porter des métadonnées facultatives : provenance (source, confiance, outil), couverture et fraîcheur, pour qu'un diagramme produit par un outil ou un agent dise à quel point on peut s'y fier.
 
 La mise en page et la vue (caméra, hit testing, culling, niveau de détail, survol, sélection, recherche) forment un cœur headless qui ne touche jamais au DOM. Des adaptateurs se posent dessus : un rendu SVG, une page HTML interactive, et un rendu WebGL basé sur [Sigma.js](https://www.sigmajs.org) pour les grands graphes.
 
@@ -63,7 +63,7 @@ standargraph layout graph.json                              # graph.positioned.j
 | `--format <liste>` | Liste séparée par des virgules : `svg`, `html`, `png`, `pdf` (défaut `svg,html`) |
 | `--out <dir>` | Dossier de sortie (défaut : le dossier du fichier d'entrée) |
 | `--name <base>` | Nom de base des sorties (défaut : le nom du fichier d'entrée sans `.json`) |
-| `--theme <thème>` | `light`, `dark` ou `auto` (défaut `auto`) |
+| `--theme <thème>` | `light`, `dark`, `auto` (défaut `auto`) ou un fichier de thème `.json`, voir [docs/theming.md](./docs/theming.md) |
 | `--scale <n>` | Facteur d'échelle du PNG (défaut 2) |
 | `--renderer <nom>` | Rendu HTML : `auto`, `svg` ou `webgl` (défaut `auto`) |
 | `--markdown` | Affiche `[![titre](base.svg)](base.html)`, un extrait Markdown qui lie l'aperçu SVG à la page HTML |
@@ -126,6 +126,119 @@ view.subscribe(() => draw(view));
 
 ---
 
+## 🧩 Types de diagrammes
+
+Chaque document porte `version: 1` et un `kind`. Les fichiers de [examples](./examples) sont des documents complets pour chaque type.
+
+### `graph` et `sequence`
+
+`graph` contient des `nodes`, des `edges` et des `groups` imbriqués ; `sequence` contient des `participants` et des `messages`. Voir le démarrage rapide plus haut, ainsi que `examples/architecture.json` et `examples/protocol.json`.
+
+### `state`
+
+Des états, des pseudo-états facultatifs (`initial`, `final`, `choice`, `fork`, `join`, `history`), des états composites par `parent`, et des transitions avec `event`, `guard` et `action`. Extrait de `examples/order-state.json` :
+
+```json
+{
+  "version": 1,
+  "kind": "state",
+  "title": "Order lifecycle",
+  "direction": "right",
+  "states": [
+    { "id": "__initial", "pseudo": "initial" },
+    { "id": "pending", "label": "Pending", "actions": ["entry / reserve stock"] },
+    { "id": "paid", "label": "Paid" },
+    { "id": "__final", "pseudo": "final" }
+  ],
+  "transitions": [
+    { "from": "__initial", "to": "pending" },
+    { "from": "pending", "to": "paid", "event": "payment received" },
+    { "from": "paid", "to": "__final" }
+  ]
+}
+```
+
+### `er`
+
+Des entités à attributs (`keys` : `pk`, `fk`, `uk` ; `nullable` ; `note`) et des relations dessinées avec des cardinalités en pattes de corbeau (`one`, `zero-or-one`, `one-or-more`, `zero-or-more`). Extrait de `examples/shop-er.json` :
+
+```json
+{
+  "version": 1,
+  "kind": "er",
+  "title": "Shop orders",
+  "entities": [
+    {
+      "id": "customer",
+      "label": "Customer",
+      "attributes": [
+        { "name": "id", "type": "uuid", "keys": ["pk"] },
+        { "name": "email", "type": "varchar(255)", "keys": ["uk"] }
+      ]
+    },
+    {
+      "id": "order",
+      "label": "Order",
+      "attributes": [
+        { "name": "id", "type": "uuid", "keys": ["pk"] },
+        { "name": "customer_id", "type": "uuid", "keys": ["fk"] }
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "customer", "to": "order", "fromCardinality": "one", "toCardinality": "zero-or-more", "label": "places" }
+  ]
+}
+```
+
+### `tree`
+
+Une liste plate de nœuds liés par `parent`, mise en page en arbre « tidy » (`"layout": "tree"`, par défaut, avec une `direction`) ou en mindmap à deux côtés autour de la racine (`"layout": "mindmap"`). Extrait de `examples/repo-tree.json` et `examples/roadmap-mindmap.json` :
+
+```json
+{
+  "version": 1,
+  "kind": "tree",
+  "title": "Repository layout",
+  "layout": "mindmap",
+  "nodes": [
+    { "id": "repo", "label": "standargraph", "shape": "pill" },
+    { "id": "src", "label": "src", "parent": "repo" },
+    { "id": "format", "label": "format", "parent": "src" },
+    { "id": "tests", "label": "tests", "parent": "repo" }
+  ]
+}
+```
+
+### Formes
+
+`shape` sur un nœud `graph` ou `tree` vaut `box` (par défaut), `rect`, `pill`, `diamond`, `circle`, `ellipse`, `hexagon`, `parallelogram`, `cylinder`, `document` ou `subroutine`. Les arêtes s'arrêtent sur le contour de la forme : un flowchart est donc un `graph` avec des formes (`examples/deploy-flowchart.json`) :
+
+```json
+{
+  "version": 1,
+  "kind": "graph",
+  "direction": "down",
+  "nodes": [
+    { "id": "build", "label": "Build image", "shape": "rect" },
+    { "id": "green", "label": "Green?", "shape": "diamond" },
+    { "id": "done", "label": "Live", "shape": "pill" }
+  ],
+  "edges": [
+    { "from": "build", "to": "green", "directed": true },
+    { "from": "green", "to": "done", "label": "yes", "directed": true }
+  ]
+}
+```
+
+Les formes sont dans le document ; les couleurs n'y sont jamais. Elles viennent du thème.
+
+### Thèmes
+
+Un thème est un ensemble de jetons de couleur plus des couleurs facultatives par `type` de nœud, donné par `--theme <fichier.json>` dans la CLI ou par l'option `theme` de l'API. Voir [docs/theming.md](./docs/theming.md) (en anglais).
+
+---
+
 ## 📦 Installation
 
 ```sh
@@ -145,11 +258,13 @@ npm install -g @miralabs-tech/standargraph   # puis : standargraph export graph.
 
 ## ✨ Fonctionnalités
 
-- **Format v1** : documents JSON de deux types, `graph` (nœuds, arêtes, groupes imbriqués, `position` fixe facultative) et `sequence` (participants, messages), validés par un [JSON Schema](./schema/graph-document.v1.json) publié, avec un `validate()` qui renvoie une erreur par problème et son chemin.
+- **Format v1** : documents JSON de cinq types, `graph` (nœuds, arêtes, groupes imbriqués, `position` fixe facultative), `sequence` (participants, messages), `state`, `er` et `tree` (voir [Types de diagrammes](#-types-de-diagrammes)), validés par un [JSON Schema](./schema/graph-document.v1.json) publié, avec un `validate()` qui renvoie une erreur par problème et son chemin.
 - **Métadonnées** : provenance (`confirmed`, `inferred`, `unknown`), couverture et fraîcheur sur les documents, nœuds, arêtes et groupes ; les éléments à faible confiance sont dessinés atténués.
-- **Mise en page** : layout ELK en couches pour les graphes et les groupes, layout dédié aux diagrammes de séquence, texte mesuré avec les métriques d'Inter embarquées pour que SVG et HTML s'accordent.
+- **Mise en page** : layout ELK en couches pour les graphes, les groupes, les machines à états et les diagrammes entité-relation, layout dédié aux diagrammes de séquence, layout arbre ou mindmap pour les arbres, texte mesuré avec les métriques d'Inter embarquées pour que SVG et HTML s'accordent.
+- **Formes** : 11 formes de nœud sur les nœuds `graph` et `tree`, dessinées en SVG et coupées au contour par les arêtes (voir [Formes](#formes)).
+- **Thèmes** : jetons de couleur et couleurs par `type` de nœud, un seul objet pour le SVG, le HTML, le PNG et le PDF, option `--theme <fichier.json>` (voir [docs/theming.md](./docs/theming.md), en anglais).
 - **Rendus** : SVG, HTML interactif (déplacement, zoom, survol, sélection, recherche, panneau, clavier, thèmes clair et sombre), et WebGL via Sigma.js.
-- **WebGL au-delà de 2000 nœuds** : l'export HTML bascule automatiquement en WebGL au-delà de 2000 nœuds (`--renderer` force le choix). Sur la porte v1, 10 000 nœuds en WebGL tiennent une médiane de 303 FPS (p5 285,7) plafonnée par le rafraîchissement de l'écran, et une médiane de 58,1 FPS (p5 54,3) sans plafond, sur un Intel Core i7-14700KF avec une NVIDIA GeForce RTX 4070 Ti SUPER dans Microsoft Edge 157. Détails dans [docs/bench.md](./docs/bench.md).
+- **WebGL au-delà de 2000 nœuds** : l'export HTML d'un `graph` bascule automatiquement en WebGL au-delà de 2000 nœuds (`--renderer` force le choix). Sur la porte v1, 10 000 nœuds en WebGL tiennent une médiane de 303 FPS (p5 285,7) plafonnée par le rafraîchissement de l'écran, et une médiane de 58,1 FPS (p5 54,3) sans plafond, sur un Intel Core i7-14700KF avec une NVIDIA GeForce RTX 4070 Ti SUPER dans Microsoft Edge 157. Détails dans [docs/bench.md](./docs/bench.md).
 - **HTML hors ligne en un fichier** : polices et runtime embarqués, rien n'est téléchargé.
 - **Export** : SVG, HTML, PNG et PDF depuis la CLI ou `exportDocument()`, PNG et PDF sans navigateur (resvg WASM et PDFKit).
 - **Cœur headless** : contrôleur de vue avec caméra, hit testing, culling, niveau de détail et surbrillance, utilisable dans Node, Bun, un worker ou un navigateur.
@@ -163,13 +278,14 @@ npm install -g @miralabs-tech/standargraph   # puis : standargraph export graph.
 - **Précalculez les positions des grands graphes.** Dès que chaque nœud a une `position`, ELK est ignoré par `layout()`, `mount()` et les exports. `standargraph export` calcule la mise en page une fois et la page HTML qu'il écrit porte le résultat : l'ouvrir ne remet jamais rien en page. Pour garder les positions dans vos documents, lancez `standargraph layout graph.json` (ou `--out <fichier>`) : la commande écrit le même document avec une `position` sur chaque nœud, qui s'affiche ensuite sans ELK.
 
 - La sortie du plugin remark ne s'affiche pas sur GitHub. Dans un README, utilisez le SVG écrit par la CLI, lié à sa page HTML (`--markdown` affiche l'extrait).
-- Le rendu WebGL ne dessine ni les légendes de type de nœud, ni les libellés d'arêtes, ni les pointes de flèche, et les diagrammes de séquence sont toujours dessinés en SVG.
+- Le rendu WebGL ne dessine ni les légendes de type de nœud, ni les libellés d'arêtes, ni les pointes de flèche, et les diagrammes `sequence`, `state`, `er` et `tree` sont toujours dessinés en SVG.
 
 ---
 
 ## 📚 Documentation
 
 - [Cœur headless et adaptateurs](./docs/headless.md) (anglais)
+- [Thèmes](./docs/theming.md) (anglais)
 - [Benchmark et temps de mise en page](./docs/bench.md) (anglais)
 - [JSON Schema du format v1](./schema/graph-document.v1.json)
 - [Exemples](./examples)

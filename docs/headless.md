@@ -10,8 +10,10 @@ Nothing under `src/core`, `src/format` or `src/layout` uses `document`, `window`
 
 ## What the core gives
 
-- `layout(document)`: validates a graph or sequence document and returns the laid-out scene (`LaidOut`): positions and sizes for groups, nodes, participants, edge paths, message lines and label boxes. `validate`, the format types, `measureText` and the laid-out types are re-exported too.
+- `layout(document)`: validates a document of any kind (`graph`, `sequence`, `state`, `er`, `tree`) and returns the laid-out scene (`LaidOut`, discriminated by `kind`): positions and sizes for groups, nodes, participants, states, entities, edge, transition and relation paths, message lines and label boxes. `validate`, the format types, `measureText` and the laid-out types are re-exported too.
 - `createView(scene, options?)`: a deterministic, timer-free state machine over that scene.
+- `sceneItemCount(scene)`: the number of items of a scene, whatever its kind (groups, nodes and edges for a graph; participants and messages for a sequence; states and transitions; entities and relations; nodes and edges of a tree).
+- `HOVERABLE`: the set of item kinds that take part in hover and selection as a primary target: `node`, `participant`, `state` and `entity`.
 
 A view holds:
 
@@ -26,6 +28,24 @@ A view holds:
 The `ItemRef` objects returned by `visible()`, `hitTest()` and `hovered()` are the same objects every time for a given item, so they work as `Map` keys.
 
 The view does not know about pixels, devices or frames: call `setViewport(width, height)` with your surface size, and decide yourself when to redraw.
+
+## Item kinds
+
+Every item has an `ItemRef` of the form `{ kind, id }`. `ItemKind` is one of:
+
+| Document kind | Item kinds |
+| --- | --- |
+| `graph` | `node`, `edge`, `group` |
+| `sequence` | `participant`, `message` |
+| `state` | `state`, `transition` |
+| `er` | `entity`, `relation` |
+| `tree` | `node`, `edge` |
+
+`view.item(ref)` returns the laid-out item typed by its kind (`LaidOutState`, `LaidOutTransition`, `LaidOutEntity`, `LaidOutRelation`, `LaidOutTreeNode`, `LaidOutTreeEdge`, ...). A `tree` scene reuses the `node` and `edge` kinds, so its items are `LaidOutTreeNode` and `LaidOutTreeEdge`.
+
+**Containers.** An item that encloses others is a container: a `group` of a graph and a composite `state`. A container is hit only when the point is on none of its children, and the innermost container wins (`depth`). `hitTest` order is: non-container shapes first (nodes, participants, states, entities), then edges, transitions, relations and messages within 4 screen pixels, then containers, else `null`.
+
+**Hover.** Hover and selection start from the `HOVERABLE` kinds. Hovering a node, state or entity highlights it, its incident edges, transitions or relations, and the items at their other end.
 
 ## A minimal canvas adapter
 
@@ -82,7 +102,7 @@ The view changes state instantly and never schedules anything, so animation belo
 
 ## The WebGL adapter
 
-`@miralabs-tech/standargraph/webgl` renders a graph with [Sigma.js](https://www.sigmajs.org) (WebGL) and a 2D canvas for the groups, as a second adapter on the same view. The HTML export picks it above `WEBGL_THRESHOLD` nodes (exported from `@miralabs-tech/standargraph/core`, a plain constant); `renderer: "svg" | "webgl" | "auto"` on `renderHtml` and `--renderer` on the CLI override the choice. Sequence diagrams are always drawn as SVG.
+`@miralabs-tech/standargraph/webgl` renders a graph with [Sigma.js](https://www.sigmajs.org) (WebGL) and a 2D canvas for the groups, as a second adapter on the same view. The HTML export picks it above `WEBGL_THRESHOLD` nodes (exported from `@miralabs-tech/standargraph/core`, a plain constant); `renderer: "svg" | "webgl" | "auto"` on `renderHtml` and `--renderer` on the CLI override the choice. Only `graph` documents are drawn by WebGL: `sequence`, `state`, `er` and `tree` documents are always drawn as SVG, whatever `renderer` says.
 
 **The view stays the source of truth.** Sigma's mouse and touch captors are killed, and Sigma's camera is never read back. The pointer, wheel, toolbar and keyboard handlers are the same ones the SVG page uses (`src/html/ui.ts`) and call `panBy`, `zoomAt`, `fit`, `hover`, `select` and `search` on the view. Each `camera` change from the view is written to Sigma's camera synchronously (`view.camera()` is converted to a Sigma camera state through a calibration read once from `sigma.graphToViewport`, so scale and translation match exactly), and Sigma renders on its own animation frame. The groups canvas is redrawn in Sigma's `afterRender` from `view.camera()` and `view.visible()`, so both layers always show the same camera.
 

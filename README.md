@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml/badge.svg)](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@miralabs-tech/standargraph)](https://www.npmjs.com/package/@miralabs-tech/standargraph) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org)
 
-> "Declarative graph and sequence diagrams from JSON, rendered to SVG, interactive HTML, PNG and PDF, with WebGL beyond 2000 nodes."
+> "Declarative diagrams from JSON (graphs, sequences, state machines, entity-relation and trees), rendered to SVG, interactive HTML, PNG and PDF, with WebGL beyond 2000 graph nodes."
 
 📖 English · [Français](./README.fr.md)
 
-[Quickstart](#-quickstart) · [Install](#-install) · [Features](#-features) · [Limits](#-limits) · [Headless core](./docs/headless.md) · [Benchmark](./docs/bench.md) · [Changelog](./CHANGELOG.md)
+[Quickstart](#-quickstart) · [Install](#-install) · [Features](#-features) · [Diagram kinds](#-diagram-kinds) · [Theming](./docs/theming.md) · [Limits](#-limits) · [Headless core](./docs/headless.md) · [Benchmark](./docs/bench.md) · [Changelog](./CHANGELOG.md)
 
 [![Settings page flow](./docs/assets/architecture.svg)](./docs/assets/architecture.html)
 
@@ -18,7 +18,7 @@ Both images above come from the CLI (`examples/architecture.json` and `examples/
 
 ## 🧠 What is StandarGraph?
 
-You describe a graph or a sequence diagram in a JSON document (`version: 1`, `kind: "graph"` or `"sequence"`), and StandarGraph lays it out and renders it. Nodes, edges and groups can carry optional metadata: provenance (source, confidence, tool), coverage and freshness, so a diagram produced by a tool or an agent says how far it can be trusted.
+You describe a diagram in a JSON document (`version: 1`, `kind` one of `"graph"`, `"sequence"`, `"state"`, `"er"` or `"tree"`), and StandarGraph lays it out and renders it. Nodes, edges and groups can carry optional metadata: provenance (source, confidence, tool), coverage and freshness, so a diagram produced by a tool or an agent says how far it can be trusted.
 
 The layout and the view (camera, hit testing, culling, level of detail, hover, selection, search) form a headless core that never touches the DOM. Adapters sit on top of it: an SVG renderer, an interactive HTML page, and a WebGL renderer built on [Sigma.js](https://www.sigmajs.org) for large graphs.
 
@@ -63,7 +63,7 @@ standargraph layout graph.json                              # graph.positioned.j
 | `--format <list>` | Comma-separated: `svg`, `html`, `png`, `pdf` (default `svg,html`) |
 | `--out <dir>` | Output directory (default: the input file directory) |
 | `--name <base>` | Output base name (default: the input file name without `.json`) |
-| `--theme <theme>` | `light`, `dark` or `auto` (default `auto`) |
+| `--theme <theme>` | `light`, `dark`, `auto` (default `auto`) or a `.json` theme file, see [docs/theming.md](./docs/theming.md) |
 | `--scale <n>` | PNG scale factor (default 2) |
 | `--renderer <name>` | HTML renderer: `auto`, `svg` or `webgl` (default `auto`) |
 | `--markdown` | Print `[![title](base.svg)](base.html)`, a Markdown snippet linking the SVG preview to the HTML page |
@@ -126,6 +126,119 @@ view.subscribe(() => draw(view));
 
 ---
 
+## 🧩 Diagram kinds
+
+Every document has `version: 1` and a `kind`. The files in [examples](./examples) are complete documents for each kind.
+
+### `graph` and `sequence`
+
+`graph` holds `nodes`, `edges` and nested `groups`; `sequence` holds `participants` and `messages`. See the quickstart above and `examples/architecture.json` and `examples/protocol.json`.
+
+### `state`
+
+States, optional pseudo-states (`initial`, `final`, `choice`, `fork`, `join`, `history`), composite states through `parent`, and transitions with `event`, `guard` and `action`. From `examples/order-state.json`:
+
+```json
+{
+  "version": 1,
+  "kind": "state",
+  "title": "Order lifecycle",
+  "direction": "right",
+  "states": [
+    { "id": "__initial", "pseudo": "initial" },
+    { "id": "pending", "label": "Pending", "actions": ["entry / reserve stock"] },
+    { "id": "paid", "label": "Paid" },
+    { "id": "__final", "pseudo": "final" }
+  ],
+  "transitions": [
+    { "from": "__initial", "to": "pending" },
+    { "from": "pending", "to": "paid", "event": "payment received" },
+    { "from": "paid", "to": "__final" }
+  ]
+}
+```
+
+### `er`
+
+Entities with attributes (`keys`: `pk`, `fk`, `uk`; `nullable`; `note`) and relations drawn with crow's foot cardinalities (`one`, `zero-or-one`, `one-or-more`, `zero-or-more`). From `examples/shop-er.json`:
+
+```json
+{
+  "version": 1,
+  "kind": "er",
+  "title": "Shop orders",
+  "entities": [
+    {
+      "id": "customer",
+      "label": "Customer",
+      "attributes": [
+        { "name": "id", "type": "uuid", "keys": ["pk"] },
+        { "name": "email", "type": "varchar(255)", "keys": ["uk"] }
+      ]
+    },
+    {
+      "id": "order",
+      "label": "Order",
+      "attributes": [
+        { "name": "id", "type": "uuid", "keys": ["pk"] },
+        { "name": "customer_id", "type": "uuid", "keys": ["fk"] }
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "customer", "to": "order", "fromCardinality": "one", "toCardinality": "zero-or-more", "label": "places" }
+  ]
+}
+```
+
+### `tree`
+
+A flat list of nodes linked by `parent`, laid out as a tidy tree (`"layout": "tree"`, the default, with a `direction`) or as a two-sided mindmap around the root (`"layout": "mindmap"`). From `examples/repo-tree.json` and `examples/roadmap-mindmap.json`:
+
+```json
+{
+  "version": 1,
+  "kind": "tree",
+  "title": "Repository layout",
+  "layout": "mindmap",
+  "nodes": [
+    { "id": "repo", "label": "standargraph", "shape": "pill" },
+    { "id": "src", "label": "src", "parent": "repo" },
+    { "id": "format", "label": "format", "parent": "src" },
+    { "id": "tests", "label": "tests", "parent": "repo" }
+  ]
+}
+```
+
+### Shapes
+
+`shape` on a `graph` or `tree` node is one of `box` (the default), `rect`, `pill`, `diamond`, `circle`, `ellipse`, `hexagon`, `parallelogram`, `cylinder`, `document` and `subroutine`. Edges end on the outline of the shape, so a flowchart is a `graph` with shapes (`examples/deploy-flowchart.json`):
+
+```json
+{
+  "version": 1,
+  "kind": "graph",
+  "direction": "down",
+  "nodes": [
+    { "id": "build", "label": "Build image", "shape": "rect" },
+    { "id": "green", "label": "Green?", "shape": "diamond" },
+    { "id": "done", "label": "Live", "shape": "pill" }
+  ],
+  "edges": [
+    { "from": "build", "to": "green", "directed": true },
+    { "from": "green", "to": "done", "label": "yes", "directed": true }
+  ]
+}
+```
+
+Shapes live in the document; colors never do. They come from the theme.
+
+### Theming
+
+A theme is a set of color tokens plus optional colors per node `type`, given as `--theme <file.json>` on the CLI or as the `theme` option of the API. See [docs/theming.md](./docs/theming.md).
+
+---
+
 ## 📦 Install
 
 ```sh
@@ -145,11 +258,13 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 
 ## ✨ Features
 
-- **Format v1**: JSON documents of two kinds, `graph` (nodes, edges, nested groups, optional fixed `position`) and `sequence` (participants, messages), validated against a published [JSON Schema](./schema/graph-document.v1.json), with a `validate()` that returns one error per problem and its path.
+- **Format v1**: JSON documents of five kinds, `graph` (nodes, edges, nested groups, optional fixed `position`), `sequence` (participants, messages), `state`, `er` and `tree` (see [Diagram kinds](#-diagram-kinds)), validated against a published [JSON Schema](./schema/graph-document.v1.json), with a `validate()` that returns one error per problem and its path.
 - **Metadata**: provenance (`confirmed`, `inferred`, `unknown`), coverage and freshness on documents, nodes, edges and groups; low-confidence items are drawn muted.
-- **Layout**: ELK layered layout for graphs and groups, a dedicated layout for sequence diagrams, text measured with embedded Inter metrics so SVG and HTML agree.
+- **Layout**: ELK layered layout for graphs, groups, state machines and entity-relation diagrams, a dedicated layout for sequence diagrams, a tidy or mindmap layout for trees, text measured with embedded Inter metrics so SVG and HTML agree.
+- **Shapes**: 11 node shapes on `graph` and `tree` nodes, drawn in SVG and cut at the outline by the edges (see [Shapes](#shapes)).
+- **Theming**: color tokens and colors per node `type`, one object for SVG, HTML, PNG and PDF, a `--theme <file.json>` option (see [docs/theming.md](./docs/theming.md)).
 - **Renderers**: SVG, interactive HTML (pan, zoom, hover, selection, search, panel, keyboard, light and dark themes), and WebGL through Sigma.js.
-- **WebGL above 2000 nodes**: the HTML export switches to WebGL automatically past 2000 nodes (`--renderer` overrides it). On the v1 gate, 10 000 nodes in WebGL hold a median of 303 FPS (p5 285.7) with the display refresh as the cap, and a median of 58.1 FPS (p5 54.3) uncapped, on an Intel Core i7-14700KF with an NVIDIA GeForce RTX 4070 Ti SUPER in Microsoft Edge 157. Details in [docs/bench.md](./docs/bench.md).
+- **WebGL above 2000 nodes**: the HTML export of a `graph` switches to WebGL automatically past 2000 nodes (`--renderer` overrides it). On the v1 gate, 10 000 nodes in WebGL hold a median of 303 FPS (p5 285.7) with the display refresh as the cap, and a median of 58.1 FPS (p5 54.3) uncapped, on an Intel Core i7-14700KF with an NVIDIA GeForce RTX 4070 Ti SUPER in Microsoft Edge 157. Details in [docs/bench.md](./docs/bench.md).
 - **Offline single-file HTML**: fonts and runtime are embedded, nothing is fetched.
 - **Export**: SVG, HTML, PNG and PDF from the CLI or `exportDocument()`, PNG and PDF without a browser (resvg WASM and PDFKit).
 - **Headless core**: view controller with camera, hit testing, culling, level of detail and highlight, usable in Node, Bun, a worker or a browser.
@@ -163,13 +278,14 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 - **Precompute positions for large graphs.** Once every node has a `position`, ELK is skipped by `layout()`, `mount()` and the exports. `standargraph export` runs the layout once and the HTML page it writes carries the result: opening it never lays anything out again. To keep positions in your documents, run `standargraph layout graph.json` (or `--out <file>`): it writes the same document with a `position` on every node, which then renders without ELK.
 
 - The remark plugin output does not render on GitHub. In a README, use the SVG written by the CLI, linked to its HTML page (`--markdown` prints the snippet).
-- Node type captions, edge labels and arrowheads are not drawn by the WebGL renderer, and sequence diagrams are always drawn as SVG.
+- Node type captions, edge labels and arrowheads are not drawn by the WebGL renderer, and `sequence`, `state`, `er` and `tree` diagrams are always drawn as SVG.
 
 ---
 
 ## 📚 Documentation
 
 - [Headless core and adapters](./docs/headless.md)
+- [Theming](./docs/theming.md)
 - [Benchmark and layout times](./docs/bench.md)
 - [JSON Schema of the format v1](./schema/graph-document.v1.json)
 - [Examples](./examples)
