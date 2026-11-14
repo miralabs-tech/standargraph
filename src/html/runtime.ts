@@ -1,8 +1,10 @@
+import { type Change, createView, type ItemKind, type ItemRef } from "../core/view";
 import type { Document, Meta } from "../format";
+import type { LaidOut } from "../layout/types";
 
-const MIN_SCALE = 0.05;
-const MAX_SCALE = 8;
 const DRAG_THRESHOLD = 4;
+const IDLE_MS = 150;
+const CULL_MIN_ITEMS = 400;
 const UNSAFE_LINK = /^[\s\u0000-\u001f]*(javascript|data|vbscript):/i;
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -25,121 +27,172 @@ function element<K extends keyof HTMLElementTagNameMap>(
 function start(): void {
   const documentJson = byId<HTMLScriptElement>("standargraph-document").textContent;
   const doc = JSON.parse(documentJson ?? "{}") as Document;
+  const sceneJson = byId<HTMLScriptElement>("standargraph-scene").textContent;
+  const scene = JSON.parse(sceneJson ?? "{}") as LaidOut;
   const viewport = byId<HTMLDivElement>("sg-viewport");
   const stage = byId<HTMLDivElement>("sg-stage");
   const panel = byId<HTMLElement>("sg-panel");
   const search = byId<HTMLInputElement>("sg-search");
   const svg = stage.querySelector("svg");
   if (svg === null) return;
+  const root: SVGSVGElement = svg;
 
-  const box = svg.viewBox.baseVal;
-  const contentWidth = box.width || svg.clientWidth;
-  const contentHeight = box.height || svg.clientHeight;
-
-  let scale = 1;
-  let tx = 0;
-  let ty = 0;
-
-  function apply(): void {
-    stage.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
-  }
-
-  function fit(): void {
-    const width = viewport.clientWidth;
-    const height = viewport.clientHeight;
-    if (width === 0 || height === 0) return;
-    scale = Math.min(width / contentWidth, height / contentHeight, 1);
-    tx = (width - contentWidth * scale) / 2;
-    ty = (height - contentHeight * scale) / 2;
-    apply();
-  }
-
-  function zoomAt(factor: number, cx: number, cy: number): void {
-    const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
-    const ratio = next / scale;
-    tx = cx - (cx - tx) * ratio;
-    ty = cy - (cy - ty) * ratio;
-    scale = next;
-    apply();
-  }
-
-  function zoomCenter(factor: number): void {
-    zoomAt(factor, viewport.clientWidth / 2, viewport.clientHeight / 2);
-  }
+  const view = createView(scene);
 
   const elements = new Map<string, Element>();
-  for (const item of svg.querySelectorAll("[data-kind]")) {
+  for (const item of root.querySelectorAll("[data-kind]")) {
     elements.set(`${item.getAttribute("data-kind")}:${item.getAttribute("data-id")}`, item);
+  }
+  const elementByRef = new Map<ItemRef, Element>();
+
+  function elementOf(ref: ItemRef): Element | undefined {
+    let found = elementByRef.get(ref);
+    if (found === undefined) {
+      found = elements.get(`${ref.kind}:${ref.id}`);
+      if (found !== undefined) elementByRef.set(ref, found);
+    }
+    return found;
   }
 
   const edges = doc.kind === "graph" ? (doc.edges ?? []) : [];
-  const messages = doc.kind === "sequence" ? doc.messages : [];
 
   function edgeId(index: number): string {
     return edges[index]?.id ?? `e${index}`;
   }
 
-  function incident(kind: string, id: string): Element[] {
-    const found: Element[] = [];
-    const self = elements.get(`${kind}:${id}`);
-    if (self !== undefined) found.push(self);
-    if (kind === "node") {
-      edges.forEach((edge, index) => {
-        if (edge.from !== id && edge.to !== id) return;
-        const item = elements.get(`edge:${edgeId(index)}`);
-        if (item !== undefined) found.push(item);
-      });
-    } else if (kind === "participant") {
-      messages.forEach((message, index) => {
-        if (message.from !== id && message.to !== id) return;
-        const item = elements.get(`message:${index}`);
-        if (item !== undefined) found.push(item);
-      });
+  const itemCount =
+    scene.kind === "graph"
+      ? scene.groups.length + scene.nodes.length + scene.edges.length
+      : scene.participants.length + scene.messages.length;
+  const culling = itemCount > CULL_MIN_ITEMS;
+
+  let rect = viewport.getBoundingClientRect();
+  let pointer: { x: number; y: number } | null = null;
+  let dragging = false;
+  let lastWheel = -Infinity;
+  let lastMove = 0;
+  let idleTimer = 0;
+  let willChange = false;
+  let scheduled = false;
+  let cullDirty = false;
+  let pending = new Set<Change>();
+  let shown = new Set<ItemRef>(view.visible().items);
+  let previousActive: ReadonlySet<string> = new Set();
+  let previousFocused = false;
+  let selectedElement: Element | null = null;
+
+  function touch(): void {
+    lastMove = performance.now();
+    if (!willChange) {
+      willChange = true;
+      stage.style.willChange = "transform";
     }
-    return found;
+    if (idleTimer === 0) idleTimer = window.setTimeout(idle, IDLE_MS);
   }
 
-  let hovered: Element | null = null;
-  let selected: Element | null = null;
-
-  function matches(): Element[] {
-    const query = search.value.trim().toLowerCase();
-    if (query === "") return [];
-    const found: Element[] = [];
-    const items: { id: string; label?: string }[] =
-      doc.kind === "graph" ? doc.nodes : doc.participants;
-    const kind = doc.kind === "graph" ? "node" : "participant";
-    for (const item of items) {
-      const label = item.label ?? item.id;
-      if (label.toLowerCase().includes(query) || item.id.toLowerCase().includes(query)) {
-        const target = elements.get(`${kind}:${item.id}`);
-        if (target !== undefined) found.push(target);
-      }
+  function idle(): void {
+    const remaining = IDLE_MS - (performance.now() - lastMove);
+    if (remaining > 1) {
+      idleTimer = window.setTimeout(idle, remaining);
+      return;
     }
-    return found;
+    idleTimer = 0;
+    willChange = false;
+    stage.style.willChange = "";
+    if (cullDirty) applyVisible();
+    if (pointer !== null) schedule();
   }
 
-  function refresh(): void {
-    for (const item of elements.values()) {
-      item.classList.remove("sg-dim", "sg-hl");
+  function applyCamera(): void {
+    const camera = view.camera();
+    stage.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})`;
+  }
+
+  function applyLod(): void {
+    const lod = view.lod();
+    root.classList.toggle("sg-lod-nolabels", !lod.labels);
+    root.classList.toggle("sg-lod-nocaptions", !lod.captions);
+    root.classList.toggle("sg-lod-noedgelabels", !lod.edgeLabels);
+  }
+
+  function applyHighlight(): void {
+    const { focused, active } = view.highlight();
+    if (focused !== previousFocused) {
+      root.classList.toggle("sg-focus", focused);
+      previousFocused = focused;
     }
-    let active: Element[] = [];
-    if (hovered !== null) {
-      active = incident(
-        hovered.getAttribute("data-kind") ?? "",
-        hovered.getAttribute("data-id") ?? "",
-      );
-    } else if (search.value.trim() !== "") {
-      active = matches();
+    for (const key of previousActive) {
+      if (!active.has(key)) elements.get(key)?.classList.remove("sg-hl");
     }
-    const focused = hovered !== null || search.value.trim() !== "";
-    svg!.classList.toggle("sg-focus", focused);
-    if (!focused) return;
-    const keep = new Set(active);
-    for (const item of elements.values()) {
-      item.classList.add(keep.has(item) ? "sg-hl" : "sg-dim");
+    for (const key of active) {
+      if (!previousActive.has(key)) elements.get(key)?.classList.add("sg-hl");
+    }
+    previousActive = active;
+  }
+
+  function applyVisible(): void {
+    cullDirty = false;
+    const next = new Set(view.visible().items);
+    for (const ref of shown) {
+      if (next.has(ref)) continue;
+      const target = elementOf(ref);
+      if (target instanceof SVGElement) target.style.display = "none";
+    }
+    for (const ref of next) {
+      if (shown.has(ref)) continue;
+      const target = elementOf(ref);
+      if (target instanceof SVGElement) target.style.display = "";
+    }
+    shown = next;
+  }
+
+  function revealVisible(): void {
+    cullDirty = true;
+    const next = view.visible().items;
+    const grown = new Set(shown);
+    for (const ref of next) {
+      if (grown.has(ref)) continue;
+      const target = elementOf(ref);
+      if (target instanceof SVGElement) target.style.display = "";
+      grown.add(ref);
+    }
+    shown = grown;
+  }
+
+  function applyHover(): void {
+    if (pointer === null || dragging) return;
+    if (performance.now() - lastWheel < IDLE_MS) return;
+    const hit = view.hitTest(pointer.x, pointer.y);
+    pointer = null;
+    view.hover(hit !== null && (hit.kind === "node" || hit.kind === "participant") ? hit : null);
+  }
+
+  function frame(): void {
+    applyHover();
+    scheduled = false;
+    const changes = pending;
+    pending = new Set();
+    if (changes.has("camera")) applyCamera();
+    if (changes.has("lod")) applyLod();
+    if (changes.has("hover") || changes.has("search")) applyHighlight();
+    if (culling && changes.has("visible")) {
+      if (willChange) revealVisible();
+      else applyVisible();
     }
   }
+
+  function schedule(): void {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(frame);
+  }
+
+  view.subscribe((changes) => {
+    if (changes.has("selection")) applySelection();
+    if (changes.has("camera")) touch();
+    for (const change of changes) pending.add(change);
+    schedule();
+  });
 
   function row(list: HTMLElement, name: string, value: string | Node): void {
     const term = element("dt", name);
@@ -238,31 +291,38 @@ function start(): void {
   }
 
   function closePanel(): void {
-    panel.hidden = true;
-    panel.replaceChildren();
-    selected?.classList.remove("sg-selected");
-    selected = null;
+    view.select(null);
   }
 
-  function select(target: Element): void {
-    selected?.classList.remove("sg-selected");
-    selected = target;
-    target.classList.add("sg-selected");
-    describe(target.getAttribute("data-kind") ?? "", target.getAttribute("data-id") ?? "");
+  function applySelection(): void {
+    selectedElement?.classList.remove("sg-selected");
+    selectedElement = null;
+    const ref = view.selected();
+    if (ref === null) {
+      panel.hidden = true;
+      panel.replaceChildren();
+      return;
+    }
+    selectedElement = elementOf(ref) ?? null;
+    selectedElement?.classList.add("sg-selected");
+    describe(ref.kind, ref.id);
   }
 
-  function pickable(target: EventTarget | null): Element | null {
+  function pickable(target: EventTarget | null): ItemRef | null {
     if (!(target instanceof Element)) return null;
     const found = target.closest("[data-kind]");
     if (found === null || found.getAttribute("data-kind") === "group") return null;
-    return found;
+    return {
+      kind: (found.getAttribute("data-kind") ?? "") as ItemKind,
+      id: found.getAttribute("data-id") ?? "",
+    };
   }
 
   let pointerId: number | null = null;
   let originX = 0;
   let originY = 0;
-  let startTx = 0;
-  let startTy = 0;
+  let lastX = 0;
+  let lastY = 0;
   let moved = false;
 
   viewport.addEventListener("pointerdown", (event) => {
@@ -270,29 +330,35 @@ function start(): void {
     pointerId = event.pointerId;
     originX = event.clientX;
     originY = event.clientY;
-    startTx = tx;
-    startTy = ty;
+    lastX = event.clientX;
+    lastY = event.clientY;
     moved = false;
   });
 
   viewport.addEventListener("pointermove", (event) => {
-    if (pointerId !== event.pointerId) return;
-    const dx = event.clientX - originX;
-    const dy = event.clientY - originY;
-    if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    if (!moved) {
-      moved = true;
-      viewport.setPointerCapture(event.pointerId);
-      viewport.classList.add("sg-dragging");
+    if (pointerId === event.pointerId) {
+      const travelled = Math.hypot(event.clientX - originX, event.clientY - originY);
+      if (!moved && travelled < DRAG_THRESHOLD) return;
+      if (!moved) {
+        moved = true;
+        dragging = true;
+        viewport.setPointerCapture(event.pointerId);
+        viewport.classList.add("sg-dragging");
+      }
+      view.panBy(event.clientX - lastX, event.clientY - lastY);
+      lastX = event.clientX;
+      lastY = event.clientY;
+      return;
     }
-    tx = startTx + dx;
-    ty = startTy + dy;
-    apply();
+    if (pointerId !== null) return;
+    pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    schedule();
   });
 
   function endDrag(event: PointerEvent): void {
     if (pointerId !== event.pointerId) return;
     pointerId = null;
+    dragging = false;
     viewport.classList.remove("sg-dragging");
   }
 
@@ -308,7 +374,7 @@ function start(): void {
     const target = pickable(event.target);
     if (target !== null) {
       event.preventDefault();
-      select(target);
+      view.select(target);
     } else if (event.target instanceof Element && event.target.closest("a") !== null) {
       event.preventDefault();
     }
@@ -318,8 +384,8 @@ function start(): void {
     "wheel",
     (event) => {
       event.preventDefault();
-      const rect = viewport.getBoundingClientRect();
-      zoomAt(
+      lastWheel = performance.now();
+      view.zoomAt(
         Math.exp(-event.deltaY * 0.0015),
         event.clientX - rect.left,
         event.clientY - rect.top,
@@ -328,32 +394,41 @@ function start(): void {
     { passive: false },
   );
 
-  viewport.addEventListener("mouseover", (event) => {
-    const target = pickable(event.target);
-    const kind = target?.getAttribute("data-kind");
-    const next = kind === "node" || kind === "participant" ? target : null;
-    if (next === hovered) return;
-    hovered = next;
-    refresh();
+  viewport.addEventListener("mouseleave", () => {
+    pointer = null;
+    view.hover(null);
   });
 
-  viewport.addEventListener("mouseleave", () => {
-    if (hovered === null) return;
-    hovered = null;
-    refresh();
-  });
+  function zoomCenter(factor: number): void {
+    const size = view.viewport();
+    view.zoomAt(factor, size.width / 2, size.height / 2);
+  }
 
   byId("sg-zoom-in").addEventListener("click", () => zoomCenter(1.25));
   byId("sg-zoom-out").addEventListener("click", () => zoomCenter(0.8));
-  byId("sg-fit").addEventListener("click", fit);
-  search.addEventListener("input", refresh);
+  byId("sg-fit").addEventListener("click", () => view.fit());
+  search.addEventListener("input", () => view.search(search.value));
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !panel.hidden) closePanel();
   });
 
-  new ResizeObserver(fit).observe(viewport);
-  fit();
+  function resize(): void {
+    rect = viewport.getBoundingClientRect();
+    view.batch(() => {
+      view.setViewport(viewport.clientWidth, viewport.clientHeight);
+      view.fit();
+    });
+  }
+
+  new ResizeObserver(resize).observe(viewport);
+  view.batch(() => {
+    view.setViewport(viewport.clientWidth, viewport.clientHeight);
+    view.fit();
+  });
+  applyCamera();
+  applyLod();
+  if (culling) applyVisible();
 }
 
 start();

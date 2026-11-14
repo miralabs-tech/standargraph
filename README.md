@@ -5,6 +5,10 @@ Export the same graph to SVG, PNG or PDF, from small hand-written diagrams to gr
 
 Status: pre-v1
 
+## Headless core
+
+The layout and the view (camera, hit testing, culling, level of detail, highlight) live in `standargraph/core` and never touch the DOM, so any renderer can be built on them. See [docs/headless.md](docs/headless.md).
+
 ## License
 
 Licensed under the [MIT license](LICENSE).

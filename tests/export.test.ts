@@ -88,7 +88,7 @@ describe("html", () => {
     );
     const page = html as string;
     expect(page).not.toContain(hostile);
-    expect(page.split("</script>").length - 1).toBe(2);
+    expect(page.split("</script>").length - 1).toBe(3);
     expect(embeddedDocument(page).nodes[0].label).toBe(hostile);
   });
 

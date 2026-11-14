@@ -24,7 +24,8 @@ const STYLE = [
   "#sg-stage{position:absolute;left:0;top:0;transform-origin:0 0}",
   "#sg-stage svg{display:block}",
   "#sg-stage [data-kind=node],#sg-stage [data-kind=edge],#sg-stage [data-kind=participant],#sg-stage [data-kind=message]{cursor:pointer}",
-  "#sg-stage .sg-dim{opacity:.2}",
+  "#sg-stage .sg-focus [data-kind]:not(.sg-hl){opacity:.25}",
+  "#sg-stage .sg-lod-nolabels .sg-label,#sg-stage .sg-lod-nocaptions .sg-caption,#sg-stage .sg-lod-noedgelabels .sg-edge-label{display:none}",
   "#sg-stage .sg-selected{filter:drop-shadow(0 0 3px var(--sg-accent))}",
   "#sg-panel{position:absolute;top:56px;right:12px;bottom:12px;width:320px;max-width:calc(100% - 24px);overflow:auto;padding:16px;background:var(--sg-bg);border:1px solid var(--sg-group-stroke);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2)}",
   "#sg-panel[hidden]{display:none}",
@@ -95,6 +96,7 @@ export function renderHtml(
   }).trim();
   const title = options.title ?? laidOut.title ?? "Standargraph";
   const json = escapeScript(JSON.stringify(withPositions(document, laidOut)));
+  const scene = escapeScript(JSON.stringify(laidOut));
   return [
     "<!doctype html>",
     '<html lang="en">',
@@ -117,6 +119,7 @@ export function renderHtml(
     '<aside id="sg-panel" hidden></aside>',
     "</div>",
     `<script type="application/json" id="standargraph-document">${json}</script>`,
+    `<script type="application/json" id="standargraph-scene">${scene}</script>`,
     `<script>${escapeScript(RUNTIME_JS)}</script>`,
     "</body>",
     "</html>",

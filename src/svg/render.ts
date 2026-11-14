@@ -213,7 +213,7 @@ function labelBoxSvg(
   const textHeight = lines * LINE_HEIGHT * EDGE_LABEL_FONT.size;
   const top = box.y + (box.height - textHeight) / 2;
   const background = withBackground
-    ? `<rect class="sg-label-bg" x="${n(box.x)}" y="${n(box.y)}" width="${n(box.width)}" height="${n(box.height)}" rx="3" fill="${theme.labelBg}"/>`
+    ? `<rect class="sg-label-bg sg-edge-label" x="${n(box.x)}" y="${n(box.y)}" width="${n(box.width)}" height="${n(box.height)}" rx="3" fill="${theme.labelBg}"/>`
     : "";
   return (
     background +
@@ -222,7 +222,7 @@ function labelBoxSvg(
       box.x + box.width / 2,
       top,
       EDGE_LABEL_FONT,
-      "sg-text",
+      "sg-text sg-edge-label",
       theme.fg,
     )
   );
@@ -239,7 +239,7 @@ function renderGroup(item: LaidOutGroup, theme: Theme): string {
           item.x + PAD_X,
           item.y + 8,
           GROUP_FONT,
-          "sg-muted",
+          "sg-muted sg-label",
           theme.muted,
           "start",
         );
@@ -277,14 +277,14 @@ function renderNode(item: LaidOutNode, index: number, theme: Theme): string {
   const block = label.height + (caption?.height ?? 0);
   const top = item.y + (item.height - block) / 2;
   const cx = item.x + item.width / 2;
-  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text", theme.fg);
+  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text sg-label", theme.fg);
   if (item.type !== undefined) {
     body += textLines(
       item.type,
       cx,
       top + label.height,
       CAPTION_FONT,
-      "sg-muted",
+      "sg-muted sg-caption",
       theme.muted,
     );
   }
@@ -325,14 +325,14 @@ function renderParticipant(
     item.type === undefined ? undefined : measureText(item.type, CAPTION_FONT);
   const top = item.y + (item.height - label.height - (caption?.height ?? 0)) / 2;
   const cx = item.x + item.width / 2;
-  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text", theme.fg);
+  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text sg-label", theme.fg);
   if (item.type !== undefined) {
     body += textLines(
       item.type,
       cx,
       top + label.height,
       CAPTION_FONT,
-      "sg-muted",
+      "sg-muted sg-caption",
       theme.muted,
     );
   }
