@@ -15,7 +15,22 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,38%) 1f
 .pane{display:flex;flex-direction:column;min-width:0;min-height:0}
 .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #8884}
 .bar button,.bar select{font:inherit;padding:3px 8px}
-#source{flex:1;min-height:0;width:100%;resize:none;border:0;padding:12px;font:13px/1.5 ui-monospace,Consolas,monospace;background:Canvas;color:CanvasText;outline:none;tab-size:2}
+#editor{position:relative;flex:1;min-height:0;background:var(--ed-bg,Canvas);color:var(--ed-fg,CanvasText)}
+#highlight,#source{position:absolute;inset:0;margin:0;padding:12px;border:0;font:13px/1.5 ui-monospace,Consolas,monospace;letter-spacing:normal;tab-size:2;white-space:pre;word-wrap:normal;overflow-wrap:normal}
+#highlight{overflow:hidden;pointer-events:none;color:var(--ed-fg,CanvasText)}
+#highlight code{display:block;font:inherit;min-width:max-content;padding:0 24px 24px 0}
+#source{width:100%;height:100%;resize:none;overflow:auto;outline:none;background:transparent;color:transparent;caret-color:var(--ed-fg,CanvasText)}
+#source::selection{background:rgba(110,150,255,.38)}
+.tk-comment{color:var(--tk-comment);font-style:italic}
+.tk-keyword{color:var(--tk-keyword)}
+.tk-operator{color:var(--tk-operator)}
+.tk-string{color:var(--tk-string)}
+.tk-number{color:var(--tk-number)}
+.tk-property{color:var(--tk-property)}
+.tk-type{color:var(--tk-type)}
+.tk-variable{color:var(--tk-variable)}
+.tk-namespace{color:var(--tk-namespace)}
+.tk-enumMember{color:var(--tk-enumMember)}
 #errors{margin:0;padding:8px 12px 8px 28px;max-height:30%;overflow:auto;border-top:1px solid #8884;color:#c0392b;font:12px/1.5 ui-monospace,Consolas,monospace}
 #errors:empty{display:none}
 #preview{position:relative;flex:1;min-height:0}
@@ -48,7 +63,10 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,38%) 1f
 <select id="example"></select>
 <span id="status" role="status"></span>
 </div>
-<textarea id="source" spellcheck="false" aria-label="Diagram source in the text syntax or JSON"></textarea>
+<div id="editor">
+<pre id="highlight" aria-hidden="true"><code></code></pre>
+<textarea id="source" spellcheck="false" wrap="off" aria-label="Diagram source in the text syntax or JSON"></textarea>
+</div>
 <ul id="errors" aria-label="Errors"></ul>
 </section>
 <section class="pane">

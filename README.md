@@ -289,6 +289,10 @@ build -> check
 ```
 ````
 
+#### Syntax highlighting
+
+The package ships a TextMate grammar (`@miralabs-tech/standargraph/grammars/standargraph.tmLanguage.json`, scope `source.standargraph`), a `language-configuration.json` and `highlight(source)` in the `/text` subpath, which returns tokens typed with the LSP semantic token types. The online demo colors its editor with `highlight()`. A VS Code extension will consume these files from its own repository. See [docs/syntax-highlighting.md](./docs/syntax-highlighting.md).
+
 ### Theming
 
 A theme is a set of color tokens plus optional colors per node `type`, given as `--theme <file.json>` on the CLI or as the `theme` option of the API. Six palettes come ready to use, as `theme: "nord"` or `--theme nord`: `light`, `dark`, `nord`, `solarized-light`, `solarized-dark` and `high-contrast`, each with a contrast of at least 4.5:1 for its text.
@@ -374,6 +378,7 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 
 - [Headless core and adapters](./docs/headless.md)
 - [Theming](./docs/theming.md)
+- [Syntax highlighting for `.sg`](./docs/syntax-highlighting.md)
 - [Mermaid export](./docs/mermaid.md)
 - [Benchmark and layout times](./docs/bench.md)
 - [JSON Schema of the format v1](./schema/graph-document.v1.json)

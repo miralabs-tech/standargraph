@@ -10,10 +10,14 @@ All notable changes to this project are documented in this file. The format foll
 - Automatic palette per item type: a typed node, participant, state, entity or tree node with no `theme.types` entry gets a stable color from the palette of its theme, in the SVG attributes, the CSS rules of both blocks of an adaptive theme and WebGL. `palette: false` in a `Theme` and `--no-palette` turn it off; explicit `types` entries and `unknown` confidence still win.
 - Light, dark and auto switch in the toolbar of the interactive HTML page and of `mount()` for an adaptive theme, set by `data-sg-scheme` on `.sg-app`, kept in `localStorage` (`standargraph-scheme`), with forced-scheme blocks that win over the media query.
 - Theme panel in the online demo: palette, light, dark and auto switch, a color input per token and per type of the document, "palette off", live render and a `theme.json` download accepted by `--theme`.
+- TextMate grammar `grammars/standargraph.tmLanguage.json` (scope `source.standargraph`) and `language-configuration.json` for `.sg`, shipped in the package and exported as `@miralabs-tech/standargraph/grammars/standargraph.tmLanguage.json` and `@miralabs-tech/standargraph/language-configuration.json`.
+- `highlight(source)` in `/text`, with `SEMANTIC_TOKEN_TYPES` and `SEMANTIC_TOKEN_MODIFIERS`: tokens with offsets, line, column and a standard LSP semantic token type, tolerant to errors. A test keeps the grammar and `highlight()` in agreement on the examples.
+- The online demo colors its editor with `highlight()`, in the colors of the current theme (see [docs/syntax-highlighting.md](./docs/syntax-highlighting.md)).
 
 ### Changed
 
 - A typed item with no color of its own is now colored by the automatic palette, so the SVG output of typed documents changes unless `palette: false` is set.
+- WebGL draws a typed node with the fill of its type as is, and re-reads the theme colors on each color scheme switch.
 - `Theme.base` accepts every palette name, and `resolveTheme()` also returns the `palette` of the theme.
 
 ## [1.0.0] - 2026-11-14

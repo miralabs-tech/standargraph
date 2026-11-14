@@ -17,7 +17,7 @@ import {
   type TypeStyle,
   withPalette,
 } from "../src/svg/theme";
-import { loadSource, print } from "../src/text";
+import { highlight, loadSource, print, type SemanticTokenType } from "../src/text";
 
 type Example = { name: string; title: string; source: string };
 
@@ -45,6 +45,9 @@ const pages = element<HTMLElement>("pages");
 const paletteSelect = element<HTMLSelectElement>("palette");
 const schemeSelect = element<HTMLSelectElement>("scheme");
 const paletteOff = element<HTMLInputElement>("palette-off");
+const editor = element<HTMLDivElement>("editor");
+const highlightCode = element<HTMLElement>("highlight").querySelector("code")!;
+const highlightLayer = element<HTMLElement>("highlight");
 const tokensBox = element<HTMLDivElement>("tokens");
 const typesBox = element<HTMLDivElement>("types");
 const buttons = {
@@ -188,10 +191,115 @@ function rebuildInputs(): void {
   );
 }
 
+type Hsl = [number, number, number];
+
+function parseHex(color: string): [number, number, number] | undefined {
+  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (match === null) return undefined;
+  const digits = match[1]!.length === 3 ? [...match[1]!].map((digit) => digit + digit).join("") : match[1]!;
+  const value = Number.parseInt(digits, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function toHsl([r, g, b]: [number, number, number]): Hsl {
+  const [x, y, z] = [r / 255, g / 255, b / 255];
+  const high = Math.max(x, y, z);
+  const low = Math.min(x, y, z);
+  const light = (high + low) / 2;
+  if (high === low) return [0, 0, light];
+  const span = high - low;
+  const sat = light > 0.5 ? span / (2 - high - low) : span / (high + low);
+  const hue = high === x ? (y - z) / span + (y < z ? 6 : 0) : high === y ? (z - x) / span + 2 : (x - y) / span + 4;
+  return [hue * 60, sat, light];
+}
+
+function fromHsl([hue, sat, light]: Hsl): [number, number, number] {
+  const chroma = (1 - Math.abs(2 * light - 1)) * sat;
+  const h = (((hue % 360) + 360) % 360) / 60;
+  const second = chroma * (1 - Math.abs((h % 2) - 1));
+  const base: [number, number, number] =
+    h < 1 ? [chroma, second, 0] : h < 2 ? [second, chroma, 0] : h < 3 ? [0, chroma, second] : h < 4 ? [0, second, chroma] : h < 5 ? [second, 0, chroma] : [chroma, 0, second];
+  const offset = light - chroma / 2;
+  return [(base[0] + offset) * 255, (base[1] + offset) * 255, (base[2] + offset) * 255];
+}
+
+function luminance(color: [number, number, number]): number {
+  const [r, g, b] = color.map((channel) => {
+    const unit = channel / 255;
+    return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastOf(a: [number, number, number], b: [number, number, number]): number {
+  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+  return (high + 0.05) / (low + 0.05);
+}
+
+function hex(color: [number, number, number]): string {
+  return `#${color.map((channel) => Math.round(Math.min(255, Math.max(0, channel))).toString(16).padStart(2, "0")).join("")}`;
+}
+
+function readable(color: Hsl, background: [number, number, number]): string {
+  const towardsLight = luminance(background) < 0.4;
+  let [hue, sat, light] = color;
+  for (let step = 0; step < 60; step++) {
+    const rgb = fromHsl([hue, sat, light]);
+    if (contrastOf(rgb, background) >= 4.5) return hex(rgb);
+    light = Math.min(1, Math.max(0, light + (towardsLight ? 0.015 : -0.015)));
+  }
+  return hex(fromHsl([hue, sat, light]));
+}
+
+const HUE_SHIFT: Readonly<Record<Exclude<SemanticTokenType, "variable" | "operator" | "comment">, number>> = {
+  keyword: 0,
+  number: 30,
+  enumMember: 170,
+  string: 120,
+  property: 210,
+  type: 270,
+  namespace: 330,
+};
+
+function paintEditor(): void {
+  const tokens = resolveTheme(slotTheme(activeSlot())).tokens;
+  const bg = parseHex(tokens.bg) ?? [255, 255, 255];
+  const accent = toHsl(parseHex(tokens.accent) ?? [37, 99, 235]);
+  const dark = luminance(bg) < 0.4;
+  editor.style.setProperty("--ed-bg", tokens.bg);
+  editor.style.setProperty("--ed-fg", tokens.fg);
+  for (const [type, shift] of Object.entries(HUE_SHIFT)) {
+    editor.style.setProperty(`--tk-${type}`, readable([accent[0] + shift, Math.max(0.55, accent[1]), dark ? 0.72 : 0.38], bg));
+  }
+  editor.style.setProperty("--tk-variable", tokens.fg);
+  editor.style.setProperty("--tk-operator", readable(toHsl(parseHex(tokens.edge) ?? [71, 85, 105]), bg));
+  editor.style.setProperty("--tk-comment", readable(toHsl(parseHex(tokens.muted) ?? [107, 114, 128]), bg));
+}
+
+function paintSource(): void {
+  const text = source.value;
+  const fragment = globalThis.document.createDocumentFragment();
+  let at = 0;
+  for (const token of highlight(text)) {
+    if (token.start > at) fragment.append(text.slice(at, token.start));
+    const span = globalThis.document.createElement("span");
+    span.className = [`tk-${token.type}`, ...(token.modifiers ?? []).map((modifier) => `tk-${modifier}`)].join(" ");
+    span.textContent = text.slice(token.start, token.end);
+    fragment.append(span);
+    at = token.end;
+  }
+  fragment.append(`${text.slice(at)}
+`);
+  highlightCode.replaceChildren(fragment);
+  highlightLayer.scrollTop = source.scrollTop;
+  highlightLayer.scrollLeft = source.scrollLeft;
+}
+
 function syncScheme(): void {
   const fixed = selectedPalette() !== "auto";
   schemeSelect.disabled = fixed || activeApp()?.querySelector(".sg-scheme") === null;
   schemeSelect.value = fixed ? "auto" : activeScheme();
+  paintEditor();
 }
 
 for (const name of ["auto", ...THEME_NAMES]) {
@@ -330,14 +438,24 @@ select.addEventListener("change", () => {
   const example = examples.find((item) => item.name === select.value);
   if (!example) return;
   source.value = example.source;
+  paintSource();
   clearTimeout(timer);
   void refresh();
 });
-source.addEventListener("input", schedule);
+source.addEventListener("input", () => {
+  paintSource();
+  schedule();
+});
+source.addEventListener("scroll", () => {
+  highlightLayer.scrollTop = source.scrollTop;
+  highlightLayer.scrollLeft = source.scrollLeft;
+});
 
 const first = examples.find((item) => item.name === "architecture") ?? examples[0];
 if (first) {
   select.value = first.name;
   source.value = first.source;
 }
+paintEditor();
+paintSource();
 void refresh();

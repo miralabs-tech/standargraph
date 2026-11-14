@@ -132,13 +132,14 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   const nodeColors = (node: (typeof graphScene.nodes)[number]) => {
     const { bg, fg, muted, stroke, typed } = colors;
     const level = confidence(node.meta);
-    const base = (node.type === undefined ? undefined : typed.get(node.type)) ?? stroke;
+    const own = node.type === undefined ? undefined : typed.get(node.type);
+    const base = own ?? stroke;
     const fill =
       level === "unknown"
         ? mix(muted, bg, 0.55)
         : level === "inferred"
           ? mix(base, bg, 0.88)
-          : mix(base, bg, 0.75);
+          : own ?? mix(base, bg, 0.75);
     return { color: css(fill), labelColor: css(contrast(fill, fg) >= contrast(fill, bg) ? fg : bg) };
   };
   const edgeColorOf = (edge: (typeof graphScene.edges)[number]): string => {

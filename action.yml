@@ -10,7 +10,7 @@ inputs:
     description: Comma-separated export formats (svg, html, png, pdf, mermaid).
     default: svg
   theme:
-    description: Theme of the render (light, dark, auto or a theme file ending in .json).
+    description: Theme of the render (one of light, dark, nord, solarized-light, solarized-dark, high-contrast, auto, or a theme file ending in .json).
     default: light
   out:
     description: Output directory. Empty writes next to each source file.

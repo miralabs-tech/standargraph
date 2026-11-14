@@ -77,6 +77,54 @@ describe("the built site playground", () => {
     expect(state.errors).toBe(0);
   });
 
+  test("the editor overlay gives a -> and a string their classes and keeps the textarea metrics", async () => {
+    await page.fill("#source", SMALL_GRAPH);
+    await page.waitForFunction(() => document.querySelector("#highlight .tk-operator") !== null, null, {
+      timeout: 10000,
+    });
+    const state = await page.evaluate(() => {
+      const text = (selector: string) => [...document.querySelectorAll(selector)].map((node) => node.textContent);
+      const style = (id: string) => {
+        const computed = getComputedStyle(document.getElementById(id)!);
+        return [computed.fontFamily, computed.fontSize, computed.lineHeight, computed.paddingLeft, computed.paddingTop, computed.tabSize];
+      };
+      return {
+        operators: text("#highlight .tk-operator"),
+        strings: text("#highlight .tk-string"),
+        keywords: text("#highlight .tk-keyword"),
+        declarations: text("#highlight .tk-variable.tk-declaration"),
+        same: JSON.stringify(style("highlight")) === JSON.stringify(style("source")),
+      };
+    });
+    expect(state.operators).toEqual(["->"]);
+    expect(state.strings).toEqual(["\"Typed in the playground\"", "\"Alpha\"", "\"Beta\""]);
+    expect(state.keywords).toEqual(["graph"]);
+    expect(state.declarations).toEqual(["alpha", "beta"]);
+    expect(state.same).toBe(true);
+  });
+
+  test("the overlay follows the scroll of the textarea", async () => {
+    const lines = ["graph", "", ...Array.from({ length: 120 }, (_, index) => `n${index} -> n${index + 1} "a long label that goes past the right edge of the editor pane when written in full ${index}"`)];
+    await page.fill("#source", lines.join("\n"));
+    await page.waitForFunction(() => document.querySelectorAll("#highlight .tk-operator").length === 120, null, {
+      timeout: 10000,
+    });
+    await page.evaluate(() => {
+      const area = document.getElementById("source")!;
+      area.scrollTop = 400;
+      area.scrollLeft = 120;
+    });
+    await page.waitForFunction(() => document.getElementById("highlight")!.scrollTop > 0, null, { timeout: 5000 });
+    const scroll = await page.evaluate(() => {
+      const area = document.getElementById("source")!;
+      const layer = document.getElementById("highlight")!;
+      return { top: [area.scrollTop, layer.scrollTop], left: [area.scrollLeft, layer.scrollLeft] };
+    });
+    expect(scroll.top[1]).toBe(scroll.top[0]);
+    expect(scroll.left[1]).toBe(scroll.left[0]);
+    await page.fill("#source", SMALL_GRAPH);
+  });
+
   test("a syntax error is listed with its line and column", async () => {
     await page.fill("#source", `graph${String.fromCharCode(10, 10)}a %`);
     await page.waitForFunction(() => document.querySelectorAll("#errors li").length > 0, null, {

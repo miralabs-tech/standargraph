@@ -528,6 +528,47 @@ describe("mount() with the WebGL renderer and typed colors", () => {
     expect(state).toEqual({ fill: "rgb(255, 0, 0)", stroke: "rgb(136, 0, 0)", left: 0 });
   });
 
+  test("a typed node is drawn with its type fill as is, not mixed toward the background", async () => {
+    const box = await page.evaluate(() => {
+      const w = window as any;
+      const item = w.m1.view.item({ kind: "node", id: "SettingsTable" });
+      const camera = w.m1.view.camera();
+      const origin = document.querySelector("#a .sg-viewport")!.getBoundingClientRect();
+      return {
+        left: origin.left + camera.x + item.x * camera.scale,
+        top: origin.top + camera.y + item.y * camera.scale,
+        width: item.width * camera.scale,
+        height: item.height * camera.scale,
+      };
+    });
+    const png = await page.screenshot();
+    const red = await page.evaluate(
+      async ([bytes, rect]) => {
+        const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes as number[])]));
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext("2d")!;
+        context.drawImage(bitmap, 0, 0);
+        const box = rect as { left: number; top: number; width: number; height: number };
+        const data = context.getImageData(
+          Math.round(box.left),
+          Math.round(box.top),
+          Math.round(box.width),
+          Math.round(box.height),
+        ).data;
+        let red = 0;
+        for (let index = 0; index < data.length; index += 4) {
+          const [r, g, b] = [data[index]!, data[index + 1]!, data[index + 2]!];
+          if (r > 245 && g < 12 && b < 12) red++;
+        }
+        return red;
+      },
+      [[...png], box] as const,
+    );
+    expect(red).toBeGreaterThan(100);
+  });
+
   test("no page errors", () => {
     expect(errors).toEqual([]);
   });
