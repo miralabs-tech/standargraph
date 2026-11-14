@@ -13,9 +13,9 @@ function sources(directory: string): string[] {
   });
 }
 
-test("core, format and layout never touch the DOM", () => {
+test("core, format, layout and text never touch the DOM", () => {
   const root = fileURLToPath(new URL("../src", import.meta.url));
-  const files = ["core", "format", "layout"].flatMap((name) => sources(join(root, name)));
+  const files = ["core", "format", "layout", "text"].flatMap((name) => sources(join(root, name)));
   expect(files.length).toBeGreaterThan(5);
   const offenders: string[] = [];
   for (const file of files) {
