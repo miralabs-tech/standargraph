@@ -1,7 +1,8 @@
 import type { Document } from "../format";
 import type { LaidOut } from "../layout/types";
 import { loadFonts } from "../shared/package-root";
-import { appMarkup, escapeHtml, type PageOptions, STYLE, themeStyle } from "./shell";
+import { themeStyle } from "../svg/theme";
+import { appMarkup, escapeHtml, type PageOptions, STYLE } from "./shell";
 
 export type { PageOptions } from "./shell";
 

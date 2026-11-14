@@ -57,6 +57,33 @@ function contrast(a: Rgb, b: Rgb): number {
   return (high + 0.05) / (low + 0.05);
 }
 
+function typeFills(app: HTMLElement, types: readonly string[]): Map<string, Rgb> {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "sg-root");
+  svg.style.display = "none";
+  const probe = (type: string | undefined): SVGElement => {
+    const holder = document.createElementNS(ns, "g");
+    if (type !== undefined) holder.setAttribute("data-type", type);
+    const rect = document.createElementNS(ns, "rect");
+    rect.setAttribute("class", "sg-node");
+    holder.append(rect);
+    svg.append(holder);
+    return rect;
+  };
+  const plain = probe(undefined);
+  const probes = types.map((type) => [type, probe(type)] as const);
+  app.append(svg);
+  const base = getComputedStyle(plain).fill;
+  const fills = new Map<string, Rgb>();
+  for (const [type, rect] of probes) {
+    const fill = getComputedStyle(rect).fill;
+    if (fill !== base) fills.set(type, parseColor(fill));
+  }
+  svg.remove();
+  return fills;
+}
+
 export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   if (scene.kind !== "graph") return undefined;
   const graphScene = scene;
@@ -84,6 +111,10 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   const groupStroke = css(token("--sg-group-stroke"));
   const accent = css(token("--sg-accent"));
   const fonts = "Inter, system-ui, sans-serif";
+  const typed = typeFills(
+    app,
+    [...new Set(graphScene.nodes.flatMap((node) => (node.type === undefined ? [] : [node.type])))],
+  );
 
   const view = createView(graphScene);
   const panelControl = createPanel(view, doc, panel);
@@ -93,12 +124,13 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
     meta?.provenance?.confidence;
   for (const node of graphScene.nodes) {
     const level = confidence(node.meta);
+    const base = (node.type === undefined ? undefined : typed.get(node.type)) ?? stroke;
     const fill =
       level === "unknown"
         ? mix(muted, bg, 0.55)
         : level === "inferred"
-          ? mix(stroke, bg, 0.88)
-          : mix(stroke, bg, 0.75);
+          ? mix(base, bg, 0.88)
+          : mix(base, bg, 0.75);
     graph.addNode(node.id, {
       x: node.x + node.width / 2,
       y: -(node.y + node.height / 2),

@@ -2,6 +2,7 @@ import { WEBGL_THRESHOLD } from "../core/threshold";
 import type { Document } from "../format";
 import type { LaidOut } from "../layout/types";
 import { renderSvg } from "../svg/render";
+import { lightTheme } from "../svg/theme";
 import { renderWebglHtml } from "../webgl";
 import { renderPage } from "./page";
 import { RUNTIME_JS } from "./runtime.generated";
@@ -23,7 +24,7 @@ export function renderHtml(
   if (useWebgl) return renderWebglHtml(document, laidOut, options);
   const theme = options.theme ?? "auto";
   const svg = renderSvg(laidOut, {
-    theme: theme === "dark" ? "dark" : "light",
+    theme: lightTheme(theme),
     standalone: false,
   }).trim();
   return renderPage({

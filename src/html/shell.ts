@@ -1,7 +1,7 @@
-import { themeVariables } from "../svg/render";
+import type { PageThemeOption } from "../svg/theme";
 
 export type PageOptions = {
-  theme?: "light" | "dark" | "auto";
+  theme?: PageThemeOption;
   title?: string;
 };
 
@@ -43,14 +43,6 @@ export function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-export function themeStyle(theme: "light" | "dark" | "auto"): string {
-  const selector = ".sg-app,.sg-app .sg-root";
-  if (theme === "auto") {
-    return `${selector}{${themeVariables("light")}}@media (prefers-color-scheme:dark){${selector}{${themeVariables("dark")}}}`;
-  }
-  return `${selector}{${themeVariables(theme)}}`;
 }
 
 export function svgViewport(svg: string): string {

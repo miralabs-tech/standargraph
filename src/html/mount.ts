@@ -5,11 +5,12 @@ import { layout } from "../layout";
 import type { LaidOut } from "../layout/types";
 import { formatErrors } from "../shared/errors";
 import { renderSvg } from "../svg/render";
-import { appMarkup, STYLE, svgViewport, themeStyle, WEBGL_VIEWPORT } from "./shell";
+import { lightTheme, type PageThemeOption, themeStyle } from "../svg/theme";
+import { appMarkup, STYLE, svgViewport, WEBGL_VIEWPORT } from "./shell";
 import { withScope } from "./ui";
 
 export type MountOptions = {
-  theme?: "light" | "dark" | "auto";
+  theme?: PageThemeOption;
   title?: string;
   renderer?: "auto" | "svg" | "webgl";
 };
@@ -68,7 +69,7 @@ export async function mount(
   const viewport = useWebgl
     ? WEBGL_VIEWPORT
     : svgViewport(
-        renderSvg(scene, { theme: theme === "dark" ? "dark" : "light", standalone: false }).trim(),
+        renderSvg(scene, { theme: lightTheme(theme), standalone: false }).trim(),
       );
 
   const style = globalThis.document.createElement("style");

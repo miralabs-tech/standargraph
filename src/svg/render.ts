@@ -29,74 +29,35 @@ import type {
   LaidOutSequence,
 } from "../layout/types";
 import type { Meta, Shape } from "../format";
+import { esc } from "./escape";
+import {
+  escapedTheme,
+  type ResolvedTheme,
+  resolveTheme,
+  type ThemeOption,
+  type ThemeTokens,
+  themeVariables,
+  type TypeStyle,
+  typeRules,
+} from "./theme";
 
 export type RenderOptions = {
-  theme?: "light" | "dark";
+  theme?: ThemeOption;
   standalone?: boolean;
   styles?: boolean;
   idPrefix?: string;
 };
 
-type Theme = {
-  bg: string;
-  fg: string;
-  muted: string;
-  nodeFill: string;
-  nodeStroke: string;
-  unknownFill: string;
-  groupFill: string;
-  groupStroke: string;
-  edge: string;
-  labelBg: string;
-  accent: string;
-  lifeline: string;
-};
+type Theme = ThemeTokens;
+type Types = Record<string, TypeStyle>;
 
-const THEMES: Record<"light" | "dark", Theme> = {
-  light: {
-    bg: "#ffffff",
-    fg: "#1f2430",
-    muted: "#6b7280",
-    nodeFill: "#ffffff",
-    nodeStroke: "#475569",
-    unknownFill: "#f1f5f9",
-    groupFill: "#f1f5f9",
-    groupStroke: "#cbd5e1",
-    edge: "#475569",
-    labelBg: "#ffffff",
-    accent: "#2563eb",
-    lifeline: "#94a3b8",
-  },
-  dark: {
-    bg: "#0f172a",
-    fg: "#e2e8f0",
-    muted: "#94a3b8",
-    nodeFill: "#1e293b",
-    nodeStroke: "#94a3b8",
-    unknownFill: "#111827",
-    groupFill: "#162033",
-    groupStroke: "#334155",
-    edge: "#94a3b8",
-    labelBg: "#0f172a",
-    accent: "#60a5fa",
-    lifeline: "#475569",
-  },
-};
+function typeStyleOf(types: Types, type: string | undefined): TypeStyle {
+  return type !== undefined && Object.hasOwn(types, type) ? types[type]! : {};
+}
 
 const DASH = { inferred: "6 4", unknown: "2 3", reply: "5 3" } as const;
 
-const INVALID_XML = /[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g;
 const UNSAFE_HREF = /^[\s\u0000-\u001f]*(javascript|data|vbscript):/i;
-
-function esc(value: string): string {
-  return value
-    .replace(INVALID_XML, "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
 
 function n(value: number): string {
   return String(round(value));
@@ -163,23 +124,18 @@ function confidenceDash(meta: Meta | undefined): string | undefined {
   return undefined;
 }
 
-function variables(theme: Theme): string {
-  return `--sg-bg:${theme.bg};--sg-fg:${theme.fg};--sg-muted:${theme.muted};--sg-node-fill:${theme.nodeFill};--sg-node-stroke:${theme.nodeStroke};--sg-unknown-fill:${theme.unknownFill};--sg-group-fill:${theme.groupFill};--sg-group-stroke:${theme.groupStroke};--sg-edge:${theme.edge};--sg-label-bg:${theme.labelBg};--sg-accent:${theme.accent};--sg-lifeline:${theme.lifeline}`;
-}
-
-export function themeVariables(name: "light" | "dark"): string {
-  return variables(THEMES[name]);
-}
-
-function css(theme: Theme): string {
+function css(tokens: ThemeTokens, types: Types): string {
   return [
-    `.sg-root{${variables(theme)}}`,
+    `.sg-root{${themeVariables({ tokens })}}`,
     ".sg-bg{fill:var(--sg-bg)}",
     ".sg-text{fill:var(--sg-fg)}",
     ".sg-muted{fill:var(--sg-muted)}",
     ".sg-node{fill:var(--sg-node-fill);stroke:var(--sg-node-stroke)}",
     ".sg-node.sg-unknown{fill:var(--sg-unknown-fill)}",
     ".sg-node-detail{fill:none;stroke:var(--sg-node-stroke)}",
+    ".sg-divider{stroke:var(--sg-node-stroke)}",
+    ".sg-header{fill:var(--sg-header-fill)}",
+    ".sg-pseudo{fill:var(--sg-fg)}",
     ".sg-group{fill:var(--sg-group-fill);stroke:var(--sg-group-stroke)}",
     ".sg-edge{stroke:var(--sg-edge)}",
     ".sg-arrow-filled{fill:var(--sg-edge);stroke:var(--sg-edge)}",
@@ -187,13 +143,14 @@ function css(theme: Theme): string {
     ".sg-label-bg{fill:var(--sg-label-bg)}",
     ".sg-accent{fill:var(--sg-accent)}",
     ".sg-lifeline{stroke:var(--sg-lifeline)}",
+    typeRules(types, ".sg-root"),
   ].join("");
 }
 
-function defs(theme: Theme, styles: boolean): string {
+function defs(theme: Theme, resolved: ResolvedTheme, styles: boolean): string {
   return [
     "<defs>",
-    styles ? `<style>${css(theme)}</style>` : "",
+    styles ? `<style>${css(resolved.tokens, resolved.types)}</style>` : "",
     `<marker id="sg-arrow-filled" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-filled" d="M0,0 L10,5 L0,10 z" fill="${theme.edge}" stroke="${theme.edge}" stroke-width="1" stroke-linejoin="round"/></marker>`,
     `<marker id="sg-arrow-open" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-open" d="M1,1 L9,5 L1,9" fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>`,
     "</defs>",
@@ -373,15 +330,17 @@ function shapeDetails(shape: Shape, box: Box, theme: Theme): string {
   return "";
 }
 
-function renderNode(item: LaidOutNode, index: number, theme: Theme): string {
+function renderNode(item: LaidOutNode, index: number, theme: Theme, types: Types): string {
   const confidence = confidenceOf(item.meta);
   const dash = confidenceDash(item.meta);
   const unknown = confidence === "unknown";
-  const fill = unknown ? theme.unknownFill : theme.nodeFill;
+  const typed = typeStyleOf(types, item.type);
+  const fill = unknown ? theme.unknownFill : (typed.fill ?? theme.nodeFill);
+  const stroke = typed.stroke ?? theme.nodeStroke;
   const cls = unknown ? "sg-node sg-unknown" : "sg-node";
   const shape = item.shape ?? "box";
   const geometry = shapeGeometry(shape, item);
-  let body = `<${geometry.tag} class="${cls}"${geometry.attrs} fill="${fill}" stroke="${theme.nodeStroke}" stroke-width="1.5"${dashAttr(dash)}/>${shapeDetails(shape, item, theme)}`;
+  let body = `<${geometry.tag} class="${cls}"${geometry.attrs} fill="${fill}" stroke="${stroke}" stroke-width="1.5"${dashAttr(dash)}/>${shapeDetails(shape, item, theme)}`;
 
   const label = measureText(item.label, LABEL_FONT);
   const caption =
@@ -389,7 +348,7 @@ function renderNode(item: LaidOutNode, index: number, theme: Theme): string {
   const block = label.height + (caption?.height ?? 0);
   const top = item.y + (item.height - block) / 2 + textOffsetY(shape);
   const cx = item.x + item.width / 2;
-  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text sg-label", theme.fg);
+  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text sg-label", typed.text ?? theme.fg);
   if (item.type !== undefined) {
     body += textLines(
       item.type,
@@ -426,11 +385,11 @@ function renderNode(item: LaidOutNode, index: number, theme: Theme): string {
   );
 }
 
-function renderGraph(laid: LaidOutGraph, theme: Theme): string {
+function renderGraph(laid: LaidOutGraph, theme: Theme, types: Types): string {
   return [
     ...laid.groups.map((item) => renderGroup(item, theme)),
     ...laid.edges.map((item) => renderEdge(item, theme)),
-    ...laid.nodes.map((item, index) => renderNode(item, index, theme)),
+    ...laid.nodes.map((item, index) => renderNode(item, index, theme, types)),
   ].join("");
 }
 
@@ -438,19 +397,21 @@ function renderParticipant(
   item: LaidOutParticipant,
   lifelineBottom: number,
   theme: Theme,
+  types: Types,
 ): string {
   const lifeline = `<line class="sg-lifeline" x1="${n(item.lifelineX)}" y1="${n(item.y + item.height)}" x2="${n(item.lifelineX)}" y2="${n(lifelineBottom)}" stroke="${theme.lifeline}" stroke-width="1" stroke-dasharray="4 4"/>`;
   const confidence = confidenceOf(item.meta);
   const unknown = confidence === "unknown";
-  const fill = unknown ? theme.unknownFill : theme.nodeFill;
+  const typed = typeStyleOf(types, item.type);
+  const fill = unknown ? theme.unknownFill : (typed.fill ?? theme.nodeFill);
   const cls = unknown ? "sg-node sg-unknown" : "sg-node";
-  let body = `<rect class="${cls}" x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="8" fill="${fill}" stroke="${theme.nodeStroke}" stroke-width="1.5"${dashAttr(confidenceDash(item.meta))}/>`;
+  let body = `<rect class="${cls}" x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="8" fill="${fill}" stroke="${typed.stroke ?? theme.nodeStroke}" stroke-width="1.5"${dashAttr(confidenceDash(item.meta))}/>`;
   const label = measureText(item.label, LABEL_FONT);
   const caption =
     item.type === undefined ? undefined : measureText(item.type, CAPTION_FONT);
   const top = item.y + (item.height - label.height - (caption?.height ?? 0)) / 2;
   const cx = item.x + item.width / 2;
-  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text sg-label", theme.fg);
+  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text sg-label", typed.text ?? theme.fg);
   if (item.type !== undefined) {
     body += textLines(
       item.type,
@@ -500,17 +461,18 @@ function renderMessage(item: LaidOutMessage, theme: Theme): string {
   );
 }
 
-function renderSequence(laid: LaidOutSequence, theme: Theme): string {
+function renderSequence(laid: LaidOutSequence, theme: Theme, types: Types): string {
   return [
     ...laid.participants.map((item) =>
-      renderParticipant(item, laid.lifelineBottom, theme),
+      renderParticipant(item, laid.lifelineBottom, theme, types),
     ),
     ...laid.messages.map((item) => renderMessage(item, theme)),
   ].join("");
 }
 
 export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string {
-  const theme = THEMES[options.theme ?? "light"];
+  const resolved = resolveTheme(options.theme);
+  const { tokens: theme, types } = escapedTheme(resolved);
   const standalone = options.standalone ?? true;
   const width = n(laidOut.width);
   const height = n(laidOut.height);
@@ -521,12 +483,12 @@ export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string
     laidOut.title === undefined ? "" : `<title>${esc(laidOut.title)}</title>`;
   const body =
     laidOut.kind === "graph"
-      ? renderGraph(laidOut, theme)
-      : renderSequence(laidOut, theme);
+      ? renderGraph(laidOut, theme, types)
+      : renderSequence(laidOut, theme, types);
   const svg = [
     `${head} class="sg-root" data-diagram="${laidOut.kind}" version="1.1" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="Inter, system-ui, sans-serif">`,
     title,
-    defs(theme, options.styles ?? true),
+    defs(theme, resolved, options.styles ?? true),
     `<rect class="sg-bg" x="0" y="0" width="${width}" height="${height}" fill="${theme.bg}"/>`,
     body,
     "</svg>",

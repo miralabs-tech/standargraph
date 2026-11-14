@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validate } from "./format/validate";
+import { type PageThemeOption, THEMES } from "./svg/theme";
 import { VERSION } from "./version";
 
 const USAGE = `Usage: standargraph <command> [options]
@@ -19,7 +20,7 @@ Export options:
   --format <list>    Comma-separated formats: svg, html, png, pdf (default: svg,html)
   --out <dir>        Output directory (default: the input file directory)
   --name <base>      Output base name (default: the input file name without .json)
-  --theme <theme>    light, dark or auto (default: auto)
+  --theme <theme>    light, dark, auto or a theme file ending in .json (default: auto)
   --scale <n>        PNG scale factor (default: 2)
   --renderer <name>  HTML renderer: auto, svg or webgl (default: auto)
   --markdown         Print a Markdown snippet linking the SVG preview to the HTML page
@@ -55,7 +56,6 @@ function runValidate(file: string | undefined): number {
 
 const FORMATS = ["svg", "html", "png", "pdf"] as const;
 type Format = (typeof FORMATS)[number];
-type Theme = "light" | "dark" | "auto";
 type Renderer = "auto" | "svg" | "webgl";
 
 type ExportArgs = {
@@ -63,7 +63,7 @@ type ExportArgs = {
   formats: Format[];
   out: string | undefined;
   name: string | undefined;
-  theme: Theme;
+  theme: PageThemeOption;
   scale: number | undefined;
   renderer: Renderer;
   markdown: boolean;
@@ -72,6 +72,44 @@ type ExportArgs = {
 function fail(message: string): undefined {
   process.stderr.write(`${message}\n`);
   return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStrings(value: unknown, keys: readonly string[]): boolean {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(([key, item]) => keys.includes(key) && typeof item === "string")
+  );
+}
+
+function isTheme(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const { base, tokens, types } = value;
+  if (base !== undefined && base !== "light" && base !== "dark") return false;
+  if (tokens !== undefined && !isStrings(tokens, Object.keys(THEMES.light))) return false;
+  if (types === undefined) return true;
+  return (
+    isRecord(types) &&
+    Object.values(types).every((style) => isStrings(style, ["fill", "stroke", "text"]))
+  );
+}
+
+function readTheme(file: string): PageThemeOption | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(readFileSync(file, "utf8"));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return fail(`Cannot read theme ${file}: ${reason}`);
+  }
+  const valid =
+    isRecord(value) && "light" in value && "dark" in value
+      ? isTheme(value.light) && isTheme(value.dark)
+      : isTheme(value);
+  return valid ? (value as PageThemeOption) : fail(`Invalid theme file: ${file}`);
 }
 
 function parseExportArgs(args: string[]): ExportArgs | undefined {
@@ -99,7 +137,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     }
   }
   if (file === undefined) {
-    return fail("Usage: standargraph export <file> [--format svg,html,png,pdf] [--out <dir>] [--name <base>] [--theme light|dark|auto] [--scale <n>] [--renderer auto|svg|webgl] [--markdown]");
+    return fail("Usage: standargraph export <file> [--format svg,html,png,pdf] [--out <dir>] [--name <base>] [--theme light|dark|auto|<file.json>] [--scale <n>] [--renderer auto|svg|webgl] [--markdown]");
   }
   const formats: Format[] = [];
   for (const item of (values.get("--format") ?? "svg,html").split(",")) {
@@ -109,9 +147,15 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     }
     if (!formats.includes(format as Format)) formats.push(format as Format);
   }
-  const theme = values.get("--theme") ?? "auto";
-  if (theme !== "light" && theme !== "dark" && theme !== "auto") {
-    return fail(`Unknown theme: ${theme}`);
+  const themeValue = values.get("--theme") ?? "auto";
+  let theme: PageThemeOption | undefined;
+  if (themeValue.endsWith(".json")) {
+    theme = readTheme(themeValue);
+    if (theme === undefined) return undefined;
+  } else if (themeValue === "light" || themeValue === "dark" || themeValue === "auto") {
+    theme = themeValue;
+  } else {
+    return fail(`Unknown theme: ${themeValue}`);
   }
   const renderer = values.get("--renderer") ?? "auto";
   if (renderer !== "auto" && renderer !== "svg" && renderer !== "webgl") {

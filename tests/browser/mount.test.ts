@@ -215,3 +215,55 @@ describe("mount() with the WebGL renderer and node shapes", () => {
     expect(errors).toEqual([]);
   });
 });
+
+describe("mount() with the WebGL renderer and typed colors", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(
+      await bundle(
+        "webgl-types",
+        '{ renderer: "webgl", theme: { types: { database: { fill: "#ff0000", stroke: "#880000" } } } }',
+      ),
+      errors,
+    );
+    await page.evaluate(async (doc) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", doc);
+    }, example("architecture"));
+    await page.waitForFunction(
+      () => document.querySelectorAll('.sg-app[data-sg-ready="1"]').length === 1,
+      null,
+      { timeout: 30000 },
+    );
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("the type rule reaches an SVG node inside the app and no probe is left behind", async () => {
+    const state = await page.evaluate(() => {
+      const app = document.querySelector("#a .sg-app")!;
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "sg-root");
+      const holder = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      holder.setAttribute("data-type", "database");
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("class", "sg-node");
+      holder.append(rect);
+      svg.append(holder);
+      app.append(svg);
+      const style = getComputedStyle(rect);
+      const result = { fill: style.fill, stroke: style.stroke };
+      svg.remove();
+      return { ...result, left: document.querySelectorAll("#a .sg-root").length };
+    });
+    expect(state).toEqual({ fill: "rgb(255, 0, 0)", stroke: "rgb(136, 0, 0)", left: 0 });
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
