@@ -58,7 +58,9 @@ export async function mount(
   if (!result.ok) throw new Error(`Invalid document:\n${formatErrors(result.errors)}`);
   const document = result.document;
   const needsWorker =
-    (document.kind === "graph" && !hasPositions(document)) || document.kind === "state";
+    (document.kind === "graph" && !hasPositions(document)) ||
+    document.kind === "state" ||
+    document.kind === "er";
   const scene = needsWorker ? await layoutInWorker(document) : await layout(document);
 
   const renderer = options.renderer ?? "auto";

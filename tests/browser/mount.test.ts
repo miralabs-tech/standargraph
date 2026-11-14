@@ -206,6 +206,82 @@ describe("mount() with a state machine", () => {
   });
 });
 
+describe("mount() with an ER diagram", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("er", "{}"), errors);
+    await page.evaluate(async (doc) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", doc);
+    }, example("shop-er"));
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("the layout runs in the worker and the SVG is drawn", async () => {
+    const state = await page.evaluate(() => ({
+      ready: document.querySelector("#a .sg-app")?.getAttribute("data-sg-ready"),
+      diagram: document.querySelector("#a svg")?.getAttribute("data-diagram"),
+      entities: document.querySelectorAll("#a [data-kind=entity]").length,
+      relations: document.querySelectorAll("#a [data-kind=relation]").length,
+      rows: document.querySelectorAll("#a .sg-attr").length,
+    }));
+    expect(state).toEqual({ ready: "1", diagram: "er", entities: 4, relations: 3, rows: 12 });
+  });
+
+  test("clicking an entity selects it and lists its attributes in the panel", async () => {
+    await page.evaluate(() => (window as any).m1.view.fit());
+    const point = await page.evaluate(() => {
+      const rect = document.querySelector("#a [data-id=customer] rect.sg-node")!.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + 6 };
+    });
+    await page.mouse.click(point.x, point.y);
+    expect(await page.evaluate(() => (window as any).m1.view.selected())).toEqual({
+      kind: "entity",
+      id: "customer",
+    });
+    const panel = await page.evaluate(() => ({
+      title: document.querySelector("#a .sg-panel h2")?.textContent,
+      rows: document.querySelectorAll("#a .sg-panel table.sg-data tr").length,
+    }));
+    expect(panel).toEqual({ title: "Customer", rows: 4 });
+  });
+
+  test("selecting a relation shows its cardinality in the panel", async () => {
+    await page.evaluate(() => (window as any).m1.view.select({ kind: "relation", id: "r0" }));
+    const panel = await page.evaluate(() => ({
+      title: document.querySelector("#a .sg-panel h2")?.textContent,
+      text: document.querySelector("#a .sg-panel dl")?.textContent,
+    }));
+    expect(panel.title).toBe("places");
+    expect(panel.text).toMatch(/Connectioncustomer\W+order/);
+    expect(panel.text).toMatch(/Cardinality1\W+0\.\.\*/);
+    expect(panel.text).toContain("Identifyingno");
+    await page.evaluate(() => (window as any).m1.view.select(null));
+  });
+
+  test("hovering an entity highlights it", async () => {
+    const point = await page.evaluate(() => {
+      const rect = document.querySelector("#a [data-id=product] rect.sg-node")!.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    });
+    await page.mouse.move(point.x, point.y);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as any).m1.view.hovered())).toEqual({
+      kind: "entity",
+      id: "product",
+    });
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
 describe("mount() with the WebGL renderer", () => {
   const errors: string[] = [];
   let page: Page;

@@ -1,5 +1,5 @@
 import type { ItemRef, View } from "../core/view";
-import type { Document, Meta, Pseudo } from "../format";
+import type { Cardinality, Document, Meta, Pseudo } from "../format";
 import { transitionLabel } from "../format/transition-label";
 
 const DRAG_THRESHOLD = 4;
@@ -41,6 +41,13 @@ const PSEUDO_NAMES: Record<Pseudo, string> = {
   fork: "Fork",
   join: "Join",
   history: "History",
+};
+
+const CARDINALITY_NOTATION: Record<Cardinality, string> = {
+  one: "1",
+  "zero-or-one": "0..1",
+  "one-or-more": "1..*",
+  "zero-or-more": "0..*",
 };
 
 export type PanelControl = { update(): void; destroy(): void };
@@ -103,8 +110,11 @@ export function createPanel(view: View, doc: Document, panel: HTMLElement): Pane
   if (doc.kind === "graph") doc.nodes.forEach((node, index) => nodesById.set(node.id, index));
   const statesById = new Map<string, number>();
   if (doc.kind === "state") doc.states.forEach((state, index) => statesById.set(state.id, index));
+  const entitiesById = new Map<string, number>();
+  if (doc.kind === "er") doc.entities.forEach((entity, index) => entitiesById.set(entity.id, index));
   let edgesById: Map<string, number> | undefined;
   let transitionsById: Map<string, number> | undefined;
+  let relationsById: Map<string, number> | undefined;
 
   function describe(kind: string, id: string): void {
     const list = element("dl");
@@ -180,6 +190,54 @@ export function createPanel(view: View, doc: Document, panel: HTMLElement): Pane
       if (item.event !== undefined) row(list, "Event", item.event);
       if (item.guard !== undefined) row(list, "Guard", item.guard);
       if (item.action !== undefined) row(list, "Action", item.action);
+      if (item.type !== undefined) row(list, "Type", item.type);
+    } else if (kind === "entity" && doc.kind === "er") {
+      const item = doc.entities[entitiesById.get(id) ?? -1];
+      if (item === undefined) return;
+      title = item.label ?? item.id;
+      meta = item.meta;
+      if (item.type !== undefined) row(list, "Type", item.type);
+      if (item.description !== undefined) row(list, "Description", item.description);
+      if (item.link !== undefined) row(list, "Link", linkValue(item.link));
+      const attributes = item.attributes ?? [];
+      if (attributes.length > 0) {
+        const table = element("table", undefined, "sg-data");
+        const head = element("tr");
+        for (const name of ["Name", "Type", "Keys", "Null", "Note"]) head.appendChild(element("th", name));
+        table.appendChild(head);
+        for (const attribute of attributes) {
+          const tr = element("tr");
+          tr.append(
+            element("td", attribute.name),
+            element("td", attribute.type ?? ""),
+            element("td", (attribute.keys ?? []).join(", ")),
+            element("td", attribute.nullable === true ? "yes" : ""),
+            element("td", attribute.note ?? ""),
+          );
+          table.appendChild(tr);
+        }
+        row(list, "Attributes", table);
+      }
+    } else if (kind === "relation" && doc.kind === "er") {
+      const relations = doc.relations ?? [];
+      if (relationsById === undefined) {
+        relationsById = new Map();
+        relations.forEach((relation, position) => {
+          const key = relation.id ?? `r${position}`;
+          if (!relationsById!.has(key)) relationsById!.set(key, position);
+        });
+      }
+      const item = relations[relationsById.get(id) ?? -1];
+      if (item === undefined) return;
+      title = item.label ?? `${item.from} → ${item.to}`;
+      meta = item.meta;
+      row(list, "Connection", `${item.from} → ${item.to}`);
+      if (item.fromCardinality !== undefined || item.toCardinality !== undefined) {
+        const end = (cardinality: Cardinality | undefined): string =>
+          cardinality === undefined ? "-" : CARDINALITY_NOTATION[cardinality];
+        row(list, "Cardinality", `${end(item.fromCardinality)} → ${end(item.toCardinality)}`);
+      }
+      row(list, "Identifying", item.identifying === false ? "no" : "yes");
       if (item.type !== undefined) row(list, "Type", item.type);
     } else {
       return;

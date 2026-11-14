@@ -2,10 +2,12 @@ import { FONT_METRICS, type FontWeight } from "../layout/font-metrics";
 import { LINE_HEIGHT, measureText } from "../layout/measure";
 import {
   ACTIONS_GAP,
+  attributeTypeText,
   boxSize,
   CAPTION_FONT,
   EDGE_LABEL_FONT,
   GROUP_FONT,
+  keysText,
   LABEL_FONT,
   PAD_X,
   round,
@@ -22,18 +24,23 @@ import {
 import type {
   Box,
   LaidOut,
+  LaidOutAttribute,
   LaidOutEdge,
+  LaidOutEntity,
+  LaidOutEr,
   LaidOutGraph,
   LaidOutGroup,
   LaidOutMessage,
   LaidOutNode,
   LaidOutParticipant,
+  LaidOutRelation,
   LaidOutSequence,
   LaidOutState,
   LaidOutStateMachine,
   LaidOutTransition,
+  Point,
 } from "../layout/types";
-import type { Meta, Shape } from "../format";
+import type { Cardinality, Meta, Shape } from "../format";
 import { esc } from "./escape";
 import {
   escapedTheme,
@@ -684,6 +691,181 @@ function renderState(laid: LaidOutStateMachine, theme: Theme, types: Types): str
   ].join("");
 }
 
+function attributeRow(
+  attribute: LaidOutAttribute,
+  entity: LaidOutEntity,
+  theme: Theme,
+): string {
+  const keys = keysText(attribute.keys);
+  const typeText = attributeTypeText(attribute);
+  const top = attribute.y + (attribute.height - LINE_HEIGHT * EDGE_LABEL_FONT.size) / 2;
+  const keyTop = attribute.y + (attribute.height - LINE_HEIGHT * CAPTION_FONT.size) / 2;
+  let body =
+    attribute.note === undefined ? "" : `<title>${esc(attribute.note)}</title>`;
+  if (keys !== "") {
+    body += textLines(
+      keys,
+      entity.x + entity.columns.key,
+      keyTop,
+      CAPTION_FONT,
+      "sg-muted sg-attr-key",
+      theme.muted,
+      "start",
+    );
+  }
+  body += textLines(
+    attribute.name,
+    entity.x + entity.columns.name,
+    top,
+    EDGE_LABEL_FONT,
+    "sg-text",
+    theme.fg,
+    "start",
+  );
+  if (typeText !== "") {
+    body += textLines(
+      typeText,
+      entity.x + entity.columns.type,
+      top,
+      EDGE_LABEL_FONT,
+      "sg-muted sg-attr-type",
+      theme.muted,
+      "start",
+    );
+  }
+  return `<g class="sg-attr"${data([
+    ["attr", attribute.name],
+    ["keys", attribute.keys === undefined ? undefined : attribute.keys.join(" ")],
+  ])}>${body}</g>`;
+}
+
+function renderEntity(
+  item: LaidOutEntity,
+  index: number,
+  theme: Theme,
+  types: Types,
+): string {
+  const look = nodeLook(item.meta, item.type, theme, types);
+  const frame = ` x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="4"`;
+  const clip = `sg-clip-${index}`;
+  let body =
+    `<clipPath id="${clip}"><rect${frame}/></clipPath>` +
+    `<rect class="${look.cls}"${frame} ${look.paint}/>` +
+    `<rect class="sg-header" x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.headerHeight)}" fill="${theme.headerFill}" clip-path="url(#${clip})"/>`;
+
+  const label = measureText(item.label, LABEL_FONT);
+  const caption =
+    item.type === undefined ? undefined : measureText(item.type, CAPTION_FONT);
+  const top = item.y + (item.headerHeight - label.height - (caption?.height ?? 0)) / 2;
+  const cx = item.x + item.width / 2;
+  body += textLines(item.label, cx, top, LABEL_FONT, "sg-text sg-label", look.typed.text ?? theme.fg);
+  if (item.type !== undefined) {
+    body += textLines(
+      item.type,
+      cx,
+      top + label.height,
+      CAPTION_FONT,
+      "sg-muted sg-caption",
+      theme.muted,
+    );
+  }
+  body += item.attributes.map((attribute) => attributeRow(attribute, item, theme)).join("");
+
+  const coverage = item.meta?.coverage;
+  if (coverage !== undefined) {
+    body += `<rect class="sg-accent" x="${n(item.x)}" y="${n(item.y + item.height - 4)}" width="${n(coverage * item.width)}" height="4" fill="${theme.accent}" clip-path="url(#${clip})"/>`;
+  }
+
+  return wrapLink(
+    group(
+      "entity",
+      item.id,
+      item.meta,
+      body,
+      data([
+        ["type", item.type],
+        ["confidence", confidenceOf(item.meta)],
+      ]),
+    ),
+    item.link,
+  );
+}
+
+function cardinalityMarks(
+  cardinality: Cardinality | undefined,
+  from: Point | undefined,
+  next: Point | undefined,
+  theme: Theme,
+): string {
+  if (cardinality === undefined || from === undefined || next === undefined) return "";
+  const length = Math.hypot(next.x - from.x, next.y - from.y);
+  if (length === 0) return "";
+  const ux = (next.x - from.x) / length;
+  const uy = (next.y - from.y) / length;
+  const vx = -uy;
+  const vy = ux;
+  const at = (distance: number, side = 0): string =>
+    `${n(from.x + distance * ux + side * vx)},${n(from.y + distance * uy + side * vy)}`;
+  const stroke = `fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linecap="round"`;
+  const line = (d: string): string => `<path class="sg-edge" d="${d}" ${stroke}/>`;
+  const bar = (distance: number): string =>
+    line(`M${at(distance, 6)} L${at(distance, -6)}`);
+  const circle = (distance: number): string =>
+    `<circle class="sg-bg sg-edge" cx="${n(from.x + distance * ux)}" cy="${n(from.y + distance * uy)}" r="4" fill="${theme.bg}" stroke="${theme.edge}" stroke-width="1.5"/>`;
+  const foot = (): string =>
+    line(`M${at(12)} L${at(0, 7)} M${at(12)} L${at(0)} M${at(12)} L${at(0, -7)}`);
+  switch (cardinality) {
+    case "one":
+      return bar(6) + bar(11);
+    case "zero-or-one":
+      return bar(6) + circle(15);
+    case "one-or-more":
+      return foot() + bar(15);
+    case "zero-or-more":
+      return foot() + circle(17);
+  }
+}
+
+function renderRelation(item: LaidOutRelation, theme: Theme): string {
+  const dash = confidenceDash(item.meta) ?? (item.identifying ? undefined : "4 3");
+  const path = `<path class="sg-edge" d="${pathOf(item.points)}" fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linejoin="round"${dashAttr(dash)}/>`;
+  const points = item.points;
+  const marks =
+    cardinalityMarks(item.fromCardinality, points[0], points[1], theme) +
+    cardinalityMarks(
+      item.toCardinality,
+      points[points.length - 1],
+      points[points.length - 2],
+      theme,
+    );
+  const label =
+    item.labelBox === undefined || item.label === undefined
+      ? ""
+      : labelBoxSvg(item.labelBox, item.label, theme, true);
+  return group(
+    "relation",
+    item.id,
+    item.meta,
+    path + marks + label,
+    data([
+      ["type", item.type],
+      ["confidence", confidenceOf(item.meta)],
+      ["from", item.from],
+      ["to", item.to],
+      ["from-cardinality", item.fromCardinality],
+      ["to-cardinality", item.toCardinality],
+      ["identifying", String(item.identifying)],
+    ]),
+  );
+}
+
+function renderEr(laid: LaidOutEr, theme: Theme, types: Types): string {
+  return [
+    ...laid.relations.map((item) => renderRelation(item, theme)),
+    ...laid.entities.map((item, index) => renderEntity(item, index, theme, types)),
+  ].join("");
+}
+
 function renderScene(laidOut: LaidOut, theme: Theme, types: Types): string {
   switch (laidOut.kind) {
     case "graph":
@@ -693,6 +875,7 @@ function renderScene(laidOut: LaidOut, theme: Theme, types: Types): string {
     case "state":
       return renderState(laidOut, theme, types);
     case "er":
+      return renderEr(laidOut, theme, types);
     case "tree":
       throw new Error(`Rendering of ${laidOut.kind} diagrams is not available yet`);
     default:

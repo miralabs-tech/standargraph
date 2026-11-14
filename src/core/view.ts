@@ -365,7 +365,42 @@ export function createView(scene: LaidOut, options: ViewOptions = {}): View {
     });
     break;
   }
-  case "er":
+  case "er": {
+    const relationIndexes: number[] = [];
+    for (const relation of scene.relations) {
+      const index = addEntry("relation", relation.id, relation);
+      relationIndexes.push(index);
+      addPath(index, relation.points);
+      if (relation.labelBox !== undefined) {
+        const box = relation.labelBox;
+        addShape(index, LABEL, box.x, box.y, box.x + box.width, box.y + box.height);
+      }
+    }
+    for (const entity of scene.entities) {
+      const index = addEntry("entity", entity.id, entity);
+      addRect(index, entity.x, entity.y, entity.width, entity.height);
+      searchable.push({
+        index,
+        label: [entity.label, ...entity.attributes.map((attribute) => attribute.name)]
+          .join(" ")
+          .toLowerCase(),
+        id: entity.id.toLowerCase(),
+      });
+    }
+    scene.relations.forEach((relation, position) => {
+      const relationKey = entries[relationIndexes[position]!]!.key;
+      const from = keyOf("entity", relation.from);
+      const to = keyOf("entity", relation.to);
+      for (const [self, other] of [[from, to], [to, from]] as const) {
+        if (!byKey.has(self)) continue;
+        link(self, relationKey);
+        if (byKey.has(other)) link(self, other);
+      }
+      if (byKey.has(from)) link(relationKey, from);
+      if (byKey.has(to)) link(relationKey, to);
+    });
+    break;
+  }
   case "tree":
     break;
   default:

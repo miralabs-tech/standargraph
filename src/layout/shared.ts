@@ -67,3 +67,17 @@ export function actionsHeight(count: number): number {
 export function actionsWidth(actions: readonly string[]): number {
   return Math.max(0, ...actions.map((action) => measureText(action, CAPTION_FONT).width));
 }
+
+export const ER_ROW_HEIGHT = Math.ceil(LINE_HEIGHT * EDGE_LABEL_FONT.size + 6);
+export const ER_ROWS_PAD = 3;
+
+export function keysText(keys: readonly string[] | undefined): string {
+  return keys === undefined ? "" : keys.map((key) => key.toUpperCase()).join(", ");
+}
+
+export function attributeTypeText(attribute: {
+  type?: string;
+  nullable?: boolean;
+}): string {
+  return `${attribute.type ?? ""}${attribute.nullable === true ? "?" : ""}`;
+}

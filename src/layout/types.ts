@@ -1,4 +1,4 @@
-import type { Meta, Pseudo, Shape } from "../format";
+import type { Cardinality, Key, Meta, Pseudo, Shape } from "../format";
 
 export type Point = { x: number; y: number };
 
@@ -130,10 +130,6 @@ export type LaidOutStateMachine = {
   states: LaidOutState[];
   transitions: LaidOutTransition[];
 };
-
-export type Key = "pk" | "fk" | "uk";
-
-export type Cardinality = "one" | "zero-or-one" | "one-or-more" | "zero-or-more";
 
 export type LaidOutAttribute = {
   name: string;

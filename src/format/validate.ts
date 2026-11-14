@@ -1,14 +1,18 @@
 import { FormatRegistry, type Static, type TSchema } from "@sinclair/typebox";
 import { Value, ValueErrorType } from "@sinclair/typebox/value";
 import {
+  CARDINALITIES,
   FORMAT_VERSION,
+  KEYS,
   PSEUDO,
   SHAPES,
   type Document,
+  ErDocumentSchema,
   GraphDocumentSchema,
   SequenceDocumentSchema,
   StateDocumentSchema,
 } from "./schema";
+import { semanticErErrors } from "./semantic/er";
 import { semanticGraphErrors } from "./semantic/graph";
 import { semanticSequenceErrors } from "./semantic/sequence";
 import { semanticStateErrors } from "./semantic/state";
@@ -52,6 +56,7 @@ const KINDS: Readonly<Record<string, KindHandler>> = {
   graph: handler(GraphDocumentSchema, semanticGraphErrors),
   sequence: handler(SequenceDocumentSchema, semanticSequenceErrors),
   state: handler(StateDocumentSchema, semanticStateErrors),
+  er: handler(ErDocumentSchema, semanticErErrors),
 };
 
 const KIND_NAMES = Object.keys(KINDS)
@@ -72,7 +77,11 @@ function structuralErrors(
         ? `Expected one of ${SHAPES.join(", ")}`
         : error.path.endsWith("/pseudo")
           ? `Expected one of ${PSEUDO.join(", ")}`
-          : "Expected a string, a number or a boolean";
+          : error.path.endsWith("Cardinality")
+            ? `Expected one of ${CARDINALITIES.join(", ")}`
+            : /\/keys\/\d+$/.test(error.path)
+              ? `Expected one of ${KEYS.join(", ")}`
+              : "Expected a string, a number or a boolean";
     } else if (error.type === ValueErrorType.ObjectAdditionalProperties) {
       message = "Unexpected property";
     } else if (error.type === ValueErrorType.StringFormat) {

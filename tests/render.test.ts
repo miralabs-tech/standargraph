@@ -42,7 +42,7 @@ async function render(doc: unknown, options?: Parameters<typeof renderSvg>[1]) {
 }
 
 describe("snapshots", () => {
-  for (const name of ["architecture", "protocol", "agent-output", "order-state"]) {
+  for (const name of ["architecture", "protocol", "agent-output", "order-state", "shop-er"]) {
     test(`${name} in the light theme`, async () => {
       const svg = await render(example(name));
       assertWellFormed(svg);

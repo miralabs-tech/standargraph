@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "kind": "er",
+  "title": "Shop orders",
+  "entities": [
+    {
+      "id": "customer",
+      "label": "Customer",
+      "attributes": [
+        { "name": "id", "type": "uuid", "keys": ["pk"] },
+        { "name": "email", "type": "varchar(255)", "keys": ["uk"] },
+        { "name": "name", "type": "text" }
+      ]
+    },
+    {
+      "id": "order",
+      "label": "Order",
+      "attributes": [
+        { "name": "id", "type": "uuid", "keys": ["pk"] },
+        { "name": "customer_id", "type": "uuid", "keys": ["fk"] },
+        { "name": "placed_at", "type": "timestamp" },
+        { "name": "note", "type": "text", "nullable": true, "note": "free text from checkout" }
+      ]
+    },
+    {
+      "id": "order_item",
+      "label": "Order item",
+      "attributes": [
+        { "name": "order_id", "type": "uuid", "keys": ["pk", "fk"] },
+        { "name": "product_id", "type": "uuid", "keys": ["pk", "fk"] },
+        { "name": "quantity", "type": "int" }
+      ]
+    },
+    {
+      "id": "product",
+      "label": "Product",
+      "type": "catalog",
+      "attributes": [
+        { "name": "id", "type": "uuid", "keys": ["pk"] },
+        { "name": "price", "type": "decimal(10,2)" }
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "customer", "to": "order", "fromCardinality": "one", "toCardinality": "zero-or-more", "label": "places", "identifying": false },
+    { "from": "order", "to": "order_item", "fromCardinality": "one", "toCardinality": "one-or-more", "label": "contains", "identifying": true },
+    { "from": "product", "to": "order_item", "fromCardinality": "one", "toCardinality": "zero-or-more", "label": "appears in", "identifying": true }
+  ]
+}

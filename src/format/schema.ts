@@ -200,8 +200,67 @@ export const StateDocumentSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const KEYS = ["pk", "fk", "uk"] as const;
+
+export const CARDINALITIES = ["one", "zero-or-one", "one-or-more", "zero-or-more"] as const;
+
+export const AttributeSchema = Type.Object(
+  {
+    name: Type.String({ minLength: 1 }),
+    type: Type.Optional(Type.String()),
+    keys: Type.Optional(Type.Array(Type.Union(KEYS.map((key) => Type.Literal(key))))),
+    nullable: Type.Optional(Type.Boolean()),
+    note: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+export const EntitySchema = Type.Object(
+  {
+    id: Id,
+    label: Type.Optional(Type.String()),
+    type: Type.Optional(Type.String()),
+    description: Type.Optional(Type.String()),
+    link: Type.Optional(Type.String()),
+    attributes: Type.Optional(Type.Array(AttributeSchema)),
+    meta: Type.Optional(MetaSchema),
+  },
+  { additionalProperties: false },
+);
+
+const CardinalitySchema = Type.Union(CARDINALITIES.map((cardinality) => Type.Literal(cardinality)));
+
+export const RelationSchema = Type.Object(
+  {
+    id: Type.Optional(Id),
+    from: Type.String(),
+    to: Type.String(),
+    fromCardinality: Type.Optional(CardinalitySchema),
+    toCardinality: Type.Optional(CardinalitySchema),
+    label: Type.Optional(Type.String()),
+    identifying: Type.Optional(Type.Boolean()),
+    type: Type.Optional(Type.String()),
+    meta: Type.Optional(MetaSchema),
+  },
+  { additionalProperties: false },
+);
+
+export const ErDocumentSchema = Type.Object(
+  {
+    $schema: Type.Optional(Type.String()),
+    version: Type.Literal(FORMAT_VERSION),
+    kind: Type.Literal("er"),
+    title: Type.Optional(Type.String()),
+    direction: Type.Optional(DirectionSchema),
+    entities: Type.Array(EntitySchema, { minItems: 1 }),
+    relations: Type.Optional(Type.Array(RelationSchema)),
+    meta: Type.Optional(MetaSchema),
+  },
+  { additionalProperties: false },
+);
+
 export const DocumentSchema = Type.Union(
-  [GraphDocumentSchema, SequenceDocumentSchema, StateDocumentSchema],
+  [GraphDocumentSchema, SequenceDocumentSchema, StateDocumentSchema, ErDocumentSchema],
   {
     $id: "urn:standargraph:graph-document:v1",
     title: "Standargraph document v1",
@@ -221,4 +280,10 @@ export type Pseudo = (typeof PSEUDO)[number];
 export type State = Static<typeof StateSchema>;
 export type Transition = Static<typeof TransitionSchema>;
 export type StateDocument = Static<typeof StateDocumentSchema>;
+export type Key = (typeof KEYS)[number];
+export type Cardinality = (typeof CARDINALITIES)[number];
+export type Attribute = Static<typeof AttributeSchema>;
+export type Entity = Static<typeof EntitySchema>;
+export type Relation = Static<typeof RelationSchema>;
+export type ErDocument = Static<typeof ErDocumentSchema>;
 export type Document = Static<typeof DocumentSchema>;
