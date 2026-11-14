@@ -116,7 +116,7 @@ async function runPage(
   try {
     try {
       await page.goto(pathToFileURL(file).href, { timeout: 120000 });
-      await page.waitForSelector('#sg-app[data-sg-ready="1"]', { timeout: 120000 });
+      await page.waitForSelector('.sg-app[data-sg-ready="1"]', { timeout: 120000 });
     } catch (error) {
       return { skipped: `did not load in 120 s (${(error as Error).name})` };
     }
@@ -219,7 +219,7 @@ async function mountCheck(directory: string): Promise<Record<string, unknown>> {
         workerMs: Math.round(done - start),
         longestFrameDuringWorkerMs: Math.round(longestDuringWorker),
         longestFrameAfterWorkerMs: Math.round(longestAfter),
-        rendered: window.document.querySelector("#sg-app")?.getAttribute("data-sg-ready") === "1",
+        rendered: window.document.querySelector(".sg-app")?.getAttribute("data-sg-ready") === "1",
         scale: mounted.view.camera().scale as number,
       };
     }, input);

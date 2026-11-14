@@ -22,8 +22,8 @@ test("renderWebglHtml is one self-contained file", async () => {
   const laid = await layout(doc);
   const html = renderWebglHtml(doc, laid);
   expect(html.startsWith("<!doctype html>")).toBe(true);
-  expect(html).toContain('id="sg-gl"');
-  expect(html).toContain('id="sg-groups"');
+  expect(html).toContain('class="sg-gl"');
+  expect(html).toContain('class="sg-groups"');
   expect(html).not.toMatch(/(?:src|href)=["']https?:/);
   expect(html).not.toMatch(/url\(["']?https?:/);
   expect(html).toContain("rgb(");
@@ -42,8 +42,8 @@ test("renderWebglHtml escapes a closing script tag in the data", async () => {
 test("auto picks WebGL above the threshold and SVG below it and for sequences", async () => {
   const small = example("architecture");
   const smallHtml = renderHtml(small, await layout(small));
-  expect(smallHtml).toContain('id="sg-stage"');
-  expect(smallHtml).not.toContain('id="sg-gl"');
+  expect(smallHtml).toContain('class="sg-stage"');
+  expect(smallHtml).not.toContain('class="sg-gl"');
 
   const large = generate({ nodes: WEBGL_THRESHOLD + 1, seed: 1, groups: 3 });
   for (const node of large.nodes) {
@@ -51,13 +51,13 @@ test("auto picks WebGL above the threshold and SVG below it and for sequences", 
     node.position = { x: (index % 100) * 200, y: Math.floor(index / 100) * 80 };
   }
   const largeLaid = await layout(large);
-  expect(renderHtml(large, largeLaid)).toContain('id="sg-gl"');
-  expect(renderHtml(large, largeLaid, { renderer: "svg" })).toContain('id="sg-stage"');
-  expect(renderHtml(small, await layout(small), { renderer: "webgl" })).toContain('id="sg-gl"');
+  expect(renderHtml(large, largeLaid)).toContain('class="sg-gl"');
+  expect(renderHtml(large, largeLaid, { renderer: "svg" })).toContain('class="sg-stage"');
+  expect(renderHtml(small, await layout(small), { renderer: "webgl" })).toContain('class="sg-gl"');
 
   const sequence = example("protocol");
   const sequenceLaid = await layout(sequence);
-  expect(renderHtml(sequence, sequenceLaid, { renderer: "webgl" })).toContain('id="sg-stage"');
+  expect(renderHtml(sequence, sequenceLaid, { renderer: "webgl" })).toContain('class="sg-stage"');
 });
 
 test("the CLI accepts svg, webgl and auto and rejects anything else with 2", async () => {

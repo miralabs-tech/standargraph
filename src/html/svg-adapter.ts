@@ -1,7 +1,7 @@
 import { type Change, createView, type ItemKind, type ItemRef, type View } from "../core/view";
 import type { Document } from "../format";
 import type { LaidOut } from "../layout/types";
-import { bindInteraction, byId, createPanel } from "./ui";
+import { bindInteraction, createPanel, part } from "./ui";
 
 const IDLE_MS = 150;
 const CULL_MIN_ITEMS = 400;
@@ -9,16 +9,16 @@ const CULL_MIN_ITEMS = 400;
 export type Mounted = { view: View; destroy(): void };
 
 export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
-  const viewport = byId<HTMLDivElement>("sg-viewport");
-  const stage = byId<HTMLDivElement>("sg-stage");
-  const panel = byId<HTMLElement>("sg-panel");
-  const search = byId<HTMLInputElement>("sg-search");
+  const viewport = part<HTMLDivElement>("sg-viewport");
+  const stage = part<HTMLDivElement>("sg-stage");
+  const panel = part<HTMLElement>("sg-panel");
+  const search = part<HTMLInputElement>("sg-search");
   const svg = stage.querySelector("svg");
   if (svg === null) return undefined;
   const root: SVGSVGElement = svg;
 
   const view = createView(scene);
-  const updatePanel = createPanel(view, doc, panel);
+  const panelControl = createPanel(view, doc, panel);
 
   const elements = new Map<string, Element>();
   for (const item of root.querySelectorAll("[data-kind]")) {
@@ -174,7 +174,7 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
       selectedElement = elementOf(ref) ?? null;
       selectedElement?.classList.add("sg-selected");
     }
-    updatePanel();
+    panelControl.update();
   }
 
   function pickable(target: EventTarget | null): ItemRef | null {
@@ -198,6 +198,13 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
   applyCamera();
   applyLod();
   if (culling) applyVisible();
-  byId("sg-app").dataset.sgReady = "1";
-  return { view, destroy: () => ui.destroy() };
+  part("sg-app").dataset.sgReady = "1";
+  return {
+    view,
+    destroy() {
+      ui.destroy();
+      panelControl.destroy();
+      clearTimeout(idleTimer);
+    },
+  };
 }

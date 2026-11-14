@@ -16,9 +16,9 @@ export function withScope<T>(root: ParentNode, fn: () => T): T {
   }
 }
 
-export function byId<T extends HTMLElement>(id: string): T {
-  const element = (scope ?? document).querySelector(`#${id}`);
-  if (element === null) throw new Error(`Missing element #${id}`);
+export function part<T extends HTMLElement>(name: string): T {
+  const element = (scope ?? document).querySelector(`.${name}`);
+  if (element === null) throw new Error(`Missing element .${name}`);
   return element as T;
 }
 
@@ -33,7 +33,9 @@ function element<K extends keyof HTMLElementTagNameMap>(
   return created;
 }
 
-export function createPanel(view: View, doc: Document, panel: HTMLElement): () => void {
+export type PanelControl = { update(): void; destroy(): void };
+
+export function createPanel(view: View, doc: Document, panel: HTMLElement): PanelControl {
   const edges = doc.kind === "graph" ? (doc.edges ?? []) : [];
 
   function edgeId(index: number): string {
@@ -146,18 +148,24 @@ export function createPanel(view: View, doc: Document, panel: HTMLElement): () =
     panel.hidden = false;
   }
 
-  document.addEventListener("keydown", (event) => {
+  const onKeydown = (event: KeyboardEvent): void => {
     if (event.key === "Escape" && !panel.hidden) view.select(null);
-  });
+  };
+  document.addEventListener("keydown", onKeydown);
 
-  return () => {
-    const ref = view.selected();
-    if (ref === null) {
-      panel.hidden = true;
-      panel.replaceChildren();
-      return;
-    }
-    describe(ref.kind, ref.id);
+  return {
+    update() {
+      const ref = view.selected();
+      if (ref === null) {
+        panel.hidden = true;
+        panel.replaceChildren();
+        return;
+      }
+      describe(ref.kind, ref.id);
+    },
+    destroy() {
+      document.removeEventListener("keydown", onKeydown);
+    },
   };
 }
 
@@ -279,9 +287,9 @@ export function bindInteraction(options: InteractionOptions): Interaction {
     view.zoomAt(factor, size.width / 2, size.height / 2);
   }
 
-  byId("sg-zoom-in").addEventListener("click", () => zoomCenter(1.25));
-  byId("sg-zoom-out").addEventListener("click", () => zoomCenter(0.8));
-  byId("sg-fit").addEventListener("click", () => view.fit());
+  part("sg-zoom-in").addEventListener("click", () => zoomCenter(1.25));
+  part("sg-zoom-out").addEventListener("click", () => zoomCenter(0.8));
+  part("sg-fit").addEventListener("click", () => view.fit());
   search.addEventListener("input", () => view.search(search.value));
 
   function resize(): void {

@@ -5,7 +5,6 @@ import { layout } from "../layout";
 import type { LaidOut } from "../layout/types";
 import { formatErrors } from "../shared/errors";
 import { renderSvg } from "../svg/render";
-import { LAYOUT_WORKER_JS } from "./layout-worker.generated";
 import { appMarkup, STYLE, svgViewport, themeStyle, WEBGL_VIEWPORT } from "./shell";
 import { withScope } from "./ui";
 
@@ -19,7 +18,8 @@ export type Mounted = { view: View; destroy(): void };
 
 type WorkerReply = { ok: true; scene: LaidOut } | { ok: false; message: string };
 
-function layoutInWorker(document: Document): Promise<LaidOut> {
+async function layoutInWorker(document: Document): Promise<LaidOut> {
+  const { LAYOUT_WORKER_JS } = await import("./layout-worker.generated");
   const url = URL.createObjectURL(new Blob([LAYOUT_WORKER_JS], { type: "text/javascript" }));
   const worker = new Worker(url);
   return new Promise((resolve, reject) => {

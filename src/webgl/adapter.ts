@@ -6,7 +6,7 @@ import { type Change, createView, type ItemRef } from "../core/view";
 import type { Document } from "../format";
 import type { LaidOut } from "../layout/types";
 import type { Mounted } from "../html/svg-adapter";
-import { bindInteraction, byId, createPanel } from "../html/ui";
+import { bindInteraction, createPanel, part } from "../html/ui";
 
 const IDLE_MS = 150;
 const DIM_OPACITY = 0.25;
@@ -60,12 +60,12 @@ function contrast(a: Rgb, b: Rgb): number {
 export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   if (scene.kind !== "graph") return undefined;
   const graphScene = scene;
-  const app = byId<HTMLElement>("sg-app");
-  const viewport = byId<HTMLElement>("sg-viewport");
-  const glElement = byId<HTMLElement>("sg-gl");
-  const groupsCanvas = byId<HTMLCanvasElement>("sg-groups");
-  const panel = byId<HTMLElement>("sg-panel");
-  const search = byId<HTMLInputElement>("sg-search");
+  const app = part<HTMLElement>("sg-app");
+  const viewport = part<HTMLElement>("sg-viewport");
+  const glElement = part<HTMLElement>("sg-gl");
+  const groupsCanvas = part<HTMLCanvasElement>("sg-groups");
+  const panel = part<HTMLElement>("sg-panel");
+  const search = part<HTMLInputElement>("sg-search");
 
   const style = getComputedStyle(app);
   const token = (name: string): Rgb => parseColor(style.getPropertyValue(name));
@@ -80,7 +80,7 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   const fonts = "Inter, system-ui, sans-serif";
 
   const view = createView(graphScene);
-  const updatePanel = createPanel(view, doc, panel);
+  const panelControl = createPanel(view, doc, panel);
 
   const graph = new Graph({ multi: true, type: "directed" });
   const confidence = (meta: { provenance?: { confidence?: string } } | undefined) =>
@@ -319,7 +319,7 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   }
 
   view.subscribe((changes: ReadonlySet<Change>) => {
-    if (changes.has("selection")) updatePanel();
+    if (changes.has("selection")) panelControl.update();
     if (changes.has("camera")) {
       touch();
       applyCamera();
@@ -360,6 +360,8 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
     view,
     destroy() {
       ui.destroy();
+      panelControl.destroy();
+      clearTimeout(idleTimer);
       sigma.kill();
     },
   };
