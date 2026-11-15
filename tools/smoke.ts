@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "..");
 const PACKAGE = "@miralabs-tech/standargraph";
-const SUBPATHS = ["core", "format", "layout", "svg", "html", "export", "webgl", "remark", "text", "mermaid"];
+const SUBPATHS = ["core", "format", "layout", "svg", "html", "export", "webgl", "remark", "text", "language", "mermaid"];
 const EDITOR_FILES = ["grammars/standargraph.tmLanguage.json", "language-configuration.json"];
 const failures: string[] = [];
 
