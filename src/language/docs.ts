@@ -1,4 +1,5 @@
-import type { Kind } from "../text/parser";
+import { DirectionSchema, PSEUDO, SHAPES, TREE_LAYOUTS } from "../format/schema";
+import type { Kind, OpSymbol } from "../text/parser";
 
 export type AttrContext =
   | "header"
@@ -87,5 +88,57 @@ export function attributeDoc(context: AttrContext, key: string, kind: Kind): str
   if (key.startsWith("data.") && key.length > 5) {
     return "Custom data value stored under meta.data (string, number or boolean).";
   }
+  return undefined;
+}
+
+export const KEYWORD_DOCS: Readonly<Record<string, string>> = {
+  group: 'Group of nodes: group id "Label" { ... }.',
+  initial: "Initial pseudo-state, the start of a state machine: initial -> state.",
+  final: "Final pseudo-state, the end of a state machine: state -> final.",
+};
+
+export const FLAG_DOCS: Readonly<Record<string, string>> = {
+  pk: "Primary key.",
+  fk: "Foreign key.",
+  uk: "Unique key.",
+  null: "The attribute accepts null values.",
+};
+
+export const OPERATOR_DOCS: Readonly<Record<OpSymbol, string>> = {
+  "->": "Directed link: an edge, a synchronous message or a transition.",
+  "--": "Undirected edge, or an identifying relation.",
+  "->>": "Asynchronous message.",
+  "-->": "Reply message.",
+  "..": "Non-identifying relation.",
+};
+
+export const CARDINALITY_DOCS: Readonly<Record<string, string>> = {
+  "1": "Exactly one.",
+  "0..1": "Zero or one.",
+  "1..*": "One or more.",
+  "0..*": "Zero or more.",
+};
+
+const DIRECTIONS: readonly string[] = DirectionSchema.anyOf.map((literal) => literal.const);
+const CONFIDENCES = ["confirmed", "inferred", "unknown"];
+
+export function attributeKeys(context: AttrContext, kind: Kind): string[] {
+  const own = context === "header" ? HEADER_DOCS[kind] : FIELD_DOCS[context];
+  const keys = Object.keys(own);
+  if (context !== "attribute") keys.push(...Object.keys(META_DOCS));
+  return keys;
+}
+
+export function attributeValues(context: AttrContext, key: string, kind: Kind): readonly string[] | undefined {
+  if (context === "attribute") return undefined;
+  if (key === "confidence") return CONFIDENCES;
+  if (key.startsWith("data.") && key.length > 5) return ["true", "false"];
+  if (context === "header") {
+    if (key === "direction" && Object.hasOwn(HEADER_DOCS[kind], key)) return DIRECTIONS;
+    if (key === "layout" && kind === "tree") return TREE_LAYOUTS;
+    return undefined;
+  }
+  if (key === "shape" && (context === "node" || context === "treeNode")) return SHAPES;
+  if (key === "pseudo" && context === "state") return PSEUDO;
   return undefined;
 }
