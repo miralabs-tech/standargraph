@@ -61,7 +61,7 @@ import {
   type ThemeOption,
   type ThemeTokens,
   type TypeStyle,
-} from "@miralabs-tech/standargraph/svg";
+} from "@standarx/graph/svg";
 ```
 
 `/html` and `/export` export the same names.

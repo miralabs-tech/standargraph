@@ -16,7 +16,7 @@ inputs:
     description: Output directory. Empty writes next to each source file.
     default: ""
   version:
-    description: Version of @miralabs-tech/standargraph to run. Empty uses the version in the package.json of the action ref.
+    description: Version of @standarx/graph to run. Empty uses the version in the package.json of the action ref.
     default: ""
   mode:
     description: write renders the files, check renders them and fails when an output differs from the working tree.
@@ -58,7 +58,7 @@ runs:
           if [ -z "$version" ]; then
             version="$(node -p "require(process.argv[1]).version" "$SG_ACTION_PATH/package.json")"
           fi
-          cli=(npx -y "@miralabs-tech/standargraph@$version")
+          cli=(npx -y "@standarx/graph@$version")
         fi
 
         outputs=()

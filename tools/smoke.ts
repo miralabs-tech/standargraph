@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "..");
-const PACKAGE = "@miralabs-tech/standargraph";
+const PACKAGE = "@standarx/graph";
 const SUBPATHS = ["core", "format", "layout", "svg", "html", "export", "webgl", "remark", "text", "language", "mermaid"];
 const EDITOR_FILES = ["grammars/standargraph.tmLanguage.json", "language-configuration.json"];
 const failures: string[] = [];
