@@ -1,6 +1,6 @@
 # StandarGraph
 
-[![CI](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml/badge.svg)](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@miralabs-tech/standargraph)](https://www.npmjs.com/package/@miralabs-tech/standargraph) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org)
+[![CI](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml/badge.svg)](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@standarx/graph)](https://www.npmjs.com/package/@standarx/graph) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org)
 
 > "Declarative diagrams from JSON (graphs, sequences, state machines, entity-relation and trees), rendered to SVG, interactive HTML, PNG and PDF, with WebGL beyond 2000 graph nodes."
 
@@ -76,13 +76,13 @@ Every command reads JSON or the [text syntax](#text-syntax): the format is detec
 
 ### JavaScript
 
-Every subpath is a separate entry point of `@miralabs-tech/standargraph`.
+Every subpath is a separate entry point of `@standarx/graph`.
 
 ```ts
-import { validate } from "@miralabs-tech/standargraph/format";
-import { layout } from "@miralabs-tech/standargraph/layout";
-import { renderSvg } from "@miralabs-tech/standargraph/svg";
-import { renderHtml } from "@miralabs-tech/standargraph/html";
+import { validate } from "@standarx/graph/format";
+import { layout } from "@standarx/graph/layout";
+import { renderSvg } from "@standarx/graph/svg";
+import { renderHtml } from "@standarx/graph/html";
 
 const result = validate(JSON.parse(text));
 if (!result.ok) throw new Error(result.errors.map((e) => `${e.path}: ${e.message}`).join("\n"));
@@ -95,7 +95,7 @@ const html = renderHtml(result.document, scene, { theme: "auto", renderer: "auto
 All formats in one call, from `/export`:
 
 ```ts
-import { exportDocument } from "@miralabs-tech/standargraph/export";
+import { exportDocument } from "@standarx/graph/export";
 
 const out = await exportDocument(graphDocument, { formats: ["svg", "png", "pdf"], theme: "light", scale: 2 });
 // out.svg is a string, out.png and out.pdf are Uint8Array
@@ -104,7 +104,7 @@ const out = await exportDocument(graphDocument, { formats: ["svg", "png", "pdf"]
 Mermaid text for GitHub Markdown, from `/mermaid` (`formats: ["mermaid"]` in `exportDocument()` returns the same text as a string, without the warnings):
 
 ```ts
-import { toMermaid } from "@miralabs-tech/standargraph/mermaid";
+import { toMermaid } from "@standarx/graph/mermaid";
 
 const { text, warnings } = toMermaid(graphDocument);
 ```
@@ -112,7 +112,7 @@ const { text, warnings } = toMermaid(graphDocument);
 Mount an interactive graph in a page (`mount(container, document, { theme, title, renderer })`). When every node has a `position`, ELK is skipped; otherwise the layout runs in a Web Worker and the main thread stays free. Several instances can live on one page:
 
 ```ts
-import { mount } from "@miralabs-tech/standargraph/html";
+import { mount } from "@standarx/graph/html";
 
 const { view, destroy } = await mount(document.getElementById("graph")!, graphDocument, { renderer: "auto" });
 ```
@@ -122,7 +122,7 @@ Markdown pipelines, with the remark plugin (it turns ` ```standargraph ` and ` `
 ```ts
 import { unified } from "unified";
 import remarkParse from "remark-parse";
-import { remarkStandargraph } from "@miralabs-tech/standargraph/remark";
+import { remarkStandargraph } from "@standarx/graph/remark";
 
 unified().use(remarkParse).use(remarkStandargraph, { outDir: "public/diagrams", publicPath: "/diagrams", theme: "auto" });
 ```
@@ -130,12 +130,21 @@ unified().use(remarkParse).use(remarkStandargraph, { outDir: "public/diagrams", 
 The headless core, for your own renderer (see [docs/headless.md](./docs/headless.md)):
 
 ```ts
-import { createView, layout } from "@miralabs-tech/standargraph/core";
+import { createView, layout } from "@standarx/graph/core";
 
 const view = createView(await layout(graphDocument));
 view.setViewport(1280, 800);
 view.fit();
 view.subscribe(() => draw(view));
+```
+
+The editor features of the text syntax, with no language server dependency (see [docs/language-service.md](./docs/language-service.md)):
+
+```ts
+import { complete, format } from "@standarx/graph/language";
+
+const items = complete(source, { line: 2, character: 3 });
+const edits = format(source);
 ```
 
 ---
@@ -291,7 +300,7 @@ build -> check
 
 #### Syntax highlighting
 
-The package ships a TextMate grammar (`@miralabs-tech/standargraph/grammars/standargraph.tmLanguage.json`, scope `source.standargraph`), a `language-configuration.json` and `highlight(source)` in the `/text` subpath, which returns tokens typed with the LSP semantic token types. The online demo colors its editor with `highlight()`. A VS Code extension will consume these files from its own repository. See [docs/syntax-highlighting.md](./docs/syntax-highlighting.md).
+The package ships a TextMate grammar (`@standarx/graph/grammars/standargraph.tmLanguage.json`, scope `source.standargraph`), a `language-configuration.json` and `highlight(source)` in the `/text` subpath, which returns tokens typed with the LSP semantic token types. The online demo colors its editor with `highlight()`. A VS Code extension will consume these files from its own repository. See [docs/syntax-highlighting.md](./docs/syntax-highlighting.md).
 
 ### Theming
 
@@ -321,7 +330,7 @@ The composite action at the root of the repository renders your `.sg` files with
 | `formats` | `svg` | Export formats |
 | `theme` | `light` | Theme of the render |
 | `out` | empty (next to the source) | Output directory |
-| `version` | the package version of the action ref | npm version of `@miralabs-tech/standargraph` to run |
+| `version` | the package version of the action ref | npm version of `@standarx/graph` to run |
 | `mode` | `write` | `write` renders; `check` renders and fails, listing the files, when an output differs from the working tree or is missing |
 | `cli-path` | empty | Path of a locally built `dist/cli.js`, used instead of the npm package (CI of this repository) |
 
@@ -332,16 +341,16 @@ The composite action at the root of the repository renders your `.sg` files with
 ## 📦 Install
 
 ```sh
-npm install @miralabs-tech/standargraph
-bun add @miralabs-tech/standargraph
+npm install @standarx/graph
+bun add @standarx/graph
 ```
 
 Node >= 20. The CLI is the `standargraph` binary. Once the package is installed, `npx standargraph` or `bunx standargraph` runs it; without installing, name the package:
 
 ```sh
-npx @miralabs-tech/standargraph export graph.json
-bunx @miralabs-tech/standargraph export graph.json
-npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.json
+npx @standarx/graph export graph.json
+bunx @standarx/graph export graph.json
+npm install -g @standarx/graph   # then: standargraph export graph.json
 ```
 
 ---
@@ -379,6 +388,7 @@ npm install -g @miralabs-tech/standargraph   # then: standargraph export graph.j
 - [Headless core and adapters](./docs/headless.md)
 - [Theming](./docs/theming.md)
 - [Syntax highlighting for `.sg`](./docs/syntax-highlighting.md)
+- [Language service for `.sg`](./docs/language-service.md)
 - [Mermaid export](./docs/mermaid.md)
 - [Benchmark and layout times](./docs/bench.md)
 - [JSON Schema of the format v1](./schema/graph-document.v1.json)
