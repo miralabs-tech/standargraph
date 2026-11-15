@@ -32,7 +32,7 @@ const OPERATORS: readonly (readonly [string, TokenKind])[] = [
 ];
 const CARD = /0\.\.1|1\.\.\*|0\.\.\*/y;
 const NUMBER = /-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?/y;
-const IDENT = /[\p{L}_][\p{L}\p{N}_]*(?:[./-][\p{L}\p{N}_]+)*/uy;
+export const IDENT = /[\p{L}_][\p{L}\p{N}_]*(?:[./-][\p{L}\p{N}_]+)*/uy;
 const UNICODE_ESCAPE = /^\{([0-9a-fA-F]{1,6})\}/;
 const SIMPLE_ESCAPES: Readonly<Record<string, string>> = { n: "\n", t: "\t" };
 const PUNCTUATION = "{}[]()=,*";

@@ -13,9 +13,9 @@ function sources(directory: string): string[] {
   });
 }
 
-test("core, format, layout, text and mermaid never touch the DOM", () => {
+test("core, format, layout, text, language and mermaid never touch the DOM", () => {
   const root = fileURLToPath(new URL("../src", import.meta.url));
-  const files = ["core", "format", "layout", "text", "mermaid"].flatMap((name) => sources(join(root, name)));
+  const files = ["core", "format", "layout", "text", "language", "mermaid"].flatMap((name) => sources(join(root, name)));
   expect(files.length).toBeGreaterThan(5);
   const offenders: string[] = [];
   for (const file of files) {
