@@ -5,7 +5,7 @@
 ## API
 
 ```ts
-import { toMermaid } from "@miralabs-tech/standargraph/mermaid";
+import { toMermaid } from "@standarx/graph/mermaid";
 
 const { text, warnings } = toMermaid(document);
 ```

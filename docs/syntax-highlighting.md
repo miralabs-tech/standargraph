@@ -53,7 +53,7 @@ The grammar is pure regular expressions, with no injection, so a few cases are a
 `highlight(source)` never throws. It returns the tokens of the valid part, sorted and without overlap; text it does not understand is left out, and everything after a line that is not a header is plain.
 
 ```ts
-import { highlight, SEMANTIC_TOKEN_MODIFIERS, SEMANTIC_TOKEN_TYPES } from "@miralabs-tech/standargraph/text";
+import { highlight, SEMANTIC_TOKEN_MODIFIERS, SEMANTIC_TOKEN_TYPES } from "@standarx/graph/text";
 
 const tokens = highlight('graph "Flow"\n\na -> b "yes"\n');
 // { start, end, line, column, type, modifiers? }
@@ -96,7 +96,7 @@ An extension for VS Code (planned in its own repository) points `contributes.gra
 }
 ```
 
-Copy the two files from `@miralabs-tech/standargraph/grammars/standargraph.tmLanguage.json` and `@miralabs-tech/standargraph/language-configuration.json` at build time. Other tools read the same grammar: Shiki and TextMate load it by scope name, and a GitHub Linguist entry can reference it.
+Copy the two files from `@standarx/graph/grammars/standargraph.tmLanguage.json` and `@standarx/graph/language-configuration.json` at build time. Other tools read the same grammar: Shiki and TextMate load it by scope name, and a GitHub Linguist entry can reference it.
 
 A semantic token provider calls `highlight(document.getText())` and converts each token to the editor's own position model. A language server answers `textDocument/semanticTokens/full` with the same call.
 
