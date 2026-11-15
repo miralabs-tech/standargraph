@@ -1,4 +1,4 @@
-import { LineMap, STOP, Sink, type TextError } from "./errors";
+import { LineMap, STOP, Sink, type Range, type TextError } from "./errors";
 
 export type TokenKind =
   | "NEWLINE"
@@ -49,6 +49,7 @@ export class Lexer {
   constructor(
     private readonly source: string,
     private readonly sink: Sink,
+    private readonly comments?: Range[],
   ) {}
 
   seek(pos: number): void {
@@ -63,7 +64,9 @@ export class Lexer {
       char = source[this.pos];
       while (char === " " || char === "\t") char = source[++this.pos];
       if (char === "#") {
+        const commentStart = this.pos;
         while (char !== undefined && char !== "\n") char = source[++this.pos];
+        this.comments?.push({ start: commentStart, end: this.pos });
       }
       if (char === "\n") {
         const start = this.pos++;
