@@ -73,7 +73,7 @@ export type Ast =
 
 export const KINDS: readonly Kind[] = ["graph", "sequence", "state", "er", "tree"];
 export const FLAGS = new Set(["pk", "fk", "uk", "null"]);
-const CARDINALITIES: ReadonlyMap<string, Cardinality> = new Map([
+export const CARDINALITIES: ReadonlyMap<string, Cardinality> = new Map([
   ["1", "one"],
   ["0..1", "zero-or-one"],
   ["1..*", "one-or-more"],
@@ -100,7 +100,7 @@ const WORD_OF: Readonly<Record<OpSymbol, string>> = {
   "-->": "reply",
   "..": "via",
 };
-const OPERATOR_RULES: Readonly<Record<Kind, { noun: string; allowed: readonly OpSymbol[] }>> = {
+export const OPERATOR_RULES: Readonly<Record<Kind, { noun: string; allowed: readonly OpSymbol[] }>> = {
   graph: { noun: "a graph", allowed: ["->", "--"] },
   sequence: { noun: "a sequence diagram", allowed: ["->", "->>", "-->"] },
   state: { noun: "a state machine", allowed: ["->"] },
@@ -110,7 +110,7 @@ const OPERATOR_RULES: Readonly<Record<Kind, { noun: string; allowed: readonly Op
 
 const ABORT = Symbol("abort statement");
 
-function operatorOf(token: Token): OpSymbol | undefined {
+export function operatorOf(token: Token): OpSymbol | undefined {
   return token.kind === "IDENT"
     ? OPERATOR_WORDS.get(token.text)
     : OPERATOR_TOKENS.get(token.kind);

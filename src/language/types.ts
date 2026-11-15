@@ -24,3 +24,13 @@ export type Location = { range: Range };
 export type WorkspaceEdit = { changes: TextEdit[] };
 
 export type Hover = { contents: string; range: Range };
+
+export type CompletionItemKind = "keyword" | "operator" | "property" | "value" | "reference";
+
+export type CompletionItem = {
+  label: string;
+  kind: CompletionItemKind;
+  detail?: string;
+  documentation?: string;
+  insertText?: string;
+};

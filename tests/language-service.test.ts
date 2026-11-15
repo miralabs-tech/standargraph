@@ -328,6 +328,7 @@ describe("package entry", () => {
   test("exposes exactly the language service functions", async () => {
     const entry = await import("../src/language/index");
     expect(Object.keys(entry).sort()).toEqual([
+      "complete",
       "definition",
       "documentSymbols",
       "foldingRanges",
