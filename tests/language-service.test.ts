@@ -129,6 +129,14 @@ describe("graph", () => {
     expect(rename(source, use, "PatchSettings")).toBeUndefined();
   });
 
+  test("rename is refused when the result would no longer parse like the original", () => {
+    expect(rename(source, use, "group")).toBeUndefined();
+    const block = ['graph "B"', 'group g {', '  d', '}'].join("\n");
+    expect(rename(block, { line: 2, character: 2 }, "end")).toBeUndefined();
+    expect(rename(block, { line: 2, character: 2 }, "e")).toBeDefined();
+    expect(rename(source, use, "useConfig")).toBeDefined();
+  });
+
   test("a quoted id is replaced including its quotes", () => {
     const quoted = 'graph "Q"\n`my node` "My node"\n`my node` -> other\n';
     const edit = rename(quoted, { line: 2, character: 2 }, "renamed");

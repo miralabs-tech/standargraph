@@ -1,5 +1,6 @@
 import { IDENT } from "../text/lexer";
 import type { Range as Span } from "../text/errors";
+import { parseTree } from "../text/syntax";
 import { analyze, occurrenceAt, type Analysis, type Occurrence } from "./analysis";
 import type { Position, Range } from "./format";
 import type { Location, TextEdit, WorkspaceEdit } from "./types";
@@ -49,8 +50,18 @@ export function rename(source: string, position: Position, newName: string): Wor
   const found = at(analysis, position);
   if (!found || !BARE.test(newName)) return undefined;
   if (analysis.items.some((item) => item !== found.item && item.id === newName)) return undefined;
-  const changes: TextEdit[] = analysis.occurrences
-    .filter((occurrence) => occurrence.item === found.item)
-    .map((occurrence) => ({ range: toRange(analysis, occurrence.range), newText: newName }));
+  const mine = analysis.occurrences.filter((occurrence) => occurrence.item === found.item);
+  const changes: TextEdit[] = mine.map((occurrence) => ({
+    range: toRange(analysis, occurrence.range),
+    newText: newName,
+  }));
+  let text = analysis.conv.text;
+  for (const occurrence of [...mine].reverse()) {
+    text = text.slice(0, occurrence.range.start) + newName + text.slice(occurrence.range.end);
+  }
+  const before = parseTree(analysis.conv.text).errors;
+  const after = parseTree(text).errors;
+  const known = new Set(before.map((error) => error.code));
+  if (after.length > before.length || after.some((error) => !known.has(error.code))) return undefined;
   return { changes };
 }
