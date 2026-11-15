@@ -15,6 +15,7 @@ import {
   attributeKeys,
   attributeValues,
   CARDINALITY_DOCS,
+  DATA_NAMESPACE_DOC,
   FLAG_DOCS,
   KEYWORD_DOCS,
   KIND_DOCS,
@@ -39,18 +40,56 @@ type Bracket = { state: "key" | "value" | "closed"; key: string; openStart: numb
 
 function lineState(text: string): "code" | "string" | "comment" {
   let quote = "";
+  let comment = false;
   for (let index = 0; index < text.length; index++) {
     const char = text[index]!;
-    if (quote !== "") {
+    if (comment) {
+      if (char === "\n") comment = false;
+    } else if (quote !== "") {
       if (char === "\\") index++;
       else if (char === quote) quote = "";
     } else if (char === '"' || char === "`") {
       quote = char;
     } else if (char === "#") {
-      return "comment";
+      comment = true;
     }
   }
+  if (comment) return "comment";
   return quote === "" ? "code" : "string";
+}
+
+function bracketScan(text: string, offset: number): { open: number; end: number } | undefined {
+  const stack: { char: string; at: number }[] = [];
+  let quote = "";
+  let comment = false;
+  let index = 0;
+  const step = (limit: number, stopWhenFlat: boolean): boolean => {
+    for (; index < limit; index++) {
+      const char = text[index]!;
+      if (comment) {
+        if (char === "\n") comment = false;
+      } else if (quote !== "") {
+        if (char === "\\") index++;
+        else if (char === quote) quote = "";
+      } else if (char === '"' || char === "`") {
+        quote = char;
+      } else if (char === "#") {
+        comment = true;
+      } else if (char === "[" || char === "(") {
+        stack.push({ char, at: index });
+      } else if (char === "]" || char === ")") {
+        if (stack[stack.length - 1]?.char === (char === "]" ? "[" : "(")) stack.pop();
+        if (stopWhenFlat && !stack.some((entry) => entry.char === "[")) return true;
+      }
+    }
+    return false;
+  };
+  step(offset, false);
+  const outer = stack.find((entry) => entry.char === "[");
+  if (outer === undefined) return undefined;
+  const closed = step(text.length, true);
+  const found = text.indexOf("\n", closed ? index : offset);
+  return { open: outer.at, end: found < 0 ? text.length : found };
 }
 
 function lexLine(text: string): Token[] {
@@ -155,6 +194,17 @@ function references(analysis: Analysis, kind: Kind, typing: Span): CompletionIte
     items.push(entry);
   }
   return items;
+}
+
+function usedDataKeys(analysis: Analysis): string[] {
+  const keys = new Set<string>();
+  for (const site of analysis.sites) {
+    if (site.context === "attribute") continue;
+    for (const attr of site.attrs) {
+      if (attr.key.startsWith("data.") && attr.key.length > 5) keys.add(attr.key);
+    }
+  }
+  return [...keys];
 }
 
 function existingValues(analysis: Analysis, key: string): CompletionItem[] {
@@ -269,11 +319,12 @@ function bracketItems(
   kind: Kind,
   line: string,
   typingStart: number,
+  word: string,
 ): CompletionItem[] {
   if (bracket.state === "closed") return [];
   if (bracket.state === "key") {
     const present = presentKeys(line, bracket.openStart, typingStart);
-    return attributeKeys(context, kind)
+    const items: CompletionItem[] = attributeKeys(context, kind)
       .filter((key) => !present.has(key))
       .map((key) => ({
         label: key,
@@ -281,6 +332,22 @@ function bracketItems(
         documentation: attributeDoc(context, key, kind),
         insertText: `${key}=`,
       }));
+    if (context !== "attribute") {
+      if (word.startsWith("data.")) {
+        for (const key of usedDataKeys(analysis)) {
+          if (present.has(key)) continue;
+          items.push({
+            label: key,
+            kind: "property",
+            documentation: attributeDoc(context, key, kind),
+            insertText: `${key}=`,
+          });
+        }
+      } else {
+        items.push({ label: "data.", kind: "property", documentation: DATA_NAMESPACE_DOC, insertText: "data." });
+      }
+    }
+    return items;
   }
   const closed = attributeValues(context, bracket.key, kind);
   if (closed !== undefined) {
@@ -331,6 +398,10 @@ function statementItems(
     return references(analysis, kind, typing);
   }
 
+  if (kind === "graph" && count >= 3 && isIdLike(last) && operatorAt(before, count - 2)) {
+    return operatorItems(kind);
+  }
+
   if (count === 1 && (isIdLike(last) || isPunct(last, "*"))) {
     const items = operatorItems(kind);
     if (kind === "er") items.push(...cardinalityItems());
@@ -346,8 +417,14 @@ export function complete(source: string, position: Position): CompletionItem[] {
   const { conv, ast } = analysis;
   const text = conv.text;
   const offset = conv.offset(position);
-  const lineStart = offset === 0 ? 0 : text.lastIndexOf("\n", offset - 1) + 1;
-  const lineEndAt = text.indexOf("\n", offset);
+  const scan = bracketScan(text, offset);
+  const lineStart =
+    scan !== undefined
+      ? text.lastIndexOf("\n", scan.open) + 1
+      : offset === 0
+        ? 0
+        : text.lastIndexOf("\n", offset - 1) + 1;
+  const lineEndAt = scan !== undefined ? scan.end : text.indexOf("\n", offset);
   const line = text.slice(lineStart, lineEndAt < 0 ? text.length : lineEndAt);
   const prefix = text.slice(lineStart, offset);
   if (lineState(prefix) !== "code") return [];
@@ -356,7 +433,21 @@ export function complete(source: string, position: Position): CompletionItem[] {
   const tail = before[before.length - 1];
   let word = "";
   let wordStart = prefix.length;
-  if (tail !== undefined && tail.end === prefix.length) {
+  const stem = before[before.length - 2];
+  if (
+    tail !== undefined &&
+    tail.end === prefix.length &&
+    tail.kind === "ERROR" &&
+    tail.text === "." &&
+    stem !== undefined &&
+    stem.kind === "IDENT" &&
+    stem.end === tail.start
+  ) {
+    word = `${stem.text}.`;
+    wordStart = stem.start;
+    before.pop();
+    before.pop();
+  } else if (tail !== undefined && tail.end === prefix.length) {
     const partialOperator = tail.kind === "ERROR" && /^[-.>]+$/.test(tail.text);
     if (tail.kind === "IDENT" || partialOperator) {
       word = tail.text;
@@ -375,7 +466,7 @@ export function complete(source: string, position: Position): CompletionItem[] {
     }
     const named = before[0]!;
     if (open === undefined || named.kind !== "IDENT" || !(KINDS as readonly string[]).includes(named.text)) return [];
-    const items = bracketItems(analysis, bracketState(before, open), "header", named.text as Kind, line, wordStart);
+    const items = bracketItems(analysis, bracketState(before, open), "header", named.text as Kind, line, wordStart, word);
     return sorted(items, word);
   }
 
@@ -383,7 +474,7 @@ export function complete(source: string, position: Position): CompletionItem[] {
   const depth = blockDepth(text.slice(0, lineStart).split("\n"));
   if (open !== undefined) {
     const context = attrContext(kind, before.slice(0, open), depth);
-    return sorted(bracketItems(analysis, bracketState(before, open), context, kind, line, wordStart), word);
+    return sorted(bracketItems(analysis, bracketState(before, open), context, kind, line, wordStart, word), word);
   }
   const typing = { start: lineStart + wordStart, end: offset };
   return sorted(statementItems(analysis, kind, before, depth, typing), word);

@@ -174,6 +174,65 @@ describe("attribute brackets", () => {
   });
 });
 
+describe("chains, data keys and multi-line brackets", () => {
+  test("a graph chain offers the operators again after a target", () => {
+    const items = at('graph "T"\na -> b ');
+    expect(labels(items, "operator")).toEqual(["--", "->", "to", "with"]);
+    expect(labels(items)).toEqual(labels(items, "operator"));
+    expect(labels(at('graph "T"\na -> b -> '), "reference")).toEqual(["a", "b"]);
+  });
+
+  test("kinds without chains offer nothing after a complete statement", () => {
+    expect(at('sequence "T"\na -> b ')).toEqual([]);
+    expect(at('state "T"\na -> b ')).toEqual([]);
+    expect(at('er "T"\na 1 -- 0..* b ')).toEqual([]);
+  });
+
+  test("key position offers the data namespace", () => {
+    const item = at('graph "T"\na [').find((entry) => entry.label === "data.");
+    expect(item?.kind).toBe("property");
+    expect(item?.insertText).toBe("data.");
+    expect(item?.documentation).toBeDefined();
+    expect(labels(at('sequence "T"\na ['))).toContain("data.");
+    expect(labels(at('graph "T" ['))).toContain("data.");
+  });
+
+  test("a data prefix offers the keys used in the document, minus the present ones", () => {
+    const head = 'graph "T"\nx [data.owner="t", data.team="u"]\n';
+    const items = at(`${head}a [data.`);
+    expect(labels(items)).toEqual(["data.owner", "data.team"]);
+    expect(items[0]?.insertText).toBe("data.owner=");
+    expect(labels(at(`${head}a [data.owner="t", data.`))).toEqual(["data.team"]);
+    expect(labels(at(`${head}a [data.te`))).toEqual(["data.team"]);
+  });
+
+  test("an item that takes no metadata offers no data namespace", () => {
+    expect(labels(at('er "T"\norder {\n  id uuid ['))).toEqual(["note"]);
+  });
+
+  test("a bracket may span several lines", () => {
+    const keys = labels(at('graph "T"\na [\n  shape=box,\n  '));
+    expect(keys).toContain("type");
+    expect(keys).not.toContain("shape");
+    expect(labels(at('graph "T"\na [\n  shape=')).length).toBe(11);
+    expect(labels(at('graph "T"\na [\n  shape=di'))).toEqual(["diamond"]);
+    expect(labels(at('graph "T"\na -> b [\n  '))).toContain("id");
+    expect(labels(at('graph "T"\na -> b [\n  '))).not.toContain("shape");
+  });
+
+  test("keys written after the cursor on a later line are excluded", () => {
+    const source = 'graph "T"\na [\n  \n  shape=box\n]';
+    const items = complete(source, { line: 2, character: 2 });
+    expect(labels(items)).not.toContain("shape");
+    expect(labels(items)).toContain("type");
+  });
+
+  test("a comment inside a multi-line bracket is skipped", () => {
+    expect(labels(at('graph "T"\na [\n  # note ]\n  shape=box,\n  '))).not.toContain("shape");
+    expect(at('graph "T"\na [\n  # note')).toEqual([]);
+  });
+});
+
 describe("entity-relation diagrams", () => {
   const head = 'er "T"\ncustomer "Customer"\norder\n';
 

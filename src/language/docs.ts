@@ -91,6 +91,9 @@ export function attributeDoc(context: AttrContext, key: string, kind: Kind): str
   return undefined;
 }
 
+export const DATA_NAMESPACE_DOC =
+  "Free metadata: data.<name>=value stores a custom string, number or boolean under meta.data.";
+
 export const KEYWORD_DOCS: Readonly<Record<string, string>> = {
   group: 'Group of nodes: group id "Label" { ... }.',
   initial: "Initial pseudo-state, the start of a state machine: initial -> state.",
