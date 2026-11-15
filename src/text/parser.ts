@@ -18,7 +18,7 @@ export type Endpoint = { star: boolean; value: string; range: Range };
 export type Card = { value: Cardinality; range: Range };
 export type Opener = { text: "{" | "do"; range: Range };
 
-type Common = { label?: Str; attrs: AttrNode[]; range: Range };
+type Common = { label?: Str; attrs: AttrNode[]; range: Range; incomplete?: true };
 
 export type GraphStmt =
   | ({ t: "group"; id: Ident; body: GraphStmt[] } & Common)
@@ -36,6 +36,7 @@ export type AttributeLine = {
   flags: { value: string; range: Range }[];
   attrs: AttrNode[];
   range: Range;
+  incomplete?: true;
 };
 export type ErStmt =
   | ({ t: "entity"; id: Ident; attributes?: AttributeLine[] } & Common)
@@ -52,6 +53,7 @@ export type TreeLine = {
   attrs: AttrNode[];
   parent: number;
   range: Range;
+  incomplete?: true;
 };
 
 export type Header = {
@@ -59,6 +61,7 @@ export type Header = {
   title?: Str;
   attrs: AttrNode[];
   range: Range;
+  missing?: true;
 };
 
 export type Ast =
@@ -135,12 +138,22 @@ class Parser {
   private buffer: Token[] = [];
   private lastEnd = 0;
   private kind: Kind = "graph";
+  private draft: unknown;
+  partial: Ast | undefined;
 
   constructor(
     private readonly source: string,
     private readonly lexer: Lexer,
     private readonly sink: Sink,
+    private readonly lenient = false,
   ) {}
+
+  private keep<T extends { range: Range; incomplete?: true }>(error: unknown, node: T, start: number): void {
+    if (error !== ABORT && error !== STOP) return;
+    node.range = this.from(start);
+    node.incomplete = true;
+    this.draft = node;
+  }
 
   private peek(offset = 0): Token {
     while (this.buffer.length <= offset) this.buffer.push(this.lexer.next());
@@ -314,8 +327,7 @@ class Parser {
     return undefined;
   }
 
-  private body<T>(opener: Opener | undefined, statement: () => T): T[] {
-    const out: T[] = [];
+  private body<T>(opener: Opener | undefined, statement: () => T, out: T[] = []): T[] {
     for (;;) {
       this.skipNewlines();
       const token = this.peek();
@@ -355,9 +367,20 @@ class Parser {
       try {
         out.push(statement());
       } catch (error) {
+        const draft = this.draft as { t?: string; body?: unknown[] } | undefined;
+        this.draft = undefined;
+        if (error === STOP) {
+          if (draft) out.push(draft as T);
+          throw error;
+        }
         if (error !== ABORT) throw error;
         const nested = this.recover();
-        if (nested) this.body(nested, statement);
+        const inner: T[] = [];
+        if (draft) {
+          if (draft.t === "group" && Array.isArray(draft.body)) draft.body = inner;
+          out.push(draft as T);
+        }
+        if (nested) this.body(nested, statement, inner);
       }
     }
   }
@@ -365,14 +388,23 @@ class Parser {
   private header(): Header | undefined {
     this.skipNewlines();
     const token = this.peek();
-    if (token.kind === "ERROR") return undefined;
+    const absent = (): Header | undefined =>
+      this.lenient
+        ? {
+            kindRange: { start: token.start, end: token.start },
+            attrs: [],
+            range: { start: token.start, end: token.start },
+            missing: true,
+          }
+        : undefined;
+    if (token.kind === "ERROR") return absent();
     if (!(token.kind === "IDENT" && KINDS.includes(token.text as Kind))) {
       this.sink.report(
         "E_HEADER",
         token,
         `Expected a header such as graph "Title" (kinds: ${KINDS.join(", ")})`,
       );
-      return undefined;
+      return absent();
     }
     this.next();
     this.kind = token.text as Kind;
@@ -395,52 +427,102 @@ class Parser {
     const start = first.start;
     if (isWord(first, "group")) {
       this.next();
-      const id = this.id();
-      const label = this.label();
-      const attrs = this.attrs();
-      const range = this.from(start);
-      const opener = this.opener(true);
-      return { t: "group", id, label, attrs, range, body: this.body(opener, () => this.graphStatement()) };
+      const group: Extract<GraphStmt, { t: "group" }> = {
+        t: "group",
+        id: this.id(),
+        label: undefined,
+        attrs: [],
+        range: this.from(start),
+        body: [],
+      };
+      try {
+        group.label = this.label();
+        group.attrs = this.attrs();
+        group.range = this.from(start);
+        const opener = this.opener(true);
+        this.body(opener, () => this.graphStatement(), group.body);
+        return group;
+      } catch (error) {
+        this.keep(error, group, start);
+        throw error;
+      }
     }
     const ids = [this.id()];
     const ops: Op[] = [];
-    for (;;) {
-      const op = this.operator();
-      if (!op) break;
-      ops.push(op);
-      ids.push(this.id());
+    let label: Str | undefined;
+    let attrs: AttrNode[] = [];
+    try {
+      for (;;) {
+        const op = this.operator();
+        if (!op) break;
+        ops.push(op);
+        ids.push(this.id());
+      }
+      label = this.label();
+      attrs = this.attrs();
+      const range = this.from(start);
+      this.endLine();
+      if (ops.length === 0) return { t: "node", id: ids[0]!, label, attrs, range };
+      return { t: "chain", ids, ops, label, attrs, range };
+    } catch (error) {
+      const range = { start, end: start };
+      this.keep(
+        error,
+        ops.length === 0
+          ? { t: "node", id: ids[0]!, label, attrs, range }
+          : { t: "chain", ids, ops, label, attrs, range },
+        start,
+      );
+      throw error;
     }
-    const label = this.label();
-    const attrs = this.attrs();
-    const range = this.from(start);
-    this.endLine();
-    if (ops.length === 0) return { t: "node", id: ids[0]!, label, attrs, range };
-    return { t: "chain", ids, ops, label, attrs, range };
   }
 
   private sequenceStatement(): SequenceStmt {
     const start = this.peek().start;
     const id = this.id();
-    const op = this.operator();
-    if (!op) {
-      const label = this.label();
-      const attrs = this.attrs();
-      const range = this.from(start);
+    const participant: Extract<SequenceStmt, { t: "participant" }> = {
+      t: "participant",
+      id,
+      label: undefined,
+      attrs: [],
+      range: this.from(start),
+    };
+    let node: SequenceStmt = participant;
+    try {
+      const op = this.operator();
+      if (!op) {
+        participant.label = this.label();
+        participant.attrs = this.attrs();
+        participant.range = this.from(start);
+        this.endLine();
+        return participant;
+      }
+      const message: Extract<SequenceStmt, { t: "message" }> = {
+        t: "message",
+        from: id,
+        to: this.id(),
+        op,
+        label: undefined,
+        attrs: [],
+        range: this.from(start),
+      };
+      node = message;
+      message.label = this.label();
+      message.attrs = this.attrs();
+      message.range = this.from(start);
       this.endLine();
-      return { t: "participant", id, label, attrs, range };
+      return message;
+    } catch (error) {
+      this.keep(error, node, start);
+      throw error;
     }
-    const to = this.id();
-    const label = this.label();
-    const attrs = this.attrs();
-    const range = this.from(start);
-    this.endLine();
-    return { t: "message", from: id, to, op, label, attrs, range };
   }
 
   private stateStatement(): StateStmt {
     const first = this.peek();
     const start = first.start;
     let from: Endpoint | undefined;
+    let fallback: StateStmt | undefined;
     if (isPunct(first, "*")) {
       this.next();
       from = { star: true, value: "*", range: first };
@@ -449,41 +531,65 @@ class Parser {
       from = { star: true, value: "*", range: first };
     } else {
       const id = this.id();
+      const state: Extract<StateStmt, { t: "state" }> = {
+        t: "state",
+        id,
+        label: undefined,
+        attrs: [],
+        range: this.from(start),
+      };
       if (operatorOf(this.peek()) === undefined) {
-        const label = this.label();
-        const attrs = this.attrs();
-        const range = this.from(start);
-        const opener = this.opener(false);
-        if (!opener) {
-          this.endLine();
-          return { t: "state", id, label, attrs, range };
+        try {
+          state.label = this.label();
+          state.attrs = this.attrs();
+          state.range = this.from(start);
+          const opener = this.opener(false);
+          if (!opener) {
+            this.endLine();
+            return state;
+          }
+          state.body = [];
+          this.body(opener, () => this.stateStatement(), state.body);
+          return state;
+        } catch (error) {
+          this.keep(error, state, start);
+          throw error;
         }
-        return {
-          t: "state",
-          id,
-          label,
-          attrs,
-          range,
-          body: this.body(opener, () => this.stateStatement()),
-        };
       }
       from = { star: false, ...id };
+      fallback = state;
     }
-    const op = this.operator();
-    if (!op) this.unexpected(this.peek(), 'Expected "->"');
-    const target = this.peek();
-    let to: Endpoint;
-    if (isPunct(target, "*") || isWord(target, "final")) {
-      this.next();
-      to = { star: true, value: "*", range: target };
-    } else {
-      to = { star: false, ...this.id() };
+    let node: StateStmt | undefined = fallback;
+    try {
+      const op = this.operator();
+      if (!op) this.unexpected(this.peek(), 'Expected "->"');
+      const target = this.peek();
+      let to: Endpoint;
+      if (isPunct(target, "*") || isWord(target, "final")) {
+        this.next();
+        to = { star: true, value: "*", range: target };
+      } else {
+        to = { star: false, ...this.id() };
+      }
+      const transition: Extract<StateStmt, { t: "transition" }> = {
+        t: "transition",
+        from,
+        to,
+        op: op!,
+        label: undefined,
+        attrs: [],
+        range: this.from(start),
+      };
+      node = transition;
+      transition.label = this.label();
+      transition.attrs = this.attrs();
+      transition.range = this.from(start);
+      this.endLine();
+      return transition;
+    } catch (error) {
+      if (node) this.keep(error, node, start);
+      throw error;
     }
-    const label = this.label();
-    const attrs = this.attrs();
-    const range = this.from(start);
-    this.endLine();
-    return { t: "transition", from, to, op: op!, label, attrs, range };
   }
 
   private card(): Card | undefined {
@@ -535,65 +641,92 @@ class Parser {
 
   private attributeLine(): AttributeLine {
     const start = this.peek().start;
-    const name = this.id();
-    let type: Str | undefined;
-    const token = this.peek();
-    if (token.kind === "STRING") {
-      this.next();
-      type = { value: token.value, range: token };
-    } else if (token.kind === "IDENT" && !FLAGS.has(token.text)) {
-      type = this.typeExpression();
+    const line: AttributeLine = {
+      name: this.id(),
+      type: undefined,
+      flags: [],
+      attrs: [],
+      range: this.from(start),
+    };
+    try {
+      const token = this.peek();
+      if (token.kind === "STRING") {
+        this.next();
+        line.type = { value: token.value, range: token };
+      } else if (token.kind === "IDENT" && !FLAGS.has(token.text)) {
+        line.type = this.typeExpression();
+      }
+      for (;;) {
+        const flag = this.peek();
+        if (flag.kind !== "IDENT" || !FLAGS.has(flag.text)) break;
+        this.next();
+        line.flags.push({ value: flag.text, range: flag });
+      }
+      line.attrs = this.attrs();
+      line.range = this.from(start);
+      this.endLine();
+      return line;
+    } catch (error) {
+      this.keep(error, line, start);
+      throw error;
     }
-    const flags: { value: string; range: Range }[] = [];
-    for (;;) {
-      const flag = this.peek();
-      if (flag.kind !== "IDENT" || !FLAGS.has(flag.text)) break;
-      this.next();
-      flags.push({ value: flag.text, range: flag });
-    }
-    const attrs = this.attrs();
-    const range = this.from(start);
-    this.endLine();
-    return { name, type, flags, attrs, range };
   }
 
   private erStatement(): ErStmt {
     const start = this.peek().start;
     const id = this.id();
-    const next = this.peek();
-    if (next.kind === "NUMBER" || next.kind === "CARD" || operatorOf(next) !== undefined) {
-      const fromCard = this.card();
-      const op = this.operator();
-      if (!op) this.unexpected(this.peek(), 'Expected "--" or ".."');
-      const toCard = this.card();
-      const to = this.id();
-      const label = this.label();
-      const attrs = this.attrs();
-      const range = this.from(start);
-      this.endLine();
-      return { t: "relation", from: id, fromCard, op: op!, toCard, to, label, attrs, range };
-    }
-    const label = this.label();
-    const attrs = this.attrs();
-    const range = this.from(start);
-    const opener = this.opener(false);
-    if (!opener) {
-      this.endLine();
-      return { t: "entity", id, label, attrs, range };
-    }
-    return {
+    const entity: Extract<ErStmt, { t: "entity" }> = {
       t: "entity",
       id,
-      label,
-      attrs,
-      range,
-      attributes: this.body(opener, () => this.attributeLine()),
+      label: undefined,
+      attrs: [],
+      range: this.from(start),
     };
+    let node: ErStmt = entity;
+    try {
+      const next = this.peek();
+      if (next.kind === "NUMBER" || next.kind === "CARD" || operatorOf(next) !== undefined) {
+        const fromCard = this.card();
+        const op = this.operator();
+        if (!op) this.unexpected(this.peek(), 'Expected "--" or ".."');
+        const toCard = this.card();
+        const relation: Extract<ErStmt, { t: "relation" }> = {
+          t: "relation",
+          from: id,
+          fromCard,
+          op: op!,
+          toCard,
+          to: this.id(),
+          label: undefined,
+          attrs: [],
+          range: this.from(start),
+        };
+        node = relation;
+        relation.label = this.label();
+        relation.attrs = this.attrs();
+        relation.range = this.from(start);
+        this.endLine();
+        return relation;
+      }
+      entity.label = this.label();
+      entity.attrs = this.attrs();
+      entity.range = this.from(start);
+      const opener = this.opener(false);
+      if (!opener) {
+        this.endLine();
+        return entity;
+      }
+      entity.attributes = [];
+      this.body(opener, () => this.attributeLine(), entity.attributes);
+      return entity;
+    } catch (error) {
+      this.keep(error, node, start);
+      throw error;
+    }
   }
 
-  private treeBody(): TreeLine[] {
+  private treeBody(lines: TreeLine[]): TreeLine[] {
     const source = this.source;
-    const lines: TreeLine[] = [];
     const levels: { width: number; parent: number; index: number }[] = [];
     let indentChar: string | undefined;
     let firstRoot = 0;
@@ -657,6 +790,7 @@ class Parser {
 
       let label: Str | undefined;
       let attrs: AttrNode[] = [];
+      let incomplete = false;
       if (source[text] === '"') {
         this.seek(text);
         try {
@@ -667,6 +801,7 @@ class Parser {
           this.endLine();
         } catch (error) {
           if (error !== ABORT) throw error;
+          incomplete = true;
           this.recover();
         }
       } else {
@@ -695,6 +830,7 @@ class Parser {
           this.endLine();
         } catch (error) {
           if (error !== ABORT) throw error;
+          incomplete = true;
           this.recover();
         }
       }
@@ -703,7 +839,14 @@ class Parser {
 
       levels.length = keep;
       levels.push({ width, parent, index: lines.length });
-      lines.push({ label, attrs, parent, range: { start: text, end: Math.max(label.range.end, this.lastEnd) } });
+      const line: TreeLine = {
+        label,
+        attrs,
+        parent,
+        range: { start: text, end: Math.max(label.range.end, this.lastEnd) },
+      };
+      if (incomplete) line.incomplete = true;
+      lines.push(line);
     }
     return lines;
   }
@@ -713,16 +856,36 @@ class Parser {
     if (!header) return undefined;
     const kind = this.kind;
     switch (kind) {
-      case "graph":
-        return { kind, header, body: this.body(undefined, () => this.graphStatement()) };
-      case "sequence":
-        return { kind, header, body: this.body(undefined, () => this.sequenceStatement()) };
-      case "state":
-        return { kind, header, body: this.body(undefined, () => this.stateStatement()) };
-      case "er":
-        return { kind, header, body: this.body(undefined, () => this.erStatement()) };
-      case "tree":
-        return { kind, header, body: this.treeBody() };
+      case "graph": {
+        const ast: Ast = { kind, header, body: [] };
+        this.partial = ast;
+        this.body(undefined, () => this.graphStatement(), ast.body);
+        return ast;
+      }
+      case "sequence": {
+        const ast: Ast = { kind, header, body: [] };
+        this.partial = ast;
+        this.body(undefined, () => this.sequenceStatement(), ast.body);
+        return ast;
+      }
+      case "state": {
+        const ast: Ast = { kind, header, body: [] };
+        this.partial = ast;
+        this.body(undefined, () => this.stateStatement(), ast.body);
+        return ast;
+      }
+      case "er": {
+        const ast: Ast = { kind, header, body: [] };
+        this.partial = ast;
+        this.body(undefined, () => this.erStatement(), ast.body);
+        return ast;
+      }
+      case "tree": {
+        const ast: Ast = { kind, header, body: [] };
+        this.partial = ast;
+        this.treeBody(ast.body);
+        return ast;
+      }
     }
   }
 }
@@ -736,4 +899,27 @@ export function parseSyntax(source: string, sink: Sink): Ast | undefined {
     if (error === STOP) return undefined;
     throw error;
   }
+}
+
+export function parseSyntaxPartial(source: string, sink: Sink): Ast {
+  const lexer = new Lexer(source, sink);
+  const parser = new Parser(source, lexer, sink, true);
+  try {
+    const ast = parser.document();
+    if (ast) return ast;
+  } catch (error) {
+    if (error !== STOP) throw error;
+  }
+  return (
+    parser.partial ?? {
+      kind: "graph",
+      header: {
+        kindRange: { start: 0, end: 0 },
+        attrs: [],
+        range: { start: 0, end: 0 },
+        missing: true,
+      },
+      body: [],
+    }
+  );
 }
