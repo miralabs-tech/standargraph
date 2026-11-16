@@ -330,6 +330,7 @@ describe("package entry", () => {
     expect(Object.keys(entry).sort()).toEqual([
       "complete",
       "definition",
+      "diagnostics",
       "documentSymbols",
       "foldingRanges",
       "format",

@@ -34,3 +34,10 @@ export type CompletionItem = {
   documentation?: string;
   insertText?: string;
 };
+
+export type Diagnostic = {
+  range: Range;
+  severity: "error" | "hint";
+  code: string;
+  message: string;
+};
