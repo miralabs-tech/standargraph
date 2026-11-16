@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file. The format foll
 - `highlight(source)` in `/text`, with `SEMANTIC_TOKEN_TYPES` and `SEMANTIC_TOKEN_MODIFIERS`: tokens with offsets, line, column and a standard LSP semantic token type, tolerant to errors. A test keeps the grammar and `highlight()` in agreement on the examples.
 - The online demo colors its editor with `highlight()`, in the colors of the current theme (see [docs/syntax-highlighting.md](./docs/syntax-highlighting.md)).
 - `diagnostics(source)` in `/language`: the errors of `parse()` and `H_SIMILAR_ID` hints for an id that is only mentioned and close to a declared id of the same kind, all as LSP ranges (0-based, UTF-16).
+- `codeActions(source, range)` in `/language`: quick fixes for `E_STRING` (close the string), `E_DUPLICATE` (remove the duplicate declaration) and `H_SIMILAR_ID` (replace with the close id, or declare the id), each checked by re-parsing.
 
 ### Changed
 

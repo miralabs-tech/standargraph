@@ -41,3 +41,10 @@ export type Diagnostic = {
   code: string;
   message: string;
 };
+
+export type CodeAction = {
+  title: string;
+  kind: "quickfix";
+  diagnostic: Diagnostic;
+  edit: WorkspaceEdit;
+};
