@@ -26,7 +26,7 @@ The layout and the view (camera, hit testing, culling, level of detail, hover, s
 
 Outputs are SVG, a single-file HTML page that works offline (fonts and runtime embedded, no network), PNG and PDF. PNG and PDF are rendered without a browser.
 
-**Status: 1.0.0.**
+**Status: 1.1.0.**
 
 ---
 
@@ -141,10 +141,12 @@ view.subscribe(() => draw(view));
 The editor features of the text syntax, with no language server dependency (see [docs/language-service.md](./docs/language-service.md)):
 
 ```ts
-import { complete, format } from "@standarx/graph/language";
+import { codeActions, complete, diagnostics, format } from "@standarx/graph/language";
 
 const items = complete(source, { line: 2, character: 3 });
 const edits = format(source);
+const problems = diagnostics(source);
+const fixes = codeActions(source, problems[0].range);
 ```
 
 ---
