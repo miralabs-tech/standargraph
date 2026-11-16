@@ -26,7 +26,7 @@ La mise en page et la vue (caméra, hit testing, culling, niveau de détail, sur
 
 Les sorties sont le SVG, une page HTML en un seul fichier qui fonctionne hors ligne (polices et runtime embarqués, aucun accès réseau), le PNG et le PDF. Le PNG et le PDF sont rendus sans navigateur.
 
-**Statut : 1.0.0.**
+**Statut : 1.1.0.**
 
 ---
 
@@ -141,10 +141,12 @@ view.subscribe(() => draw(view));
 Les fonctions d'éditeur de la syntaxe texte, sans dépendance à un serveur de langage (voir [docs/language-service.md](./docs/language-service.md)) :
 
 ```ts
-import { complete, format } from "@standarx/graph/language";
+import { codeActions, complete, diagnostics, format } from "@standarx/graph/language";
 
 const items = complete(source, { line: 2, character: 3 });
 const edits = format(source);
+const problems = diagnostics(source);
+const fixes = codeActions(source, problems[0].range);
 ```
 
 ---

@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-16
+
 ### Added
 
 - Six named palettes, `light`, `dark`, `nord`, `solarized-light`, `solarized-dark` and `high-contrast`, accepted wherever a theme name is: the API, the `remark` plugin, `--theme <name>` and the `base` of a theme file. Each reaches a 4.5:1 contrast for its text, checked by a test.
@@ -56,4 +58,5 @@ This is the first release of `@standarx/graph`. The package was first published 
 - Comment-preserving formatter: `formatText()` and `format()` keep comments, are idempotent and refuse a document with syntax errors.
 - Partial parsing for editors: the valid statements around a broken line are kept, so completion, hover, symbols, folding and references keep working while the user types.
 
+[1.1.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.1.0
 [1.0.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.0.0

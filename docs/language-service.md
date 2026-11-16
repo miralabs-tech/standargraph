@@ -1,11 +1,13 @@
 # Language service for `.sg`
 
-The `/language` subpath of `@standarx/graph` holds the editor features of the text syntax as plain functions: completion, hover, go to definition, references, rename, document symbols, folding ranges and a formatter. It has no dependency on a language server library and no I/O. Every function takes the source text as a string and returns plain data, so the same code serves a VS Code extension, a Monaco or CodeMirror editor, a web playground or a language server over stdio.
+The `/language` subpath of `@standarx/graph` holds the editor features of the text syntax as plain functions: completion, hover, go to definition, references, rename, document symbols, folding ranges, a formatter, diagnostics and quick fixes. It has no dependency on a language server library and no I/O. Every function takes the source text as a string and returns plain data, so the same code serves a VS Code extension, a Monaco or CodeMirror editor, a web playground or a language server over stdio.
 
 ```ts
 import {
+  codeActions,
   complete,
   definition,
+  diagnostics,
   documentSymbols,
   foldingRanges,
   format,
@@ -17,7 +19,7 @@ import {
 } from "@standarx/graph/language";
 ```
 
-The types `Position`, `Range`, `TextEdit`, `WorkspaceEdit`, `Location`, `Hover`, `CompletionItem`, `CompletionItemKind`, `DocumentSymbol`, `SymbolKind` and `FoldingRange` are exported with them. They have the shape of the matching Language Server Protocol types, so a result can usually be returned from a handler as is.
+The types `Position`, `Range`, `TextEdit`, `WorkspaceEdit`, `Location`, `Hover`, `CompletionItem`, `CompletionItemKind`, `DocumentSymbol`, `SymbolKind`, `FoldingRange`, `Diagnostic` and `CodeAction` are exported with them. They have the shape of the matching Language Server Protocol types, so a result can usually be returned from a handler as is.
 
 ## Positions
 
@@ -117,6 +119,34 @@ formatText('graph "Flow"\n\nweb   ->  api "calls"   # keep\n');
 // 'graph "Flow"\n\nweb -> api "calls" # keep\n'
 ```
 
+### `diagnostics(source): Diagnostic[]`
+
+The errors of `parse()` and the hints of the service in one list, with LSP ranges. A `Diagnostic` is `{ range, severity, code, message }`, where `severity` is `error` or `hint` and `code` is a stable `E_*` code or a hint code. `parse()` itself is unchanged and reports errors only.
+
+The text syntax declares a node on its first use, so a typo in an edge silently creates a new node. The `H_SIMILAR_ID` hint flags an id that is never declared, only mentioned, when a declared id of the same kind is close to it: at most 2 edits away, and at most a third of its length. It is set on every mention of the id.
+
+```ts
+diagnostics('graph "Flow"\n\napi "API"\nweb -> apj "calls"\n');
+// [{ range: { start: { line: 3, character: 7 }, end: { line: 3, character: 10 } },
+//    severity: "hint", code: "H_SIMILAR_ID", message: '"apj" is never declared; did you mean "api"?' }]
+```
+
+### `codeActions(source, range): CodeAction[]`
+
+Quick fixes for the diagnostics that touch `range`. A `CodeAction` is `{ title, kind: "quickfix", diagnostic, edit }`, with `edit` a `WorkspaceEdit`.
+
+- `E_STRING`: **Close the string**, by inserting the opening quote at the end of the line.
+- `E_DUPLICATE`: **Remove the duplicate declaration**, by deleting its line.
+- `H_SIMILAR_ID`: **Replace with "x"**, on every mention of the id, and **Declare "id"**, by inserting a declaration line before its first mention, at the same indentation.
+
+Every edit is checked by parsing the document after it: an action that would add errors is left out.
+
+```ts
+codeActions(source, { start: { line: 3, character: 7 }, end: { line: 3, character: 7 } });
+// [{ title: 'Replace with "api"', kind: "quickfix", … },
+//  { title: 'Declare "apj"', kind: "quickfix", … }]
+```
+
 ## Formatter rules
 
 - **It refuses on syntax errors.** If the document has any error other than a validation error (`E_VALIDATE`), the result is `undefined` or `[]`, so a half-typed document is never rewritten.
@@ -137,10 +167,9 @@ The functions map one to one to the handlers of `vscode-languageserver`. The pac
 import { createConnection, ProposedFeatures, TextDocuments, TextDocumentSyncKind } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
-  complete, definition, documentSymbols, foldingRanges, format, hover,
+  codeActions, complete, definition, diagnostics, documentSymbols, foldingRanges, format, hover,
   prepareRename, references, rename,
 } from "@standarx/graph/language";
-import { parse } from "@standarx/graph/text";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -156,6 +185,7 @@ connection.onInitialize(() => ({
     documentSymbolProvider: true,
     foldingRangeProvider: true,
     documentFormattingProvider: true,
+    codeActionProvider: { codeActionKinds: ["quickfix"] },
   },
 }));
 
@@ -184,18 +214,21 @@ connection.onDocumentFormatting(({ textDocument, options }) =>
   format(text(textDocument.uri), { indent: options.tabSize }),
 );
 
+connection.onCodeAction(({ textDocument, range }) =>
+  codeActions(text(textDocument.uri), range).map((action) => ({
+    title: action.title,
+    kind: action.kind,
+    diagnostics: [{ ...action.diagnostic, severity: action.diagnostic.severity === "error" ? 1 : 4 }],
+    edit: { changes: { [textDocument.uri]: action.edit.changes } },
+  })),
+);
+
 documents.onDidChangeContent(({ document }) => {
-  const result = parse(document.getText());
-  const errors = result.ok ? [] : result.errors;
   connection.sendDiagnostics({
     uri: document.uri,
-    diagnostics: errors.map((error) => ({
-      message: error.message,
-      code: error.code,
-      range: {
-        start: { line: error.line - 1, character: error.column - 1 },
-        end: { line: error.endLine - 1, character: error.endColumn - 1 },
-      },
+    diagnostics: diagnostics(document.getText()).map((found) => ({
+      ...found,
+      severity: found.severity === "error" ? 1 : 4,
     })),
   });
 });
@@ -210,6 +243,7 @@ connection.listen();
 
 - **Tree documents have no ids.** A line of a `tree` document is a label, not an id that other lines refer to, so `definition`, `references`, `prepareRename` and `rename` return `undefined` or `[]` there. `complete`, `documentSymbols`, `foldingRanges` and `format` work on trees, and `hover` answers on the attributes of a tree line.
 - **`rename` refuses a result that adds parse errors.** It parses the document after the edit and returns `undefined` if there are more errors than before or an error of a new kind. It also refuses an id that another item already has.
+- **A multi-line duplicate has no quick fix.** Removing one line of a duplicated group or entity block would break the block, so the re-parse check drops the action.
 - **The formatter refuses on syntax errors.** It never formats a document it cannot fully read, so format-on-save does nothing until the errors are fixed.
 - **Single document.** There is no cross-file index: every call analyses the text it is given (the last analysis is cached for the same text), and a `.sg` file is one document.
 - **JSON documents are out of scope.** The functions expect the text syntax; JSON input is not analysed.
