@@ -277,6 +277,22 @@ export function resolveTheme(option: ThemeOption | undefined): ResolvedTheme {
   };
 }
 
+export function assignPalette(palette: Palette, types: readonly string[]): Map<string, PaletteEntry> {
+  const unique = [...new Set(types)];
+  const sorted = [...unique].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const taken = new Set<number>();
+  const slots = new Map<string, number>();
+  for (const type of sorted) {
+    let slot = typeHash(type) % palette.length;
+    if (taken.size < palette.length) {
+      while (taken.has(slot)) slot = (slot + 1) % palette.length;
+    }
+    taken.add(slot);
+    slots.set(type, slot);
+  }
+  return new Map(unique.map((type) => [type, palette[slots.get(type)!]!]));
+}
+
 export function withPalette(
   resolved: ResolvedTheme,
   typeNames: readonly string[],
@@ -284,12 +300,12 @@ export function withPalette(
 ): ResolvedTheme {
   const { palette } = resolved;
   if (palette === undefined) return resolved;
-  const added = typeNames
-    .filter((type) => !Object.hasOwn(resolved.types, type))
-    .map((type) => [type, paletteEntry(palette, type)] as const);
-  const addedEdges = edgeTypeNames
-    .filter((type) => !Object.hasOwn(resolved.edgeTypes, type))
-    .map((type) => [type, { stroke: paletteEntry(palette, type).stroke }] as const);
+  const nodeTypes = typeNames.filter((type) => !Object.hasOwn(resolved.types, type));
+  const edgeTypes = edgeTypeNames.filter((type) => !Object.hasOwn(resolved.edgeTypes, type));
+  const nodeEntries = assignPalette(palette, nodeTypes);
+  const edgeEntries = assignPalette(palette, edgeTypes);
+  const added = [...nodeEntries];
+  const addedEdges = [...edgeEntries].map(([type, entry]) => [type, { stroke: entry.stroke }] as const);
   if (added.length === 0 && addedEdges.length === 0) return resolved;
   return {
     ...resolved,
