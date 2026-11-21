@@ -76,6 +76,24 @@ test("export rejects an unknown format, an unknown flag and a missing file with 
   }
 });
 
+test("export, layout and convert write next to a bare file name from its own folder", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const previous = process.cwd();
+  try {
+    writeFileSync(join(dir, "map.json"), readFileSync("examples/architecture.json"));
+    process.chdir(dir);
+    expect(await run(["export", "map.json", "--format", "svg"])).toBe(0);
+    expect(await run(["layout", "map.json"])).toBe(0);
+    expect(run(["convert", "map.json"])).toBe(0);
+    expect(existsSync(join(dir, "map.svg"))).toBe(true);
+    expect(existsSync(join(dir, "map.positioned.json"))).toBe(true);
+    expect(existsSync(join(dir, "map.sg"))).toBe(true);
+  } finally {
+    process.chdir(previous);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("export reports validation errors with 1", async () => {
   const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
   try {

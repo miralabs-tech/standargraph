@@ -239,7 +239,7 @@ async function runExport(args: string[]): Promise<number> {
     output.mermaid = result.text;
   }
   try {
-    mkdirSync(directory, { recursive: true });
+    mkdirSync(resolve(directory), { recursive: true });
     for (const format of parsed.formats) {
       const data = output[format];
       if (data === undefined) continue;
@@ -302,7 +302,7 @@ async function runLayout(args: string[]): Promise<number> {
   const target =
     out ?? join(dirname(file), `${baseName(file)}.positioned.json`);
   try {
-    mkdirSync(dirname(target), { recursive: true });
+    mkdirSync(resolve(dirname(target)), { recursive: true });
     writeFileSync(target, `${JSON.stringify(positioned, null, 2)}\n`);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
@@ -349,7 +349,7 @@ function runConvert(args: string[]): number {
     return fail("Output would overwrite the input") ?? 2;
   }
   try {
-    mkdirSync(dirname(output), { recursive: true });
+    mkdirSync(resolve(dirname(output)), { recursive: true });
     writeFileSync(
       output,
       target === "json" ? `${JSON.stringify(read.document, null, 2)}\n` : print(read.document),
