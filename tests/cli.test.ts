@@ -384,6 +384,27 @@ test("--no-palette removes the automatic type colors and the default stays on", 
   }
 });
 
+test("a theme file validates edgeTypes", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  try {
+    const file = join(dir, "theme.json");
+    const exportWith = async (theme: unknown): Promise<number> => {
+      writeFileSync(file, JSON.stringify(theme));
+      return run(["export", "examples/architecture.json", "--format", "svg", "--out", dir, "--theme", file]);
+    };
+    expect(
+      await exportWith({ edgeTypes: { calls: { stroke: "#ff0000", text: "#00ff00", dash: "dashed" } } }),
+    ).toBe(0);
+    expect(await exportWith({ light: { edgeTypes: { calls: { dash: "dotted" } } }, dark: {} })).toBe(0);
+    expect(await exportWith({ edgeTypes: { calls: { fill: "#ff0000" } } })).toBe(2);
+    expect(await exportWith({ edgeTypes: { calls: { color: "#ff0000" } } })).toBe(2);
+    expect(await exportWith({ edgeTypes: { calls: { dash: "wavy" } } })).toBe(2);
+    expect(await exportWith({ edgeTypes: [] })).toBe(2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a theme file with a palette name as base and palette false is accepted", async () => {
   const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
   try {

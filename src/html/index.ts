@@ -14,5 +14,7 @@ export {
   type ThemeOption,
   type ThemeTokens,
   themeVariables,
+  type EdgeDash,
+  type EdgeTypeStyle,
   type TypeStyle,
 } from "../svg/theme";
