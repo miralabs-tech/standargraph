@@ -96,6 +96,8 @@ export async function exportDocument(
       }
     }
   }
-  if (rendered.length < formats.length) output.mermaid = toMermaid(document).text;
+  if (rendered.length < formats.length) {
+    output.mermaid = toMermaid(document, theme === "auto" ? {} : { theme: flatTheme }).text;
+  }
   return output;
 }

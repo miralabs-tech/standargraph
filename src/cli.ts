@@ -7,6 +7,7 @@ import type { Document } from "./format/schema";
 import { formatLoadErrors } from "./shared/errors";
 import {
   isThemeName,
+  lightTheme,
   type PageThemeOption,
   THEME_NAMES,
   THEMES,
@@ -250,7 +251,11 @@ async function runExport(args: string[]): Promise<number> {
   }
   if (rendered.length < parsed.formats.length) {
     const { toMermaid } = await import("./mermaid");
-    const result = toMermaid(document);
+    const theme =
+      parsed.theme === undefined || parsed.theme === "auto"
+        ? undefined
+        : lightTheme(parsed.palette ? parsed.theme : withoutPalette(parsed.theme));
+    const result = toMermaid(document, theme === undefined ? {} : { theme });
     for (const warning of result.warnings) process.stderr.write(`warning: ${warning}\n`);
     output.mermaid = result.text;
   }

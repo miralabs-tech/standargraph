@@ -1,4 +1,6 @@
-import type { GraphDocument, Group, Node, Shape, TreeDocument } from "../format/schema";
+import type { Edge, GraphDocument, Group, Node, Shape, TreeDocument } from "../format/schema";
+import { EDGE_DASHARRAY, resolveTheme, type ThemeOption, withPalette } from "../svg/theme";
+import { edgeWidthScale } from "../svg/weight";
 import { FLOW_DIRECTIONS, Ids, mlabel, noteLosses, type Warnings } from "./common";
 
 const DELIMITERS: Record<Shape, readonly [string, string]> = {
@@ -33,7 +35,8 @@ function push<T>(map: Map<string, T[]>, key: string, item: T): void {
   else list.push(item);
 }
 
-export function graphLines(doc: GraphDocument, warnings: Warnings): string[] {
+export function graphLines(doc: GraphDocument, warnings: Warnings, theme?: ThemeOption): string[] {
+  const links: string[] = [];
   const ids = new Ids();
   for (const node of doc.nodes) ids.add(`node:${node.id}`, node.id);
   const groups = doc.groups ?? [];
@@ -66,8 +69,10 @@ export function graphLines(doc: GraphDocument, warnings: Warnings): string[] {
   };
   emit("", 1);
 
-  for (const edge of doc.edges ?? []) {
-    noteLosses(warnings, edge);
+  const edges = doc.edges ?? [];
+  const styles = theme === undefined ? undefined : edgeStyles(edges, theme, warnings);
+  edges.forEach((edge, index) => {
+    noteLosses(warnings, styles === undefined ? edge : { ...edge, type: undefined, weight: undefined });
     const confidence = edge.meta?.provenance?.confidence;
     const dotted = confidence === "inferred" || confidence === "unknown";
     const directed = edge.directed ?? true;
@@ -75,8 +80,38 @@ export function graphLines(doc: GraphDocument, warnings: Warnings): string[] {
     const label =
       edge.label === undefined || edge.label === "" ? "" : `|${mlabel(edge.label)}|`;
     lines.push(`  ${ids.get(`node:${edge.from}`)} ${arrow}${label} ${ids.get(`node:${edge.to}`)}`);
-  }
-  return lines;
+    const style = styles?.(edge, dotted);
+    if (style !== undefined) links.push(`  linkStyle ${index} ${style}`);
+  });
+  return [...lines, ...links];
+}
+
+const SAFE_COLOR = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)$/;
+
+function edgeStyles(
+  edges: readonly Edge[],
+  theme: ThemeOption,
+  warnings: Warnings,
+): (edge: Edge, dotted: boolean) => string | undefined {
+  const types = [...new Set(edges.flatMap((edge) => (edge.type === undefined ? [] : [edge.type])))];
+  const { edgeTypes } = withPalette(resolveTheme(theme), [], types);
+  const scale = edgeWidthScale(edges);
+  const weighted = edges.some((edge) => scale(edge.weight) !== 1.5);
+  return (edge, dotted) => {
+    const typed =
+      edge.type !== undefined && Object.hasOwn(edgeTypes, edge.type) ? edgeTypes[edge.type]! : undefined;
+    if (typed === undefined && (!weighted || edge.weight === undefined)) return undefined;
+    const declarations: string[] = [];
+    if (typed?.stroke !== undefined) {
+      if (SAFE_COLOR.test(typed.stroke)) declarations.push(`stroke:${typed.stroke}`);
+      else warnings.add(`edge color "${typed.stroke}" dropped`);
+    }
+    declarations.push(`stroke-width:${Number(scale(edge.weight).toFixed(2))}px`);
+    if (!dotted && (typed?.dash === "dashed" || typed?.dash === "dotted")) {
+      declarations.push(`stroke-dasharray:${EDGE_DASHARRAY[typed.dash]}`);
+    }
+    return declarations.join(",");
+  };
 }
 
 export function treeFlowLines(doc: TreeDocument, warnings: Warnings): string[] {

@@ -310,6 +310,51 @@ test("export --format mermaid writes a .mmd file, prints warnings on stderr and 
   }
 });
 
+test("export --format mermaid emits linkStyle only with a theme other than auto", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  const file = join(dir, "edges.json");
+  writeFileSync(
+    file,
+    JSON.stringify({
+      version: 1,
+      kind: "graph",
+      nodes: [{ id: "a" }, { id: "b" }],
+      edges: [{ from: "a", to: "b", type: "close" }],
+    }),
+  );
+  const original = process.stdout.write;
+  const exportWith = async (args: string[]): Promise<{ code: number; stderr: string }> => {
+    const seen = capture();
+    process.stdout.write = (() => true) as typeof process.stdout.write;
+    try {
+      const code = await run(["export", file, "--format", "mermaid", "--out", dir, ...args]);
+      return { code, stderr: seen.stderr.join("") };
+    } finally {
+      process.stdout.write = original;
+      seen.restore();
+    }
+  };
+  try {
+    const auto = await exportWith([]);
+    expect(auto.code).toBe(0);
+    expect(readFileSync(join(dir, "edges.mmd"), "utf8")).not.toContain("linkStyle");
+    expect(auto.stderr).toContain("warning: type dropped");
+
+    const themed = await exportWith(["--theme", "light", "--name", "themed"]);
+    expect(themed.code).toBe(0);
+    expect(readFileSync(join(dir, "themed.mmd"), "utf8")).toMatch(
+      / {2}linkStyle 0 stroke:#[0-9a-f]{6},stroke-width:1\.5px\n/,
+    );
+    expect(themed.stderr).not.toContain("type dropped");
+
+    const plain = await exportWith(["--theme", "light", "--no-palette", "--name", "plain"]);
+    expect(plain.code).toBe(0);
+    expect(readFileSync(join(dir, "plain.mmd"), "utf8")).not.toContain("linkStyle");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("export with mermaid and --markdown prints the snippet, then the Mermaid code block", async () => {
   const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
   const seen = capture();
