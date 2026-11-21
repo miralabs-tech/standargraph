@@ -92,6 +92,15 @@ describe("codeActions", () => {
     }
   });
 
+  test("replaces an id with a more mentioned id that is never declared", () => {
+    const source = "graph\na -> serveur\nc -> serveur\nb -> servuer\n";
+    const action = pick(codeActions(source, whole(3)), 'Replace with "serveur"');
+    const fixed = apply(source, action.edit.changes);
+    expect(fixed).toBe("graph\na -> serveur\nc -> serveur\nb -> serveur\n");
+    expect(diagnostics(fixed)).toEqual([]);
+    expect(codeActions(source, whole(1))).toEqual([]);
+  });
+
   test("offers nothing outside every diagnostic", () => {
     const source = "graph\napi\nweb\nweb -> apj\n";
     expect(codeActions(source, whole(1))).toEqual([]);
