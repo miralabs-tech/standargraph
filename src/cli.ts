@@ -114,17 +114,33 @@ function isStrings(value: unknown, keys: readonly string[]): boolean {
   );
 }
 
+const EDGE_DASHES = ["solid", "dashed", "dotted"];
+
+function isEdgeTypeStyle(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return Object.entries(value).every(([key, item]) =>
+    key === "dash"
+      ? typeof item === "string" && EDGE_DASHES.includes(item)
+      : (key === "stroke" || key === "text") && typeof item === "string",
+  );
+}
+
 function isTheme(value: unknown): boolean {
   if (!isRecord(value)) return false;
-  const { base, tokens, types, palette } = value;
+  const { base, tokens, types, edgeTypes, palette } = value;
   if (base !== undefined && !isThemeName(base)) return false;
   if (palette !== undefined && palette !== false) return false;
   if (tokens !== undefined && !isStrings(tokens, Object.keys(THEMES.light))) return false;
-  if (types === undefined) return true;
-  return (
-    isRecord(types) &&
-    Object.values(types).every((style) => isStrings(style, ["fill", "stroke", "text"]))
-  );
+  if (
+    types !== undefined &&
+    !(
+      isRecord(types) &&
+      Object.values(types).every((style) => isStrings(style, ["fill", "stroke", "text"]))
+    )
+  ) {
+    return false;
+  }
+  return edgeTypes === undefined || (isRecord(edgeTypes) && Object.values(edgeTypes).every(isEdgeTypeStyle));
 }
 
 function readTheme(file: string): PageThemeOption | undefined {

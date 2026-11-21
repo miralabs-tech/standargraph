@@ -1,7 +1,7 @@
 import type { Document } from "../format";
 import type { LaidOut } from "../layout/types";
 import { loadFonts } from "../shared/package-root";
-import { isAdaptive, themeStyle, typesPresent } from "../svg/theme";
+import { edgeTypesPresent, isAdaptive, themeStyle, typesPresent } from "../svg/theme";
 import { appMarkup, escapeHtml, type PageOptions, STYLE } from "./shell";
 
 export type { PageOptions } from "./shell";
@@ -56,7 +56,7 @@ export function renderPage(content: PageContent): string {
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${escapeHtml(title)}</title>`,
-    `<style>${fontFaces()}${STYLE}${themeStyle(theme, typesPresent(laidOut))}</style>`,
+    `<style>${fontFaces()}${STYLE}${themeStyle(theme, typesPresent(laidOut), edgeTypesPresent(laidOut))}</style>`,
     "</head>",
     "<body>",
     appMarkup(title, content.viewport, isAdaptive(theme)),

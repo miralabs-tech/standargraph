@@ -19,6 +19,10 @@ export type ThemeTokens = {
 
 export type TypeStyle = { fill?: string; stroke?: string; text?: string };
 
+export type EdgeDash = "solid" | "dashed" | "dotted";
+
+export type EdgeTypeStyle = { stroke?: string; text?: string; dash?: EdgeDash };
+
 export const THEME_NAMES = [
   "light",
   "dark",
@@ -38,6 +42,7 @@ export type Theme = {
   base?: ThemeName;
   tokens?: Partial<ThemeTokens>;
   types?: Record<string, TypeStyle>;
+  edgeTypes?: Record<string, EdgeTypeStyle>;
   palette?: false;
 };
 
@@ -252,32 +257,45 @@ export function paletteEntry(palette: Palette, type: string): PaletteEntry {
 export type ResolvedTheme = {
   tokens: ThemeTokens;
   types: Record<string, TypeStyle>;
+  edgeTypes: Record<string, EdgeTypeStyle>;
   palette: Palette | undefined;
 };
 
-export type EffectiveTheme = Pick<ResolvedTheme, "tokens" | "types">;
+export type EffectiveTheme = Pick<ResolvedTheme, "tokens" | "types" | "edgeTypes">;
 
 export function resolveTheme(option: ThemeOption | undefined): ResolvedTheme {
   if (option === undefined || typeof option === "string") {
     const name = option ?? "light";
-    return { tokens: THEMES[name], types: {}, palette: PALETTES[name] };
+    return { tokens: THEMES[name], types: {}, edgeTypes: {}, palette: PALETTES[name] };
   }
   const base = option.base ?? "light";
   return {
     tokens: { ...THEMES[base], ...option.tokens },
     types: option.types ?? {},
+    edgeTypes: option.edgeTypes ?? {},
     palette: option.palette === false ? undefined : PALETTES[base],
   };
 }
 
-export function withPalette(resolved: ResolvedTheme, typeNames: readonly string[]): ResolvedTheme {
+export function withPalette(
+  resolved: ResolvedTheme,
+  typeNames: readonly string[],
+  edgeTypeNames: readonly string[] = [],
+): ResolvedTheme {
   const { palette } = resolved;
   if (palette === undefined) return resolved;
   const added = typeNames
     .filter((type) => !Object.hasOwn(resolved.types, type))
     .map((type) => [type, paletteEntry(palette, type)] as const);
-  if (added.length === 0) return resolved;
-  return { ...resolved, types: Object.fromEntries([...Object.entries(resolved.types), ...added]) };
+  const addedEdges = edgeTypeNames
+    .filter((type) => !Object.hasOwn(resolved.edgeTypes, type))
+    .map((type) => [type, { stroke: paletteEntry(palette, type).stroke }] as const);
+  if (added.length === 0 && addedEdges.length === 0) return resolved;
+  return {
+    ...resolved,
+    types: Object.fromEntries([...Object.entries(resolved.types), ...added]),
+    edgeTypes: Object.fromEntries([...Object.entries(resolved.edgeTypes), ...addedEdges]),
+  };
 }
 
 export function typesPresent(laidOut: LaidOut): string[] {
@@ -292,6 +310,13 @@ export function typesPresent(laidOut: LaidOut): string[] {
   return [...new Set(items.flatMap((item) => (item.type === undefined ? [] : [item.type])))];
 }
 
+export function edgeTypesPresent(laidOut: LaidOut): string[] {
+  if (laidOut.kind !== "graph") return [];
+  return [
+    ...new Set(laidOut.edges.flatMap((edge) => (edge.type === undefined ? [] : [edge.type]))),
+  ];
+}
+
 function escapeValues<T extends object>(record: T): T {
   return Object.fromEntries(
     Object.entries(record).map(([key, value]) => [
@@ -301,11 +326,14 @@ function escapeValues<T extends object>(record: T): T {
   ) as T;
 }
 
-export function escapedTheme({ tokens, types }: EffectiveTheme): EffectiveTheme {
+export function escapedTheme({ tokens, types, edgeTypes }: EffectiveTheme): EffectiveTheme {
   return {
     tokens: escapeValues(tokens),
     types: Object.fromEntries(
       Object.entries(types).map(([type, style]) => [type, escapeValues(style)]),
+    ),
+    edgeTypes: Object.fromEntries(
+      Object.entries(edgeTypes).map(([type, style]) => [type, escapeValues(style)]),
     ),
   };
 }
@@ -352,6 +380,37 @@ export function typeRules(types: Record<string, TypeStyle>, scope: string): stri
   return rules.join("");
 }
 
+export const EDGE_DASHARRAY: Readonly<Record<EdgeDash, string>> = {
+  solid: "none",
+  dashed: "6 4",
+  dotted: "2 3",
+};
+
+export function edgeTypeRules(edgeTypes: Record<string, EdgeTypeStyle>, scope: string): string {
+  const entries = Object.entries(edgeTypes);
+  if (entries.length === 0) return "";
+  const rules = entries.flatMap(([type, style]) => {
+    const selector = `${scope} [data-kind="edge"][data-type="${esc(type.replace(/\\/g, "\\\\").replace(/"/g, '\\"'))}"]`;
+    const edge = [
+      style.stroke === undefined ? "" : `stroke:${esc(style.stroke)}`,
+      style.dash === undefined || !Object.hasOwn(EDGE_DASHARRAY, style.dash)
+        ? ""
+        : `stroke-dasharray:${EDGE_DASHARRAY[style.dash]}`,
+    ].filter((declaration) => declaration !== "");
+    return [
+      edge.length === 0 ? "" : `${selector} .sg-edge{${edge.join(";")}}`,
+      style.text === undefined ? "" : `${selector} .sg-edge-label.sg-text{fill:${esc(style.text)}}`,
+    ];
+  });
+  if (entries.some(([, style]) => style.dash !== undefined)) {
+    rules.push(
+      `${scope} [data-kind="edge"][data-confidence="inferred"] .sg-edge{stroke-dasharray:${EDGE_DASHARRAY.dashed}}`,
+      `${scope} [data-kind="edge"][data-confidence="unknown"] .sg-edge{stroke-dasharray:${EDGE_DASHARRAY.dotted}}`,
+    );
+  }
+  return rules.join("");
+}
+
 function isPair(option: PageThemeOption): option is { light: Theme; dark: Theme } {
   return typeof option === "object" && "light" in option && "dark" in option;
 }
@@ -380,38 +439,65 @@ const DEFAULT_TYPE_STYLE: Required<TypeStyle> = {
   text: "var(--sg-fg)",
 };
 
-function withResets(
-  own: Record<string, TypeStyle>,
-  other: Record<string, TypeStyle>,
-): Record<string, TypeStyle> {
-  const types: Record<string, TypeStyle> = { ...own };
+const DEFAULT_EDGE_TYPE_STYLE: Required<EdgeTypeStyle> = {
+  stroke: "var(--sg-edge)",
+  text: "var(--sg-fg)",
+  dash: "solid",
+};
+
+function withResets<S extends object>(
+  own: Record<string, S>,
+  other: Record<string, S>,
+  defaults: Required<S>,
+): Record<string, S> {
+  const types: Record<string, S> = { ...own };
   for (const [type, style] of Object.entries(other)) {
-    const current = types[type] ?? {};
-    const reset: TypeStyle = { ...current };
-    for (const key of ["fill", "stroke", "text"] as const) {
-      if (style[key] !== undefined && current[key] === undefined) reset[key] = DEFAULT_TYPE_STYLE[key];
+    const current: Partial<S> = types[type] ?? {};
+    const reset: Partial<S> = { ...current };
+    for (const key of Object.keys(defaults) as (keyof S)[]) {
+      if (style[key] !== undefined && current[key] === undefined) reset[key] = defaults[key];
     }
-    types[type] = reset;
+    types[type] = reset as S;
   }
   return types;
 }
 
-export function themeStyle(option: PageThemeOption, typeNames: readonly string[] = []): string {
-  const block = (theme: ThemeOption, types: Record<string, TypeStyle>, app: string): string =>
-    `${app},${app} .sg-root{${themeVariables(theme)}}${typeRules(types, `${app} .sg-root`)}`;
+export function themeStyle(
+  option: PageThemeOption,
+  typeNames: readonly string[] = [],
+  edgeTypeNames: readonly string[] = [],
+): string {
+  const block = (
+    theme: ThemeOption,
+    types: Record<string, TypeStyle>,
+    edgeTypes: Record<string, EdgeTypeStyle>,
+    app: string,
+  ): string =>
+    `${app},${app} .sg-root{${themeVariables(theme)}}${typeRules(types, `${app} .sg-root`)}${edgeTypeRules(edgeTypes, `${app} .sg-root`)}`;
   const adaptive = (light: ThemeOption, dark: ThemeOption): string => {
-    const lightTypes = withPalette(resolveTheme(light), typeNames).types;
-    const darkTypes = withPalette(resolveTheme(dark), typeNames).types;
-    const darkWithResets = withResets(darkTypes, lightTypes);
-    const lightWithResets = withResets(lightTypes, darkTypes);
+    const lightResolved = withPalette(resolveTheme(light), typeNames, edgeTypeNames);
+    const darkResolved = withPalette(resolveTheme(dark), typeNames, edgeTypeNames);
+    const darkTypes = withResets(darkResolved.types, lightResolved.types, DEFAULT_TYPE_STYLE);
+    const lightTypes = withResets(lightResolved.types, darkResolved.types, DEFAULT_TYPE_STYLE);
+    const darkEdges = withResets(
+      darkResolved.edgeTypes,
+      lightResolved.edgeTypes,
+      DEFAULT_EDGE_TYPE_STYLE,
+    );
+    const lightEdges = withResets(
+      lightResolved.edgeTypes,
+      darkResolved.edgeTypes,
+      DEFAULT_EDGE_TYPE_STYLE,
+    );
     return [
-      block(light, lightTypes, ".sg-app"),
-      `@media (prefers-color-scheme:dark){${block(dark, darkWithResets, ".sg-app")}}`,
-      block(light, lightWithResets, ".sg-app[data-sg-scheme=light]"),
-      block(dark, darkWithResets, ".sg-app[data-sg-scheme=dark]"),
+      block(light, lightResolved.types, lightResolved.edgeTypes, ".sg-app"),
+      `@media (prefers-color-scheme:dark){${block(dark, darkTypes, darkEdges, ".sg-app")}}`,
+      block(light, lightTypes, lightEdges, ".sg-app[data-sg-scheme=light]"),
+      block(dark, darkTypes, darkEdges, ".sg-app[data-sg-scheme=dark]"),
     ].join("");
   };
   if (option === "auto") return adaptive("light", "dark");
   if (isPair(option)) return adaptive(option.light, option.dark);
-  return block(option, withPalette(resolveTheme(option), typeNames).types, ".sg-app");
+  const resolved = withPalette(resolveTheme(option), typeNames, edgeTypeNames);
+  return block(option, resolved.types, resolved.edgeTypes, ".sg-app");
 }

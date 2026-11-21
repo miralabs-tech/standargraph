@@ -47,6 +47,9 @@ import type { Cardinality, Meta, Shape } from "../format";
 import { esc } from "./escape";
 import {
   type EffectiveTheme,
+  edgeTypeRules,
+  edgeTypesPresent,
+  type EdgeTypeStyle,
   escapedTheme,
   resolveTheme,
   type ThemeOption,
@@ -141,7 +144,11 @@ function confidenceDash(meta: Meta | undefined): string | undefined {
   return undefined;
 }
 
-function css(tokens: ThemeTokens, types: Types): string {
+function css(
+  tokens: ThemeTokens,
+  types: Types,
+  edgeTypes: Record<string, EdgeTypeStyle>,
+): string {
   return [
     `.sg-root{${themeVariables({ tokens })}}`,
     ".sg-bg{fill:var(--sg-bg)}",
@@ -161,13 +168,14 @@ function css(tokens: ThemeTokens, types: Types): string {
     ".sg-accent{fill:var(--sg-accent)}",
     ".sg-lifeline{stroke:var(--sg-lifeline)}",
     typeRules(types, ".sg-root"),
+    edgeTypeRules(edgeTypes, ".sg-root"),
   ].join("");
 }
 
 function defs(theme: Theme, resolved: EffectiveTheme, styles: boolean): string {
   return [
     "<defs>",
-    styles ? `<style>${css(resolved.tokens, resolved.types)}</style>` : "",
+    styles ? `<style>${css(resolved.tokens, resolved.types, resolved.edgeTypes)}</style>` : "",
     `<marker id="sg-arrow-filled" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-filled" d="M0,0 L10,5 L0,10 z" fill="${theme.edge}" stroke="${theme.edge}" stroke-width="1" stroke-linejoin="round"/></marker>`,
     `<marker id="sg-arrow-open" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-open" d="M1,1 L9,5 L1,9" fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>`,
     "</defs>",
@@ -939,7 +947,11 @@ function unreachable(value: never): never {
 }
 
 export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string {
-  const resolved = withPalette(resolveTheme(options.theme), typesPresent(laidOut));
+  const resolved = withPalette(
+    resolveTheme(options.theme),
+    typesPresent(laidOut),
+    edgeTypesPresent(laidOut),
+  );
   const { tokens: theme, types } = escapedTheme(resolved);
   const standalone = options.standalone ?? true;
   const width = n(laidOut.width);

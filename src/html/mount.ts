@@ -11,6 +11,7 @@ import {
   type PageThemeOption,
   themeStyle,
   typesPresent,
+  edgeTypesPresent,
 } from "../svg/theme";
 import { loadSource } from "../text";
 import { appMarkup, STYLE, svgViewport, WEBGL_VIEWPORT } from "./shell";
@@ -90,7 +91,7 @@ export async function mount(
       );
 
   const style = globalThis.document.createElement("style");
-  style.textContent = STYLE + themeStyle(theme, typesPresent(scene));
+  style.textContent = STYLE + themeStyle(theme, typesPresent(scene), edgeTypesPresent(scene));
   container.classList.add("sg-mount");
   if (getComputedStyle(container).position === "static") container.style.position = "relative";
   container.replaceChildren(style);

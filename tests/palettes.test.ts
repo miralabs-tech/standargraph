@@ -98,7 +98,12 @@ describe("named palettes", () => {
   }
 
   test("a name resolves to its tokens and palette, and base accepts a name", () => {
-    expect(resolveTheme("nord")).toEqual({ tokens: THEMES.nord, types: {}, palette: PALETTES.nord });
+    expect(resolveTheme("nord")).toEqual({
+      tokens: THEMES.nord,
+      types: {},
+      edgeTypes: {},
+      palette: PALETTES.nord,
+    });
     const resolved = resolveTheme({ base: "solarized-dark", tokens: { accent: "#ff0000" } });
     expect(resolved.tokens).toEqual({ ...THEMES["solarized-dark"], accent: "#ff0000" });
     expect(resolved.palette).toBe(PALETTES["solarized-dark"]);
@@ -133,10 +138,73 @@ describe("automatic palette", () => {
     expect(svg).toContain(`.sg-root [data-type="database"] .sg-label{fill:${entry.text}}`);
   });
 
-  test("an untyped node and an edge type keep the plain colors and get no rule", async () => {
+  test("an untyped node keeps the plain colors and an edge type gets no node rule", async () => {
     const svg = renderSvg(await layout(doc));
     expect(section(svg, "plain")).toContain(`fill="${THEMES.light.nodeFill}"`);
-    expect(svg).not.toContain('[data-type="calls"]');
+    expect(svg).not.toContain('.sg-root [data-type="calls"]');
+  });
+
+  test("a typed graph edge gets a palette stroke rule and no dash", async () => {
+    const entry = paletteEntry(PALETTES.light, "calls");
+    const svg = renderSvg(await layout(doc));
+    expect(svg).toContain(
+      `.sg-root [data-kind="edge"][data-type="calls"] .sg-edge{stroke:${entry.stroke}}`,
+    );
+    expect(svg).not.toContain("stroke-dasharray:6 4");
+  });
+
+  test("the same type name on a node and an edge produces independent rules", async () => {
+    const shared = {
+      version: 1,
+      kind: "graph",
+      nodes: [
+        { id: "a", label: "A", type: "calls" },
+        { id: "b", label: "B" },
+      ],
+      edges: [{ from: "a", to: "b", type: "calls" }],
+    };
+    const svg = renderSvg(await layout(shared), {
+      theme: { types: { calls: { fill: "#111111" } }, edgeTypes: { calls: { stroke: "#222222" } } },
+    });
+    expect(svg).toContain('.sg-root [data-type="calls"] .sg-node{fill:#111111}');
+    expect(svg).toContain('.sg-root [data-kind="edge"][data-type="calls"] .sg-edge{stroke:#222222}');
+  });
+
+  test("palette: false gives no automatic edge rule", async () => {
+    const svg = renderSvg(await layout(doc), { theme: { palette: false } });
+    expect(svg).not.toContain('[data-kind="edge"][data-type=');
+  });
+
+  test("an explicit edgeTypes entry wins over the palette", async () => {
+    const svg = renderSvg(await layout(doc), {
+      theme: { edgeTypes: { calls: { stroke: "#123456" } } },
+    });
+    expect(svg).toContain('[data-kind="edge"][data-type="calls"] .sg-edge{stroke:#123456}');
+    expect(svg).not.toContain(paletteEntry(PALETTES.light, "calls").stroke);
+  });
+
+  test("adaptive blocks carry the edge rules and the resets", () => {
+    const style = themeStyle(
+      { light: { edgeTypes: { calls: { stroke: "#111111", dash: "dashed" } } }, dark: {} },
+      [],
+      ["calls"],
+    );
+    const media = style.slice(style.indexOf("@media"));
+    expect(style).toContain(
+      '.sg-app .sg-root [data-kind="edge"][data-type="calls"] .sg-edge{stroke:#111111;stroke-dasharray:6 4}',
+    );
+    expect(media).toContain('[data-kind="edge"][data-type="calls"] .sg-edge{stroke:');
+    expect(style).toContain(
+      '.sg-app[data-sg-scheme=dark] .sg-root [data-kind="edge"][data-type="calls"] .sg-edge{stroke:',
+    );
+    const reset = themeStyle(
+      { light: { palette: false, edgeTypes: { x: { text: "#111111", dash: "dashed" } } }, dark: { palette: false } },
+      [],
+      [],
+    );
+    const dark = reset.slice(reset.indexOf("@media"));
+    expect(dark).toContain('[data-type="x"] .sg-edge{stroke-dasharray:none}');
+    expect(dark).toContain('[data-type="x"] .sg-edge-label.sg-text{fill:var(--sg-fg)}');
   });
 
   test("the dark theme uses the dark palette", async () => {

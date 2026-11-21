@@ -13,6 +13,7 @@ import {
   resolveTheme,
   THEMES,
   themeStyle,
+  edgeTypeRules,
   themeVariables,
   typeRules,
 } from "../src/svg/theme";
@@ -41,8 +42,18 @@ function section(svg: string, id: string): string {
 
 describe("resolveTheme", () => {
   test("names and a missing option resolve to the built-in tokens", () => {
-    expect(resolveTheme(undefined)).toEqual({ tokens: THEMES.light, types: {}, palette: PALETTES.light });
-    expect(resolveTheme("dark")).toEqual({ tokens: THEMES.dark, types: {}, palette: PALETTES.dark });
+    expect(resolveTheme(undefined)).toEqual({
+      tokens: THEMES.light,
+      types: {},
+      edgeTypes: {},
+      palette: PALETTES.light,
+    });
+    expect(resolveTheme("dark")).toEqual({
+      tokens: THEMES.dark,
+      types: {},
+      edgeTypes: {},
+      palette: PALETTES.dark,
+    });
   });
 
   test("a theme object overrides the tokens of its base", () => {
@@ -54,6 +65,29 @@ describe("resolveTheme", () => {
     expect(resolved.tokens).toEqual({ ...THEMES.dark, accent: "#e11d48" });
     expect(resolved.types).toEqual({ database: { fill: "#fef3c7" } });
     expect(resolveTheme({ tokens: { bg: "#000000" } }).tokens.fg).toBe(THEMES.light.fg);
+  });
+
+  test("edgeTypes are carried by resolveTheme and default to an empty table", () => {
+    expect(resolveTheme({ edgeTypes: { calls: { dash: "dotted" } } }).edgeTypes).toEqual({
+      calls: { dash: "dotted" },
+    });
+    expect(resolveTheme({}).edgeTypes).toEqual({});
+  });
+
+  test("dash names map to their dasharray and a confidence dash comes after", () => {
+    const rules = edgeTypeRules(
+      { a: { dash: "dashed" }, b: { dash: "dotted" }, c: { dash: "solid", text: "red" } },
+      ".s",
+    );
+    expect(rules).toContain('.s [data-kind="edge"][data-type="a"] .sg-edge{stroke-dasharray:6 4}');
+    expect(rules).toContain('.s [data-kind="edge"][data-type="b"] .sg-edge{stroke-dasharray:2 3}');
+    expect(rules).toContain('.s [data-kind="edge"][data-type="c"] .sg-edge{stroke-dasharray:none}');
+    expect(rules).toContain('[data-type="c"] .sg-edge-label.sg-text{fill:red}');
+    const inferred = '.s [data-kind="edge"][data-confidence="inferred"] .sg-edge{stroke-dasharray:6 4}';
+    const unknown = '.s [data-kind="edge"][data-confidence="unknown"] .sg-edge{stroke-dasharray:2 3}';
+    expect(rules.lastIndexOf(inferred)).toBeGreaterThan(rules.lastIndexOf('[data-type="c"] .sg-edge{'));
+    expect(rules.lastIndexOf(unknown)).toBeGreaterThan(rules.lastIndexOf('[data-type="c"] .sg-edge{'));
+    expect(edgeTypeRules({ a: { stroke: "red" } }, ".s")).not.toContain("data-confidence");
   });
 
   test("the variables carry the header fill and escape their values", () => {
