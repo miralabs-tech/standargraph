@@ -1,4 +1,5 @@
 import type { Document } from "../format/schema";
+import type { ThemeOption } from "../svg/theme";
 import { frontMatter, noteLosses, Warnings } from "./common";
 import { erLines } from "./er";
 import { graphLines, treeFlowLines } from "./graph";
@@ -11,10 +12,12 @@ export type MermaidResult = { text: string; warnings: string[] };
 const MAX_EDGES = 500;
 const MAX_TEXT_SIZE = 50000;
 
-function body(doc: Document, warnings: Warnings): string[] {
+export type MermaidOptions = { theme?: ThemeOption };
+
+function body(doc: Document, warnings: Warnings, options: MermaidOptions): string[] {
   switch (doc.kind) {
     case "graph":
-      return graphLines(doc, warnings);
+      return graphLines(doc, warnings, options.theme);
     case "sequence":
       return sequenceLines(doc, warnings);
     case "state":
@@ -43,10 +46,10 @@ function edgeCount(doc: Document): number {
   }
 }
 
-export function toMermaid(doc: Document): MermaidResult {
+export function toMermaid(doc: Document, options: MermaidOptions = {}): MermaidResult {
   const warnings = new Warnings();
   noteLosses(warnings, doc);
-  const lines = [...frontMatter(doc.title), ...body(doc, warnings)];
+  const lines = [...frontMatter(doc.title), ...body(doc, warnings, options)];
   const text = `${lines.join("\n")}\n`;
   if (edgeCount(doc) > MAX_EDGES) {
     warnings.add("More than 500 edges: Mermaid's default maxEdges may refuse to render");

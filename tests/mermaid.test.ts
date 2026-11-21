@@ -403,6 +403,68 @@ describe("warnings", () => {
   });
 });
 
+describe("linkStyle", () => {
+  const nodes = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  const edges = [
+    { from: "a", to: "b", type: "ouverte", weight: 1 },
+    { from: "a", to: "c", type: "ouverte", weight: 8 },
+  ];
+  const theme = { edgeTypes: { ouverte: { stroke: "#cc6600", dash: "dashed" as const } } };
+
+  test("without a theme the output is unchanged", () => {
+    const { text, warnings } = toMermaid(graph(nodes, { edges }));
+    expect(text).not.toContain("linkStyle");
+    expect(warnings).toEqual(["type dropped", "weight dropped"]);
+  });
+
+  test("with a theme each styled edge gets its color, width and dash", () => {
+    const { text, warnings } = toMermaid(graph(nodes, { edges }), { theme });
+    expect(text).toContain("  linkStyle 0 stroke:#cc6600,stroke-width:1.5px,stroke-dasharray:6 4\n");
+    expect(text).toContain("  linkStyle 1 stroke:#cc6600,stroke-width:6px,stroke-dasharray:6 4\n");
+    expect(warnings).toEqual([]);
+  });
+
+  test("the palette colors a typed edge the theme does not declare", () => {
+    const { text } = toMermaid(graph(nodes, { edges: [{ from: "a", to: "b", type: "close" }] }), {
+      theme: "light",
+    });
+    expect(text).toMatch(/ {2}linkStyle 0 stroke:#[0-9a-f]{6},stroke-width:1\.5px\n/);
+    const plain = toMermaid(graph(nodes, { edges: [{ from: "a", to: "b", type: "close" }] }), {
+      theme: { palette: false },
+    });
+    expect(plain.text).not.toContain("linkStyle");
+  });
+
+  test("the confidence dash keeps the dotted arrow and wins over the typed dash", () => {
+    const { text } = toMermaid(
+      graph(nodes, {
+        edges: [
+          { from: "a", to: "b", type: "ouverte", meta: { provenance: { source: "s", confidence: "inferred" } } },
+        ],
+      }),
+      { theme },
+    );
+    expect(text).toContain("  a -.-> b\n");
+    expect(text).toContain("  linkStyle 0 stroke:#cc6600,stroke-width:1.5px\n");
+  });
+
+  test("an unsafe color is dropped with a warning", () => {
+    const { text, warnings } = toMermaid(graph(nodes, { edges: [{ from: "a", to: "b", type: "x" }] }), {
+      theme: { edgeTypes: { x: { stroke: "red;stroke:blue" } } },
+    });
+    expect(text).toContain("  linkStyle 0 stroke-width:1.5px\n");
+    expect(warnings).toContain('edge color "red;stroke:blue" dropped');
+  });
+
+  test("exportDocument passes a theme other than auto to Mermaid", async () => {
+    const doc = graph(nodes, { edges });
+    const auto = await exportDocument(doc, { formats: ["mermaid"] });
+    expect(auto.mermaid).not.toContain("linkStyle");
+    const themed = await exportDocument(doc, { formats: ["mermaid"], theme });
+    expect(themed.mermaid).toBe(toMermaid(doc, { theme }).text);
+  });
+});
+
 describe("exportDocument", () => {
   test("returns the Mermaid text without a layout, next to the other formats", async () => {
     const source = example("order-state");
