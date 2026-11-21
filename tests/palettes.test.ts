@@ -262,6 +262,48 @@ describe("automatic palette", () => {
     expect(withPalette(resolveTheme({ palette: false }), ["service"]).types).toEqual({});
   });
 
+  test("assignPalette gives colliding types of one document distinct entries", () => {
+    const palette = PALETTES.light;
+    expect(typeHash("close") % palette.length).toBe(typeHash("ouverte") % palette.length);
+    const merged = withPalette(resolveTheme("light"), [], ["ouverte", "close"]);
+    expect(merged.edgeTypes.close).toEqual({ stroke: paletteEntry(palette, "close").stroke });
+    const next = palette[(typeHash("close") + 1) % palette.length]!;
+    expect(merged.edgeTypes.ouverte).toEqual({ stroke: next.stroke });
+    expect(Object.keys(merged.edgeTypes)).toEqual(["ouverte", "close"]);
+  });
+
+  test("assignPalette keeps the hashed entry when nothing collides", () => {
+    const palette = PALETTES.light;
+    const types = ["service", "database"];
+    expect(typeHash("service") % palette.length).not.toBe(typeHash("database") % palette.length);
+    const merged = withPalette(resolveTheme("light"), types);
+    for (const type of types) expect(merged.types[type]).toEqual(paletteEntry(palette, type));
+  });
+
+  test("assignPalette uses every entry before reusing one", () => {
+    const palette = PALETTES.light;
+    const types = Array.from({ length: palette.length + 3 }, (_, index) => `t${index}`);
+    const merged = withPalette(resolveTheme("light"), types);
+    const sorted = [...types].sort();
+    const first = new Set(sorted.slice(0, palette.length).map((type) => merged.types[type]));
+    expect(first.size).toBe(palette.length);
+    for (const type of sorted.slice(palette.length)) {
+      expect(merged.types[type]).toEqual(paletteEntry(palette, type));
+    }
+  });
+
+  test("node types and edge types draw from separate pools", () => {
+    const merged = withPalette(resolveTheme("light"), ["close"], ["close"]);
+    expect(merged.types.close).toEqual(paletteEntry(PALETTES.light, "close"));
+    expect(merged.edgeTypes.close).toEqual({ stroke: paletteEntry(PALETTES.light, "close").stroke });
+  });
+
+  test("declared types take no entry from the pool", () => {
+    const resolved = resolveTheme({ edgeTypes: { close: { stroke: "#123456" } } });
+    const merged = withPalette(resolved, [], ["close", "ouverte"]);
+    expect(merged.edgeTypes.ouverte).toEqual({ stroke: paletteEntry(PALETTES.light, "ouverte").stroke });
+  });
+
   test("typesPresent lists the types of the items of every kind, once", async () => {
     expect(typesPresent(await layout(doc as never))).toEqual(["database", "service"]);
     expect(
