@@ -481,6 +481,50 @@ describe("mount() with the WebGL renderer and node shapes", () => {
   });
 });
 
+describe("mount() with an edge carrying weight, description and link", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("edge-panel", "{}"), errors);
+    await page.evaluate(async (doc) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", doc);
+    }, {
+      version: 1,
+      kind: "graph",
+      nodes: [{ id: "a" }, { id: "b" }],
+      edges: [
+        {
+          from: "a",
+          to: "b",
+          type: "calls",
+          weight: 3,
+          description: "Hot path",
+          link: "https://example.test/edge",
+        },
+      ],
+    });
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("the panel shows the edge weight, description and link", async () => {
+    await page.evaluate(() => (window as any).m1.view.select({ kind: "edge", id: "e0" }));
+    const text = await page.evaluate(() => document.querySelector("#a .sg-panel dl")?.textContent);
+    expect(text).toContain("KindEdge");
+    expect(text).toContain("Weight3");
+    expect(text).toContain("DescriptionHot path");
+    expect(text).toContain("Linkhttps://example.test/edge");
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
 describe("mount() with the WebGL renderer and typed colors", () => {
   const errors: string[] = [];
   let page: Page;

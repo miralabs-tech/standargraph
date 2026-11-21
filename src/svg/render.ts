@@ -45,6 +45,7 @@ import type {
 } from "../layout/types";
 import type { Cardinality, Meta, Shape } from "../format";
 import { esc } from "./escape";
+import { type EdgeWidth, edgeWidthScale } from "./weight";
 import {
   type EffectiveTheme,
   EDGE_DASHARRAY,
@@ -303,24 +304,11 @@ function pathOf(points: readonly { x: number; y: number }[]): string {
 
 type EdgeTypes = Record<string, EdgeTypeStyle>;
 
-type WeightScale = { min: number; max: number };
-
-function weightScale(edges: readonly LaidOutEdge[]): WeightScale | undefined {
-  const weights = edges.flatMap((edge) => (edge.weight === undefined ? [] : [edge.weight]));
-  if (weights.length === 0) return undefined;
-  return { min: Math.min(...weights), max: Math.max(...weights) };
-}
-
-function edgeWidth(weight: number | undefined, scale: WeightScale | undefined): number {
-  if (weight === undefined || scale === undefined || scale.max === scale.min) return 1.5;
-  return 1.5 + ((weight - scale.min) / (scale.max - scale.min)) * 4.5;
-}
-
 function renderEdge(
   item: LaidOutEdge,
   theme: Theme,
   edgeTypes: EdgeTypes,
-  scale: WeightScale | undefined,
+  scale: EdgeWidth,
 ): string {
   const typed: EdgeTypeStyle =
     item.type !== undefined && Object.hasOwn(edgeTypes, item.type)
@@ -337,7 +325,7 @@ function renderEdge(
       ? `sg-arrow-filled-t${arrowKey(item.type)}`
       : "sg-arrow-filled";
   const marker = item.directed ? ` marker-end="url(#${markerId})"` : "";
-  const path = `<path class="sg-edge" d="${pathOf(item.points)}" fill="none" stroke="${stroke}" stroke-width="${n(edgeWidth(item.weight, scale))}" stroke-linejoin="round"${dashAttr(dash)}${marker}/>`;
+  const path = `<path class="sg-edge" d="${pathOf(item.points)}" fill="none" stroke="${stroke}" stroke-width="${n(scale(item.weight))}" stroke-linejoin="round"${dashAttr(dash)}${marker}/>`;
   const label =
     item.labelBox === undefined || item.label === undefined
       ? ""
@@ -498,7 +486,7 @@ function renderGraph(
   types: Types,
   edgeTypes: EdgeTypes,
 ): string {
-  const scale = weightScale(laid.edges);
+  const scale = edgeWidthScale(laid.edges);
   return [
     ...laid.groups.map((item) => renderGroup(item, theme)),
     ...laid.edges.map((item) => renderEdge(item, theme, edgeTypes, scale)),

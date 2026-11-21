@@ -9,6 +9,8 @@ import {
   lightTheme,
   type PageThemeOption,
   resolveTheme,
+  type EdgeDash,
+  type EdgeTypeStyle,
   type Theme,
   THEME_NAMES,
   type ThemeName,
@@ -50,6 +52,7 @@ const highlightCode = element<HTMLElement>("highlight").querySelector("code")!;
 const highlightLayer = element<HTMLElement>("highlight");
 const tokensBox = element<HTMLDivElement>("tokens");
 const typesBox = element<HTMLDivElement>("types");
+const edgeTypesBox = element<HTMLDivElement>("edge-types");
 const buttons = {
   svg: element<HTMLButtonElement>("download-svg"),
   json: element<HTMLButtonElement>("download-json"),
@@ -64,18 +67,26 @@ let generation = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let themeTimer: ReturnType<typeof setTimeout> | undefined;
 
-type Overrides = { tokens: Partial<ThemeTokens>; types: Record<string, TypeStyle> };
+type Overrides = {
+  tokens: Partial<ThemeTokens>;
+  types: Record<string, TypeStyle>;
+  edgeTypes: Record<string, EdgeTypeStyle>;
+};
 
 const overrides = new Map<ThemeName, Overrides>();
 const TOKEN_KEYS = Object.keys(THEMES.light) as (keyof ThemeTokens)[];
 const STYLE_KEYS = ["fill", "stroke", "text"] as const;
+const EDGE_COLOR_KEYS = ["stroke", "text"] as const;
+const EDGE_DASHES: EdgeDash[] = ["solid", "dashed", "dotted"];
 let typeKey = "";
+let edgeTypeKey = "";
 
 function slotTheme(slot: ThemeName): Theme {
   const own = overrides.get(slot);
   const theme: Theme = { base: slot };
   if (own !== undefined && Object.keys(own.tokens).length > 0) theme.tokens = own.tokens;
   if (own !== undefined && Object.keys(own.types).length > 0) theme.types = own.types;
+  if (own !== undefined && Object.keys(own.edgeTypes).length > 0) theme.edgeTypes = own.edgeTypes;
   if (paletteOff.checked) theme.palette = false;
   return theme;
 }
@@ -121,6 +132,23 @@ function documentTypes(document: Document | undefined): string[] {
   return [...new Set(items.flatMap((item) => (item.type === undefined ? [] : [item.type])))];
 }
 
+function documentEdgeTypes(document: Document | undefined): string[] {
+  if (document === undefined || document.kind !== "graph") return [];
+  return [
+    ...new Set((document.edges ?? []).flatMap((edge) => (edge.type === undefined ? [] : [edge.type]))),
+  ];
+}
+
+function effectiveEdgeTypeStyle(type: string): Required<EdgeTypeStyle> {
+  const resolved = withPalette(resolveTheme(slotTheme(activeSlot())), [], [type]);
+  const style = resolved.edgeTypes[type] ?? {};
+  return {
+    stroke: style.stroke ?? resolved.tokens.edge,
+    text: style.text ?? resolved.tokens.fg,
+    dash: style.dash ?? "solid",
+  };
+}
+
 function effectiveTypeStyle(type: string): Required<TypeStyle> {
   const resolved = withPalette(resolveTheme(slotTheme(activeSlot())), [type]);
   const style = resolved.types[type] ?? {};
@@ -153,7 +181,7 @@ function rebuildInputs(): void {
       const input = colorInput(tokens[key], key);
       input.dataset.token = key;
       input.addEventListener("input", () => {
-        const own = overrides.get(slot) ?? { tokens: {}, types: {} };
+        const own = overrides.get(slot) ?? { tokens: {}, types: {}, edgeTypes: {} };
         own.tokens[key] = input.value;
         overrides.set(slot, own);
         scheduleTheme();
@@ -178,7 +206,7 @@ function rebuildInputs(): void {
         input.dataset.type = type;
         input.dataset.key = key;
         input.addEventListener("input", () => {
-          const own = overrides.get(slot) ?? { tokens: {}, types: {} };
+          const own = overrides.get(slot) ?? { tokens: {}, types: {}, edgeTypes: {} };
           own.types[type] = { ...effectiveTypeStyle(type), ...own.types[type], [key]: input.value };
           overrides.set(slot, own);
           scheduleTheme();
@@ -186,6 +214,44 @@ function rebuildInputs(): void {
         label.append(key, input);
         row.append(label);
       }
+      return row;
+    }),
+  );
+  const edgeNames = documentEdgeTypes(current);
+  edgeTypeKey = edgeNames.join("\n");
+  edgeTypesBox.replaceChildren(
+    ...edgeNames.map((type) => {
+      const row = globalThis.document.createElement("div");
+      row.className = "type-row";
+      const name = globalThis.document.createElement("b");
+      name.textContent = type;
+      row.append(name);
+      const style = effectiveEdgeTypeStyle(type);
+      const update = (key: keyof EdgeTypeStyle, value: string): void => {
+        const own = overrides.get(slot) ?? { tokens: {}, types: {}, edgeTypes: {} };
+        own.edgeTypes[type] = { ...effectiveEdgeTypeStyle(type), ...own.edgeTypes[type], [key]: value };
+        overrides.set(slot, own);
+        scheduleTheme();
+      };
+      for (const key of EDGE_COLOR_KEYS) {
+        const label = globalThis.document.createElement("label");
+        const input = colorInput(style[key], `${type} ${key}`);
+        input.dataset.edgeType = type;
+        input.dataset.key = key;
+        input.addEventListener("input", () => update(key, input.value));
+        label.append(key, input);
+        row.append(label);
+      }
+      const dashLabel = globalThis.document.createElement("label");
+      const dash = globalThis.document.createElement("select");
+      dash.setAttribute("aria-label", `${type} dash`);
+      dash.dataset.edgeType = type;
+      dash.dataset.key = "dash";
+      for (const value of EDGE_DASHES) dash.append(new Option(value, value));
+      dash.value = style.dash;
+      dash.addEventListener("change", () => update("dash", dash.value));
+      dashLabel.append("dash", dash);
+      row.append(dashLabel);
       return row;
     }),
   );
@@ -369,7 +435,12 @@ async function refresh(reuse = false): Promise<void> {
   status.textContent = "Rendered";
   setDownloads(true);
   syncScheme();
-  if (documentTypes(document).join("\n") !== typeKey) rebuildInputs();
+  if (
+    documentTypes(document).join("\n") !== typeKey ||
+    documentEdgeTypes(document).join("\n") !== edgeTypeKey
+  ) {
+    rebuildInputs();
+  }
 }
 
 function schedule(): void {

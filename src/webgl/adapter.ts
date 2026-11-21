@@ -4,6 +4,7 @@ import { sdfCircle, sdfDiamond, sdfRectangle } from "sigma/rendering";
 import type { NodeDisplayData } from "sigma/types";
 import { type Change, createView, type ItemRef } from "../core/view";
 import type { Document } from "../format";
+import { edgeWidthScale } from "../svg/weight";
 import type { LaidOut } from "../layout/types";
 import type { Mounted } from "../html/svg-adapter";
 import { bindInteraction, bindScheme, createPanel, part } from "../html/ui";
@@ -84,6 +85,34 @@ function typeFills(app: HTMLElement, types: readonly string[]): Map<string, Rgb>
   return fills;
 }
 
+function edgeStrokes(app: HTMLElement, types: readonly string[]): Map<string, Rgb> {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "sg-root");
+  svg.style.display = "none";
+  const probe = (type: string | undefined): SVGElement => {
+    const holder = document.createElementNS(ns, "g");
+    holder.setAttribute("data-kind", "edge");
+    if (type !== undefined) holder.setAttribute("data-type", type);
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("class", "sg-edge");
+    holder.append(path);
+    svg.append(holder);
+    return path;
+  };
+  const plain = probe(undefined);
+  const probes = types.map((type) => [type, probe(type)] as const);
+  app.append(svg);
+  const base = getComputedStyle(plain).stroke;
+  const strokes = new Map<string, Rgb>();
+  for (const [type, path] of probes) {
+    const stroke = getComputedStyle(path).stroke;
+    if (stroke !== base) strokes.set(type, parseColor(stroke));
+  }
+  svg.remove();
+  return strokes;
+}
+
 export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   if (scene.kind !== "graph") return undefined;
   const graphScene = scene;
@@ -106,6 +135,9 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   const typeNames = [
     ...new Set(graphScene.nodes.flatMap((node) => (node.type === undefined ? [] : [node.type]))),
   ];
+  const edgeTypeNames = [
+    ...new Set(graphScene.edges.flatMap((edge) => (edge.type === undefined ? [] : [edge.type]))),
+  ];
   const readColors = () => {
     const style = getComputedStyle(app);
     const token = (name: string): Rgb => parseColor(style.getPropertyValue(name));
@@ -119,6 +151,7 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
       groupStroke: css(token("--sg-group-stroke")),
       accent: css(token("--sg-accent")),
       typed: typeFills(app, typeNames),
+      typedEdges: edgeStrokes(app, edgeTypeNames),
     };
   };
   let colors = readColors();
@@ -144,14 +177,19 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   };
   const edgeColorOf = (edge: (typeof graphScene.edges)[number]): string => {
     const level = confidence(edge.meta);
+    const base = (edge.type === undefined ? undefined : colors.typedEdges.get(edge.type)) ?? colors.edge;
     return css(
       level === "unknown"
-        ? mix(colors.edge, colors.bg, 0.7)
+        ? mix(base, colors.bg, 0.7)
         : level === "inferred"
-          ? mix(colors.edge, colors.bg, 0.4)
-          : colors.edge,
+          ? mix(base, colors.bg, 0.4)
+          : base,
     );
   };
+  const widthOf = edgeWidthScale(graphScene.edges);
+  const edgeSize = (edge: (typeof graphScene.edges)[number]): number =>
+    (EDGE_SIZE * widthOf(edge.weight)) / 1.5;
+  const edgesById = new Map(graphScene.edges.map((edge) => [edge.id, edge] as const));
   for (const node of graphScene.nodes) {
     graph.addNode(node.id, {
       x: node.x + node.width / 2,
@@ -166,7 +204,7 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
   for (const edge of graphScene.edges) {
     if (!graph.hasNode(edge.from) || !graph.hasNode(edge.to)) continue;
     graph.addEdgeWithKey(edge.id, edge.from, edge.to, {
-      size: EDGE_SIZE,
+      size: edgeSize(edge),
       color: edgeColorOf(edge),
       directed: edge.directed,
     });
@@ -231,7 +269,8 @@ export function startWebgl(doc: Document, scene: LaidOut): Mounted | undefined {
     },
     edgeReducer(key) {
       if (selected !== null && selected.kind === "edge" && selected.id === key) {
-        return { color: colors.accent, size: EDGE_SIZE * 2 };
+        const edge = edgesById.get(key);
+        return { color: colors.accent, size: (edge === undefined ? EDGE_SIZE : edgeSize(edge)) * 2 };
       }
       if (hl.focused && !hl.active.has(`edge:${key}`)) return { opacity: DIM_OPACITY };
       return {};

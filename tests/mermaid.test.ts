@@ -357,6 +357,15 @@ describe("tree", () => {
 });
 
 describe("warnings", () => {
+  test("edge description, link and weight are reported", () => {
+    const { warnings } = toMermaid(
+      graph([{ id: "a" }, { id: "b" }], {
+        edges: [{ from: "a", to: "b", description: "d", link: "https://x.test", weight: 3 }],
+      }),
+    );
+    expect(warnings).toEqual(["description dropped", "link dropped", "weight dropped"]);
+  });
+
   test("a loss is reported once per category", () => {
     const { warnings } = toMermaid(
       graph(

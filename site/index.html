@@ -47,6 +47,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,38%) 1f
 .type-row b{min-width:90px;overflow-wrap:anywhere}
 .theme-body input[type=color]{width:36px;height:22px;padding:0;border:1px solid #8886;background:none}
 #types:empty::before{content:"No typed item in this document";font-size:12px;opacity:.7}
+#edge-types:empty::before{content:"No typed edge in this document";font-size:12px;opacity:.7}
 #status{margin-left:auto;font-size:12px;opacity:.7}
 @media (max-width:760px){main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
 </style>
@@ -92,6 +93,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,38%) 1f
 </div>
 <fieldset><legend>Tokens</legend><div id="tokens" class="swatches"></div></fieldset>
 <fieldset><legend>Colors per type</legend><div id="types"></div></fieldset>
+<fieldset><legend>Edge styles per type</legend><div id="edge-types"></div></fieldset>
 <div class="theme-row">
 <button id="theme-reset" type="button">Reset</button>
 <button id="download-theme" type="button">Download theme.json</button>
