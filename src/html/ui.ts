@@ -213,6 +213,9 @@ export function createPanel(view: View, doc: Document, panel: HTMLElement): Pane
       row(list, "Kind", "Edge");
       row(list, "Connection", `${item.from} → ${item.to}`);
       if (item.type !== undefined) row(list, "Type", item.type);
+      if (item.weight !== undefined) row(list, "Weight", String(item.weight));
+      if (item.description !== undefined) row(list, "Description", item.description);
+      if (item.link !== undefined) row(list, "Link", linkValue(item.link));
     } else if (kind === "participant" && doc.kind === "sequence") {
       const item = doc.participants.find((candidate) => candidate.id === id);
       if (item === undefined) return;

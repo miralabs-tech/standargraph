@@ -62,12 +62,13 @@ export function plainText(text: string): string {
     .replace(/\r?\n/g, "<br>");
 }
 
-type Lossy = { type?: string; description?: string; link?: string; position?: unknown; meta?: Meta };
+type Lossy = { type?: string; description?: string; link?: string; weight?: number; position?: unknown; meta?: Meta };
 
 export function noteLosses(warnings: Warnings, item: Lossy): void {
   if (item.type !== undefined) warnings.add("type dropped");
   if (item.description !== undefined) warnings.add("description dropped");
   if (item.link !== undefined) warnings.add("link dropped");
+  if (item.weight !== undefined) warnings.add("weight dropped");
   if (item.position !== undefined) warnings.add("position dropped");
   if (item.meta !== undefined) warnings.add("metadata dropped");
 }
