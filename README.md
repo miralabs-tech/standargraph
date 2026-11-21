@@ -68,8 +68,8 @@ Every command reads JSON or the [text syntax](#text-syntax): the format is detec
 | `--format <list>` | Comma-separated: `svg`, `html`, `png`, `pdf`, `mermaid` (default `svg,html`); `mermaid` writes `<base>.mmd` and prints its warnings on stderr |
 | `--out <dir>` | Output directory (default: the input file directory) |
 | `--name <base>` | Output base name (default: the input file name without `.json` or `.sg`) |
-| `--theme <theme>` | `auto` (default), a palette name (`light`, `dark`, `nord`, `solarized-light`, `solarized-dark`, `high-contrast`) or a `.json` theme file, see [docs/theming.md](./docs/theming.md) |
-| `--no-palette` | Turn off the automatic color per item `type` |
+| `--theme <theme>` | `auto` (default), a palette name (`light`, `dark`, `nord`, `solarized-light`, `solarized-dark`, `high-contrast`) or a `.json` theme file, see [docs/theming.md](./docs/theming.md); also applies to `mermaid`, where a theme adds `linkStyle` lines for the edges of a `graph` |
+| `--no-palette` | Turn off the automatic color per item `type`; also applies to `mermaid` |
 | `--scale <n>` | PNG scale factor (default 2) |
 | `--renderer <name>` | HTML renderer: `auto`, `svg` or `webgl` (default `auto`) |
 | `--markdown` | Print `[![title](base.svg)](base.html)`, a Markdown snippet linking the SVG preview to the HTML page; with `mermaid` in `--format`, a fenced `mermaid` code block follows |
@@ -107,6 +107,7 @@ Mermaid text for GitHub Markdown, from `/mermaid` (`formats: ["mermaid"]` in `ex
 import { toMermaid } from "@standarx/graph/mermaid";
 
 const { text, warnings } = toMermaid(graphDocument);
+const styled = toMermaid(graphDocument, { theme: "nord" }); // adds a linkStyle line per styled edge
 ```
 
 Mount an interactive graph in a page (`mount(container, document, { theme, title, renderer })`). When every node has a `position`, ELK is skipped; otherwise the layout runs in a Web Worker and the main thread stays free. Several instances can live on one page:
@@ -327,7 +328,7 @@ The package ships a TextMate grammar (`@standarx/graph/grammars/standargraph.tmL
 
 A theme is a set of color tokens plus optional colors per node `type`, given as `--theme <file.json>` on the CLI or as the `theme` option of the API. Six palettes come ready to use, as `theme: "nord"` or `--theme nord`: `light`, `dark`, `nord`, `solarized-light`, `solarized-dark` and `high-contrast`, each with a contrast of at least 4.5:1 for its text.
 
-- A typed item with no color of its own gets one from the palette of the theme, chosen by a stable hash of its `type`. `palette: false` in the theme, or `--no-palette`, turns it off, and a `types` entry always wins.
+- A typed item with no color of its own gets one from the palette of the theme, chosen by a stable hash of its `type`. Two types of one document never share an entry while the palette has room. `palette: false` in the theme, or `--no-palette`, turns it off, and a `types` entry always wins.
 - With `"auto"` or a `{ light, dark }` pair, the interactive page and `mount()` show a toolbar button that cycles `auto`, `light` and `dark`, kept in `localStorage`.
 - The online demo has a theme panel: a palette, the tokens, a color per type, and a `theme.json` to download for `--theme`.
 

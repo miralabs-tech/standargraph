@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-21
+
+### Added
+
+- Mermaid `linkStyle` for styled `graph` edges when a theme is given: `toMermaid(doc, { theme })`, `exportDocument()` with a `theme` other than `auto`, and `--theme` and `--no-palette` with `--format mermaid`. Color, width and dash are resolved like the SVG; without a theme the output is unchanged, and `type dropped` and `weight dropped` are no longer reported for edges when a theme is given.
+- `H_SIMILAR_ID` toward an id that is only mentioned: when no close declared id exists, a close id of the same kind with more mentions (or as many with an earlier first mention) is suggested, one way only.
+
+### Changed
+
+- The automatic palette avoids collisions inside a document: the types are taken in sorted order and each takes the entry of its hash or the next free one, so entries are reused only when the document has more types than the palette has entries. Node types and edge types draw from separate pools. Documents that had colliding types change colors, for example the architecture example.
+
 ## [1.2.0] - 2026-11-21
 
 ### Added

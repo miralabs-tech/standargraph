@@ -68,8 +68,8 @@ Chaque commande lit du JSON ou la [syntaxe texte](#syntaxe-texte) : le format es
 | `--format <liste>` | Liste séparée par des virgules : `svg`, `html`, `png`, `pdf`, `mermaid` (défaut `svg,html`) ; `mermaid` écrit `<base>.mmd` et affiche ses avertissements sur stderr |
 | `--out <dir>` | Dossier de sortie (défaut : le dossier du fichier d'entrée) |
 | `--name <base>` | Nom de base des sorties (défaut : le nom du fichier d'entrée sans `.json` ni `.sg`) |
-| `--theme <thème>` | `auto` (défaut), un nom de palette (`light`, `dark`, `nord`, `solarized-light`, `solarized-dark`, `high-contrast`) ou un fichier de thème `.json`, voir [docs/theming.md](./docs/theming.md) |
-| `--no-palette` | Coupe la couleur automatique par `type` d'élément |
+| `--theme <thème>` | `auto` (défaut), un nom de palette (`light`, `dark`, `nord`, `solarized-light`, `solarized-dark`, `high-contrast`) ou un fichier de thème `.json`, voir [docs/theming.md](./docs/theming.md) ; s'applique aussi à `mermaid`, où un thème ajoute des lignes `linkStyle` pour les arêtes d'un `graph` |
+| `--no-palette` | Coupe la couleur automatique par `type` d'élément ; s'applique aussi à `mermaid` |
 | `--scale <n>` | Facteur d'échelle du PNG (défaut 2) |
 | `--renderer <nom>` | Rendu HTML : `auto`, `svg` ou `webgl` (défaut `auto`) |
 | `--markdown` | Affiche `[![titre](base.svg)](base.html)`, un extrait Markdown qui lie l'aperçu SVG à la page HTML ; avec `mermaid` dans `--format`, un bloc de code `mermaid` suit |
@@ -107,6 +107,7 @@ Du texte Mermaid pour le Markdown de GitHub, depuis `/mermaid` (`formats: ["merm
 import { toMermaid } from "@standarx/graph/mermaid";
 
 const { text, warnings } = toMermaid(graphDocument);
+const styled = toMermaid(graphDocument, { theme: "nord" }); // ajoute une ligne linkStyle par arête stylée
 ```
 
 Monter un graphe interactif dans une page (`mount(container, document, { theme, title, renderer })`). Quand chaque nœud a une `position`, ELK est ignoré ; sinon la mise en page tourne dans un Web Worker et le thread principal reste libre. Plusieurs instances peuvent coexister sur une page :
@@ -327,7 +328,7 @@ Le paquet livre une grammaire TextMate (`@standarx/graph/grammars/standargraph.t
 
 Un thème est un ensemble de jetons de couleur plus des couleurs facultatives par `type` de nœud, donné par `--theme <fichier.json>` dans la CLI ou par l'option `theme` de l'API. Six palettes sont prêtes à l'emploi, en `theme: "nord"` ou `--theme nord` : `light`, `dark`, `nord`, `solarized-light`, `solarized-dark` et `high-contrast`, chacune avec un contraste d'au moins 4,5:1 pour son texte.
 
-- Un élément typé sans couleur propre en reçoit une de la palette du thème, choisie par un hachage stable de son `type`. `palette: false` dans le thème, ou `--no-palette`, la coupe, et une entrée de `types` l'emporte toujours.
+- Un élément typé sans couleur propre en reçoit une de la palette du thème, choisie par un hachage stable de son `type`. Deux types d'un même document ne partagent jamais une entrée tant que la palette a de la place. `palette: false` dans le thème, ou `--no-palette`, la coupe, et une entrée de `types` l'emporte toujours.
 - Avec `"auto"` ou une paire `{ light, dark }`, la page interactive et `mount()` affichent dans la barre d'outils un bouton qui fait défiler `auto`, `light` et `dark`, gardé dans `localStorage`.
 - La démo en ligne a un panneau de thème : une palette, les jetons, une couleur par type, et un `theme.json` à télécharger pour `--theme`.
 

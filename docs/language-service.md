@@ -123,7 +123,14 @@ formatText('graph "Flow"\n\nweb   ->  api "calls"   # keep\n');
 
 The errors of `parse()` and the hints of the service in one list, with LSP ranges. A `Diagnostic` is `{ range, severity, code, message }`, where `severity` is `error` or `hint` and `code` is a stable `E_*` code or a hint code. `parse()` itself is unchanged and reports errors only.
 
-The text syntax declares a node on its first use, so a typo in an edge silently creates a new node. The `H_SIMILAR_ID` hint flags an id that is never declared, only mentioned, when a declared id of the same kind is close to it: at most 2 edits away, and at most a third of its length. It is set on every mention of the id.
+The text syntax declares a node on its first use, so a typo in an edge silently creates a new node. The `H_SIMILAR_ID` hint flags an id that is never declared, only mentioned, when an id of the same kind is close to it: at most 2 edits away, and at most a third of its length. It is set on every mention of the id.
+
+A close declared id is always the first choice. When there is none, the target may be an id of the same kind that is itself only mentioned and that has more mentions, or as many with an earlier first mention. The hint goes one way only, from the rarer id to the commoner one, so a pair gets one hint, not two.
+
+```ts
+diagnostics('graph "Flow"\n\na -> serveur\nc -> serveur\nb -> servuer\n');
+// one hint, on "servuer": '"servuer" is never declared; did you mean "serveur"?'
+```
 
 ```ts
 diagnostics('graph "Flow"\n\napi "API"\nweb -> apj "calls"\n');

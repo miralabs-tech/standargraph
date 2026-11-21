@@ -27,12 +27,15 @@ A node, participant, state, entity or tree node that has a `type` and no entry f
 entry = palette[fnv1a(type) % palette.length]     // { fill, stroke, text }
 ```
 
-- The hash is FNV-1a (32 bits) over the UTF-16 code units of the type, so a type keeps its color from one render to the next and from one document to another.
+- The hash is FNV-1a (32 bits) over the UTF-16 code units of the type, so a type keeps its color from one render to the next.
+- Inside one document, two types never share an entry while the palette has room. The types of the document are taken in sorted order; each takes the entry of its hash, or the next free entry, wrapping around, when that one is already taken. Entries are reused only when the document has more types than the palette has entries.
+- Node types and edge types draw from separate pools. A type declared in `types` or `edgeTypes` takes no entry.
+- A document without a collision keeps its colors from one document to another. A type that collided may get a different color from one document to another, as the free entry depends on the other types.
 - The color is written in the presentation attributes (SVG, PNG, PDF) and in the CSS rules (HTML page, `mount()`, WebGL), in the light and in the dark block of an adaptive theme.
 - An entry of `theme.types` wins as a whole: its missing keys fall back to the plain node colors, not to the palette.
 - `meta.provenance.confidence` of `unknown` still wins over any type color.
 - Only the types present in the document produce a rule, and a document without type is unchanged.
-- A graph edge that has a `type` and no entry for it in `theme.edgeTypes` gets a stroke color from the same palette, with the same type hash. Node types and edge types are independent. The dash is never automatic.
+- A graph edge that has a `type` and no entry for it in `theme.edgeTypes` gets a stroke color from the same palette, with the same type hash and the same collision rule. Node types and edge types are independent. The dash is never automatic.
 - Turn it off with `palette: false` in the `Theme` object, or `--no-palette` on the CLI. `--no-palette` applies to a named theme, to `auto`, to a theme file and to each theme of a pair.
 
 ```ts
