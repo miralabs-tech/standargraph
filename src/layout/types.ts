@@ -37,6 +37,9 @@ export type LaidOutEdge = {
   label?: string;
   type?: string;
   directed: boolean;
+  weight?: number;
+  description?: string;
+  link?: string;
   points: Point[];
   labelBox?: Box;
   meta?: Meta;

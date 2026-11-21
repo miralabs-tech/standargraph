@@ -40,6 +40,23 @@ describe("pdf", () => {
     expect(new TextDecoder().decode(bytes.slice(0, 5))).toBe("%PDF-");
   });
 
+  test("a typed, weighted graph with links and descriptions exports", async () => {
+    const doc = {
+      version: 1,
+      kind: "graph",
+      nodes: [{ id: "a", description: "A" }, { id: "b" }],
+      edges: [
+        { from: "a", to: "b", type: "calls", weight: 3, link: "https://x", description: "d" },
+        { from: "b", to: "a", type: "calls", weight: 1 },
+      ],
+    };
+    const { pdf } = await exportDocument(doc, {
+      formats: ["pdf"],
+      theme: { edgeTypes: { calls: { stroke: "#123456", dash: "dashed" } } },
+    });
+    expect(new TextDecoder().decode((pdf as Uint8Array).slice(0, 5))).toBe("%PDF-");
+  });
+
   test("two exports of the same document are byte-identical", async () => {
     const doc = example("architecture");
     const first = (await exportDocument(doc, { formats: ["pdf"] })).pdf as Uint8Array;

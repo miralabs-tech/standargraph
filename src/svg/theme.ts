@@ -399,6 +399,9 @@ export function edgeTypeRules(edgeTypes: Record<string, EdgeTypeStyle>, scope: s
     ].filter((declaration) => declaration !== "");
     return [
       edge.length === 0 ? "" : `${selector} .sg-edge{${edge.join(";")}}`,
+      style.stroke === undefined
+        ? ""
+        : `${scope} .sg-arrow-t${typeHash(type).toString(36)}{fill:${esc(style.stroke)};stroke:${esc(style.stroke)}}`,
       style.text === undefined ? "" : `${selector} .sg-edge-label.sg-text{fill:${esc(style.text)}}`,
     ];
   });
