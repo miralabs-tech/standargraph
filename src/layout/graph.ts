@@ -99,6 +99,9 @@ function laidOutEdge(
     label: edge.label,
     type: edge.type,
     directed: edge.directed ?? true,
+    weight: edge.weight,
+    description: edge.description,
+    link: edge.link,
     points: points.map((point) => ({ x: round(point.x), y: round(point.y) })),
     labelBox:
       labelBox === undefined

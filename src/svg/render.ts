@@ -47,6 +47,7 @@ import type { Cardinality, Meta, Shape } from "../format";
 import { esc } from "./escape";
 import {
   type EffectiveTheme,
+  EDGE_DASHARRAY,
   edgeTypeRules,
   edgeTypesPresent,
   type EdgeTypeStyle,
@@ -56,6 +57,7 @@ import {
   type ThemeTokens,
   themeVariables,
   type TypeStyle,
+  typeHash,
   typeRules,
   typesPresent,
   withPalette,
@@ -111,20 +113,20 @@ function textLines(
     .join("");
 }
 
-function metaTitle(meta: Meta | undefined): string {
-  if (meta === undefined) return "";
+function metaTitle(meta: Meta | undefined, description?: string): string {
   const lines: string[] = [];
-  const provenance = meta.provenance;
+  if (description !== undefined && description !== "") lines.push(description);
+  const provenance = meta?.provenance;
   if (provenance !== undefined) {
     const confidence =
       provenance.confidence === undefined ? "" : ` (${provenance.confidence})`;
     lines.push(`Source: ${provenance.source}${confidence}`);
     if (provenance.tool !== undefined) lines.push(`Tool: ${provenance.tool}`);
   }
-  if (meta.coverage !== undefined) {
+  if (meta?.coverage !== undefined) {
     lines.push(`Coverage: ${round(meta.coverage * 100)}%`);
   }
-  if (meta.freshness !== undefined) lines.push(`Freshness: ${meta.freshness}`);
+  if (meta?.freshness !== undefined) lines.push(`Freshness: ${meta.freshness}`);
   if (lines.length === 0) return "";
   return `<title>${esc(lines.join("\n"))}</title>`;
 }
@@ -172,11 +174,44 @@ function css(
   ].join("");
 }
 
-function defs(theme: Theme, resolved: EffectiveTheme, styles: boolean): string {
+function arrowKey(type: string): string {
+  return typeHash(type).toString(36);
+}
+
+function typedArrowMarkers(
+  laidOut: LaidOut,
+  edgeTypes: Record<string, EdgeTypeStyle>,
+): string[] {
+  if (laidOut.kind !== "graph") return [];
+  const types = new Set(
+    laidOut.edges.flatMap((edge) =>
+      edge.directed &&
+      edge.type !== undefined &&
+      Object.hasOwn(edgeTypes, edge.type) &&
+      edgeTypes[edge.type]!.stroke !== undefined
+        ? [edge.type]
+        : [],
+    ),
+  );
+  return [...types].map((type) => {
+    const key = arrowKey(type);
+    const stroke = edgeTypes[type]!.stroke!;
+    return `<marker id="sg-arrow-filled-t${key}" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-filled sg-arrow-t${key}" d="M0,0 L10,5 L0,10 z" fill="${stroke}" stroke="${stroke}" stroke-width="1" stroke-linejoin="round"/></marker>`;
+  });
+}
+
+function defs(
+  theme: Theme,
+  resolved: EffectiveTheme,
+  styles: boolean,
+  laidOut: LaidOut,
+  edgeTypes: Record<string, EdgeTypeStyle>,
+): string {
   return [
     "<defs>",
     styles ? `<style>${css(resolved.tokens, resolved.types, resolved.edgeTypes)}</style>` : "",
     `<marker id="sg-arrow-filled" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-filled" d="M0,0 L10,5 L0,10 z" fill="${theme.edge}" stroke="${theme.edge}" stroke-width="1" stroke-linejoin="round"/></marker>`,
+    ...typedArrowMarkers(laidOut, edgeTypes),
     `<marker id="sg-arrow-open" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="sg-arrow-open" d="M1,1 L9,5 L1,9" fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>`,
     "</defs>",
   ].join("");
@@ -202,8 +237,9 @@ function group(
   meta: Meta | undefined,
   body: string,
   attributes = "",
+  description?: string,
 ): string {
-  return `<g data-kind="${kind}" data-id="${esc(id)}"${attributes}>${metaTitle(meta)}${body}</g>`;
+  return `<g data-kind="${kind}" data-id="${esc(id)}"${attributes}>${metaTitle(meta, description)}${body}</g>`;
 }
 
 function labelBoxSvg(
@@ -211,6 +247,7 @@ function labelBoxSvg(
   text: string,
   theme: Theme,
   withBackground: boolean,
+  textFill?: string,
 ): string {
   const lines = text.split("\n").length;
   const textHeight = lines * LINE_HEIGHT * EDGE_LABEL_FONT.size;
@@ -226,7 +263,7 @@ function labelBoxSvg(
       top,
       EDGE_LABEL_FONT,
       "sg-text sg-edge-label",
-      theme.fg,
+      textFill ?? theme.fg,
     )
   );
 }
@@ -264,26 +301,63 @@ function pathOf(points: readonly { x: number; y: number }[]): string {
     .join(" ");
 }
 
-function renderEdge(item: LaidOutEdge, theme: Theme): string {
-  const dash = confidenceDash(item.meta);
-  const marker = item.directed ? ' marker-end="url(#sg-arrow-filled)"' : "";
-  const path = `<path class="sg-edge" d="${pathOf(item.points)}" fill="none" stroke="${theme.edge}" stroke-width="1.5" stroke-linejoin="round"${dashAttr(dash)}${marker}/>`;
+type EdgeTypes = Record<string, EdgeTypeStyle>;
+
+type WeightScale = { min: number; max: number };
+
+function weightScale(edges: readonly LaidOutEdge[]): WeightScale | undefined {
+  const weights = edges.flatMap((edge) => (edge.weight === undefined ? [] : [edge.weight]));
+  if (weights.length === 0) return undefined;
+  return { min: Math.min(...weights), max: Math.max(...weights) };
+}
+
+function edgeWidth(weight: number | undefined, scale: WeightScale | undefined): number {
+  if (weight === undefined || scale === undefined || scale.max === scale.min) return 1.5;
+  return 1.5 + ((weight - scale.min) / (scale.max - scale.min)) * 4.5;
+}
+
+function renderEdge(
+  item: LaidOutEdge,
+  theme: Theme,
+  edgeTypes: EdgeTypes,
+  scale: WeightScale | undefined,
+): string {
+  const typed: EdgeTypeStyle =
+    item.type !== undefined && Object.hasOwn(edgeTypes, item.type)
+      ? edgeTypes[item.type]!
+      : {};
+  const typedDash =
+    typed.dash === "dashed" || typed.dash === "dotted"
+      ? EDGE_DASHARRAY[typed.dash]
+      : undefined;
+  const dash = confidenceDash(item.meta) ?? typedDash;
+  const stroke = typed.stroke ?? theme.edge;
+  const markerId =
+    item.type !== undefined && typed.stroke !== undefined
+      ? `sg-arrow-filled-t${arrowKey(item.type)}`
+      : "sg-arrow-filled";
+  const marker = item.directed ? ` marker-end="url(#${markerId})"` : "";
+  const path = `<path class="sg-edge" d="${pathOf(item.points)}" fill="none" stroke="${stroke}" stroke-width="${n(edgeWidth(item.weight, scale))}" stroke-linejoin="round"${dashAttr(dash)}${marker}/>`;
   const label =
     item.labelBox === undefined || item.label === undefined
       ? ""
-      : labelBoxSvg(item.labelBox, item.label, theme, true);
-  return group(
-    "edge",
-    item.id,
-    item.meta,
-    path + label,
-    data([
-      ["type", item.type],
-      ["confidence", confidenceOf(item.meta)],
-      ["from", item.from],
-      ["to", item.to],
-      ["directed", item.directed ? undefined : "false"],
-    ]),
+      : labelBoxSvg(item.labelBox, item.label, theme, true, typed.text);
+  return wrapLink(
+    group(
+      "edge",
+      item.id,
+      item.meta,
+      path + label,
+      data([
+        ["type", item.type],
+        ["confidence", confidenceOf(item.meta)],
+        ["from", item.from],
+        ["to", item.to],
+        ["directed", item.directed ? undefined : "false"],
+      ]),
+      item.description,
+    ),
+    item.link,
   );
 }
 
@@ -412,15 +486,22 @@ function renderNode(
         ["shape", shape],
         ...extra,
       ]),
+      item.description,
     ),
     item.link,
   );
 }
 
-function renderGraph(laid: LaidOutGraph, theme: Theme, types: Types): string {
+function renderGraph(
+  laid: LaidOutGraph,
+  theme: Theme,
+  types: Types,
+  edgeTypes: EdgeTypes,
+): string {
+  const scale = weightScale(laid.edges);
   return [
     ...laid.groups.map((item) => renderGroup(item, theme)),
-    ...laid.edges.map((item) => renderEdge(item, theme)),
+    ...laid.edges.map((item) => renderEdge(item, theme, edgeTypes, scale)),
     ...laid.nodes.map((item, index) => renderNode(item, index, theme, types)),
   ].join("");
 }
@@ -671,6 +752,7 @@ function renderStateItem(
         ["pseudo", item.pseudo],
         ["composite", item.composite ? "true" : undefined],
       ]),
+      item.description,
     ),
     item.link,
   );
@@ -806,6 +888,7 @@ function renderEntity(
         ["type", item.type],
         ["confidence", confidenceOf(item.meta)],
       ]),
+      item.description,
     ),
     item.link,
   );
@@ -925,10 +1008,15 @@ function renderTree(laid: LaidOutTree, theme: Theme, types: Types): string {
   ].join("");
 }
 
-function renderScene(laidOut: LaidOut, theme: Theme, types: Types): string {
+function renderScene(
+  laidOut: LaidOut,
+  theme: Theme,
+  types: Types,
+  edgeTypes: EdgeTypes,
+): string {
   switch (laidOut.kind) {
     case "graph":
-      return renderGraph(laidOut, theme, types);
+      return renderGraph(laidOut, theme, types, edgeTypes);
     case "sequence":
       return renderSequence(laidOut, theme, types);
     case "state":
@@ -952,7 +1040,7 @@ export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string
     typesPresent(laidOut),
     edgeTypesPresent(laidOut),
   );
-  const { tokens: theme, types } = escapedTheme(resolved);
+  const { tokens: theme, types, edgeTypes } = escapedTheme(resolved);
   const standalone = options.standalone ?? true;
   const width = n(laidOut.width);
   const height = n(laidOut.height);
@@ -961,11 +1049,11 @@ export function renderSvg(laidOut: LaidOut, options: RenderOptions = {}): string
     : "<svg";
   const title =
     laidOut.title === undefined ? "" : `<title>${esc(laidOut.title)}</title>`;
-  const body = renderScene(laidOut, theme, types);
+  const body = renderScene(laidOut, theme, types, edgeTypes);
   const svg = [
     `${head} class="sg-root" data-diagram="${laidOut.kind}"${laidOut.kind === "tree" ? ` data-layout="${laidOut.layout}"` : ""} version="1.1" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="Inter, system-ui, sans-serif">`,
     title,
-    defs(theme, resolved, options.styles ?? true),
+    defs(theme, resolved, options.styles ?? true, laidOut, edgeTypes),
     `<rect class="sg-bg" x="0" y="0" width="${width}" height="${height}" fill="${theme.bg}"/>`,
     body,
     "</svg>",

@@ -207,6 +207,21 @@ describe("automatic palette", () => {
     expect(dark).toContain('[data-type="x"] .sg-edge-label.sg-text{fill:var(--sg-fg)}');
   });
 
+  test("adaptive blocks carry the arrow rules and their resets", () => {
+    const key = typeHash("calls").toString(36);
+    const style = themeStyle(
+      { light: { edgeTypes: { calls: { stroke: "#111111" } } }, dark: { palette: false } },
+      [],
+      ["calls"],
+    );
+    expect(style).toContain(`.sg-app .sg-root .sg-arrow-t${key}{fill:#111111;stroke:#111111}`);
+    const media = style.slice(style.indexOf("@media"));
+    expect(media).toContain(`.sg-arrow-t${key}{fill:var(--sg-edge);stroke:var(--sg-edge)}`);
+    expect(style).toContain(
+      `.sg-app[data-sg-scheme=dark] .sg-root .sg-arrow-t${key}{fill:var(--sg-edge);stroke:var(--sg-edge)}`,
+    );
+  });
+
   test("the dark theme uses the dark palette", async () => {
     const entry = paletteEntry(PALETTES.dark, "service");
     const svg = renderSvg(await layout(doc), { theme: "dark" });
