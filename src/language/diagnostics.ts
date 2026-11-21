@@ -29,20 +29,47 @@ function distance(a: string, b: string, max: number): number {
   return previous[right.length]!;
 }
 
-function closest(item: Item, candidates: Item[]): Item | undefined {
+type Mentions = Map<Item, { count: number; first: number }>;
+
+function outranks(candidate: Item, item: Item, mentions: Mentions): boolean {
+  const a = mentions.get(candidate)!;
+  const b = mentions.get(item)!;
+  return a.count > b.count || (a.count === b.count && a.first < b.first);
+}
+
+function closest(item: Item, candidates: Item[], mentions: Mentions): Item | undefined {
   const limit = Math.min(2, Math.floor(item.id.length / 3));
   if (limit < 1) return undefined;
-  let best: Item | undefined;
-  let bestDistance = limit + 1;
-  for (const candidate of candidates) {
-    if (candidate.kind !== item.kind || !candidate.declared) continue;
-    const value = distance(item.id, candidate.id, limit);
-    if (value < bestDistance) {
-      best = candidate;
-      bestDistance = value;
+  const search = (accept: (candidate: Item) => boolean): Item | undefined => {
+    let best: Item | undefined;
+    let bestDistance = limit + 1;
+    for (const candidate of candidates) {
+      if (candidate === item || candidate.kind !== item.kind || !accept(candidate)) continue;
+      const value = distance(item.id, candidate.id, limit);
+      if (value < bestDistance) {
+        best = candidate;
+        bestDistance = value;
+      }
+    }
+    return best;
+  };
+  return (
+    search((candidate) => candidate.declared) ??
+    search((candidate) => !candidate.declared && outranks(candidate, item, mentions))
+  );
+}
+
+function countMentions(occurrences: readonly { item: Item; range: Span }[]): Mentions {
+  const mentions: Mentions = new Map();
+  for (const { item, range } of occurrences) {
+    const entry = mentions.get(item);
+    if (entry === undefined) mentions.set(item, { count: 1, first: range.start });
+    else {
+      entry.count++;
+      entry.first = Math.min(entry.first, range.start);
     }
   }
-  return best;
+  return mentions;
 }
 
 export function collect(source: string): Finding[] {
@@ -69,9 +96,10 @@ export function collect(source: string): Finding[] {
     }
   }
 
+  const counted = countMentions(analysis.occurrences);
   for (const item of analysis.items) {
     if (item.declared) continue;
-    const target = closest(item, analysis.items);
+    const target = closest(item, analysis.items, counted);
     if (!target) continue;
     const mentions = analysis.occurrences.filter((occurrence) => occurrence.item === item).map((o) => o.range);
     for (const span of mentions) {
