@@ -165,6 +165,11 @@ describe("attribute brackets", () => {
     expect(at('state "T"\na [actions=["x", ')).toEqual([]);
   });
 
+  test("edge attributes offer weight, description and link", () => {
+    const items = at('graph "T"\na\nb\na -> b [');
+    expect(labels(items)).toEqual(expect.arrayContaining(["id", "type", "weight", "description", "link"]));
+  });
+
   test("tree lines offer the tree node keys", () => {
     const source = `${readFileSync(join(examples, "repo-tree.sg"), "utf8").replace(/\r\n/g, "\n")}  extra [`;
     const items = at(source);

@@ -50,7 +50,13 @@ const FIELD_DOCS: Readonly<Record<Exclude<AttrContext, "header">, Readonly<Recor
     y: "Fixed vertical position of the node; goes together with x.",
   },
   group: {},
-  edge: { id: "Explicit id of this edge.", type: "Free-form type of this edge." },
+  edge: {
+    id: "Explicit id of this edge.",
+    type: "Free-form type of this edge.",
+    weight: "Edge weight, a number ≥ 0; drawn as stroke width relative to the other edges.",
+    description: DESCRIPTION,
+    link: LINK,
+  },
   participant: { type: TYPE },
   message: {},
   state: {

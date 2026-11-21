@@ -235,6 +235,16 @@
               "directed": {
                 "type": "boolean"
               },
+              "weight": {
+                "minimum": 0,
+                "type": "number"
+              },
+              "description": {
+                "type": "string"
+              },
+              "link": {
+                "type": "string"
+              },
               "meta": {
                 "additionalProperties": false,
                 "type": "object",

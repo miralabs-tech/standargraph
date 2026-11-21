@@ -41,7 +41,11 @@ const NODE: Spec = {
   position: true,
 };
 const GROUP: Spec = { noun: "a group", fields: {}, meta: true };
-const EDGE: Spec = { noun: "an edge", fields: { id: "string", type: "string" }, meta: true };
+const EDGE: Spec = {
+  noun: "an edge",
+  fields: { id: "string", type: "string", weight: "number", description: "string", link: "string" },
+  meta: true,
+};
 const PARTICIPANT: Spec = { noun: "a participant", fields: { type: "string" }, meta: true };
 const MESSAGE: Spec = { noun: "a message", fields: {}, meta: true };
 const STATE: Spec = {

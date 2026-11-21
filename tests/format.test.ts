@@ -53,6 +53,24 @@ describe("structural errors", () => {
     expect(pathsOf(doc)).toEqual(["/nodes/1/color"]);
   });
 
+  test("edge weight, description and link are accepted", () => {
+    const doc = example("architecture.json");
+    Object.assign(doc.edges[0], { weight: 3, description: "d", link: "https://example.com" });
+    expect(validate(doc).ok).toBe(true);
+  });
+
+  test("negative edge weight", () => {
+    const doc = example("architecture.json");
+    doc.edges[0].weight = -1;
+    expect(pathsOf(doc)).toEqual(["/edges/0/weight"]);
+  });
+
+  test("unknown property on an edge", () => {
+    const doc = example("architecture.json");
+    doc.edges[0].color = "red";
+    expect(pathsOf(doc)).toEqual(["/edges/0/color"]);
+  });
+
   test("coverage out of range", () => {
     const doc = example("agent-output.json");
     doc.nodes[0].meta.coverage = 1.5;

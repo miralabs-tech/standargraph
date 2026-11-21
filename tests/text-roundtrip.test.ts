@@ -381,6 +381,30 @@ describe("print output", () => {
     expect(Object.is(node.position.y, -0)).toBe(true);
   });
 
+  test("edge weight, description and link round-trip", () => {
+    const source = 'graph\n\na\nb\n\na -> b [weight=8, description="Main path", link="https://example.com/x"]\n';
+    const document = reparse(source) as any;
+    expect(document.edges[0]).toMatchObject({
+      weight: 8,
+      description: "Main path",
+      link: "https://example.com/x",
+    });
+    const text = print(document);
+    expect(text).toContain('weight=8, link="https://example.com/x", description="Main path"');
+    expect(reparse(text)).toEqual(document);
+    expect(reparse(print(document, { style: "words" }))).toEqual(document);
+  });
+
+  test("a chain applies the edge weight to every edge", () => {
+    const document = reparse("graph\n\na\nb\nc\n\na -> b -> c [weight=2]\n") as any;
+    expect(document.edges.map((edge: { weight: number }) => edge.weight)).toEqual([2, 2]);
+  });
+
+  test("a negative edge weight in text is rejected", () => {
+    const result = parse("graph\n\na\nb\n\na -> b [weight=-1]\n");
+    expect(result.ok).toBe(false);
+  });
+
   test("data keys are bare only when they form a whole identifier", () => {
     const text = print(GRAPH_EDGE_CASES);
     expect(text).toContain("data.plain=\"text\"");
