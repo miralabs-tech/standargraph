@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-21
+
+### Added
+
+- Edge fields on `graph` edges, in JSON and in the `.sg` syntax (`a -> b [type=closed, weight=8, description="...", link="https://..."]`, also on chains): `weight` scales the stroke width from 1.5 to 6 across the document, `description` is shown in the HTML side panel and as the SVG tooltip, and `link` wraps the edge in an `<a href>` (unsafe URLs refused) and shows in the panel.
+- `edgeTypes` in a `Theme`, next to `types`: `stroke`, `text` and `dash` (`solid`, `dashed`, `dotted`) per edge type, accepted by the API, by `--theme` files (also in `{ light, dark }` pairs) and by the theme panel of the demo, which exports it in `theme.json`.
+- Automatic palette for edges: a typed edge with no `edgeTypes` entry gets a stable stroke color, turned off by `palette: false` and `--no-palette`.
+- Arrowheads take the color of their edge type, one marker per type, also with `idPrefix`.
+- WebGL draws the edge color from the type and the size from the weight; dashes are not drawn.
+- Mermaid export reports the edge `description`, `link` and `weight` as dropped fields.
+- `schema/graph-document.v1.json` describes the new edge fields; the format `version` stays 1.
+
+### Changed
+
+- Nodes, states, entities and tree nodes put their `description` first in their SVG `<title>`.
+- A typed `graph` edge is now colored by the automatic palette, so the SVG output of typed edges changes unless `palette: false` is set.
+
+### Fixed
+
+- `export`, `layout` and `convert` no longer fail with `EEXIST` when run on a bare file name from its own folder without `--out`, under Bun on Windows.
+
 ## [1.1.0] - 2026-11-16
 
 ### Added
@@ -58,5 +79,6 @@ This is the first release of `@standarx/graph`. The package was first published 
 - Comment-preserving formatter: `formatText()` and `format()` keep comments, are idempotent and refuse a document with syntax errors.
 - Partial parsing for editors: the valid statements around a broken line are kept, so completion, hover, symbols, folding and references keep working while the user types.
 
+[1.2.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.2.0
 [1.1.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.1.0
 [1.0.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.0.0

@@ -1,6 +1,6 @@
 # Theming
 
-A theme is a set of color tokens, plus optional colors per item `type`. The same object drives the SVG, the HTML page, `mount()`, the PNG and the PDF. Six named palettes come with the library, and a typed item gets a color from the palette of the theme without any declaration.
+A theme is a set of color tokens, plus optional colors per item `type` and per graph edge `type`. The same object drives the SVG, the HTML page, `mount()`, the PNG and the PDF. Six named palettes come with the library, and a typed item gets a color from the palette of the theme without any declaration.
 
 ## Palettes
 
@@ -32,6 +32,7 @@ entry = palette[fnv1a(type) % palette.length]     // { fill, stroke, text }
 - An entry of `theme.types` wins as a whole: its missing keys fall back to the plain node colors, not to the palette.
 - `meta.provenance.confidence` of `unknown` still wins over any type color.
 - Only the types present in the document produce a rule, and a document without type is unchanged.
+- A graph edge that has a `type` and no entry for it in `theme.edgeTypes` gets a stroke color from the same palette, with the same type hash. Node types and edge types are independent. The dash is never automatic.
 - Turn it off with `palette: false` in the `Theme` object, or `--no-palette` on the CLI. `--no-palette` applies to a named theme, to `auto`, to a theme file and to each theme of a pair.
 
 ```ts
@@ -61,6 +62,7 @@ import {
   type ThemeOption,
   type ThemeTokens,
   type TypeStyle,
+  type EdgeTypeStyle,
 } from "@standarx/graph/svg";
 ```
 
@@ -75,11 +77,13 @@ type ThemeTokens = {
   headerFill: string;
 };
 type TypeStyle = { fill?: string; stroke?: string; text?: string };
+type EdgeTypeStyle = { stroke?: string; text?: string; dash?: "solid" | "dashed" | "dotted" };
 type ThemeName = "light" | "dark" | "nord" | "solarized-light" | "solarized-dark" | "high-contrast";
 type Theme = {
   base?: ThemeName;                       // default "light"
   tokens?: Partial<ThemeTokens>;
   types?: Record<string, TypeStyle>;      // keyed by item `type`
+  edgeTypes?: Record<string, EdgeTypeStyle>;  // keyed by graph edge `type`
   palette?: false;                        // turns the automatic palette off
 };
 type ThemeOption = ThemeName | Theme;                                             // renderSvg, PNG, PDF
@@ -87,7 +91,7 @@ type PageThemeOption = ThemeName | "auto" | Theme | { light: Theme; dark: Theme 
 ```
 
 - `THEMES` holds the tokens of each name, `THEME_NAMES` lists the names and `PALETTES` holds their automatic palettes.
-- `resolveTheme(option)` returns `{ tokens, types, palette }` with `tokens = { ...THEMES[base], ...theme.tokens }` and `palette = PALETTES[base]`, or `undefined` when `palette` is `false`.
+- `resolveTheme(option)` returns `{ tokens, types, edgeTypes, palette }` with `tokens = { ...THEMES[base], ...theme.tokens }` and `palette = PALETTES[base]`, or `undefined` when `palette` is `false`.
 - `themeVariables(option)` returns the `--sg-*` custom properties of a theme as a CSS declaration list.
 
 A color value is not validated, but it is escaped. WebGL only reads hexadecimal and `rgb()` colors.
@@ -100,7 +104,7 @@ A color value is not validated, but it is escaped. WebGL only reads hexadecimal 
   - `{ light, dark }` uses the two given themes. A type colored only in the light theme falls back to the default node colors in dark mode.
   - A name or a single `Theme` gives a fixed theme.
 - For SVG, PNG and PDF, `"auto"` and `{ light, dark }` give the light theme.
-- CLI: `--theme auto|light|dark|nord|solarized-light|solarized-dark|high-contrast|<file.json>`, and `--no-palette`. A value that ends with `.json` is read as a `Theme` or a `{ light, dark }` pair; `base` takes any name and `palette` only `false`. An unreadable or invalid file exits with 2.
+- CLI: `--theme auto|light|dark|nord|solarized-light|solarized-dark|high-contrast|<file.json>`, and `--no-palette`. A value that ends with `.json` is read as a `Theme` or a `{ light, dark }` pair; `base` takes any name, `palette` only `false`, and `edgeTypes` the same shape as in the API (`fill` is not allowed). An unreadable or invalid file exits with 2.
 
 ## Tokens, variables and classes
 
@@ -135,6 +139,28 @@ A last rule, `.sg-root [data-confidence="unknown"] .sg-node { fill: var(--sg-unk
 
 In WebGL the fill of the type, explicit or from the palette, replaces `--sg-node-stroke` as the base of the node color mix. Nodes of a type with no fill keep the stroke-based color.
 
+## Colors and dashes per edge type
+
+For each `type` T in `theme.edgeTypes`, then for each other edge type of the document when the automatic palette is on (stroke only), the stylesheet gets:
+
+```css
+.sg-root [data-kind="edge"][data-type="T"] .sg-edge { stroke: S; stroke-dasharray: D; }
+.sg-root .sg-arrow-t<key> { fill: S; stroke: S; }
+.sg-root [data-kind="edge"][data-type="T"] .sg-edge-label.sg-text { fill: X; }
+```
+
+- `dash` is `solid`, `dashed` (`6 4`) or `dotted` (`2 3`). `fill` is not allowed. Only the keys you give are written.
+- `<key>` is the hash of the type in base 36: each typed arrowhead has its own marker, so it takes the color of its edge, also with `idPrefix`.
+- A `meta.provenance.confidence` of `inferred` or `unknown` keeps its own dash over the dash of the type.
+- Styles are written as CSS rules (light and dark blocks) and as SVG attributes, so the PNG and the PDF keep them.
+- In WebGL the color comes from the type and the size from the `weight`; dashes are not drawn.
+
+```ts
+renderSvg(scene, {
+  theme: { edgeTypes: { closed: { stroke: "#b45309", dash: "dashed" } } },
+});
+```
+
 ## Data attributes
 
 Every rendered item carries `data-kind` and `data-id`, then, in this order:
@@ -147,6 +173,7 @@ Every rendered item carries `data-kind` and `data-id`, then, in this order:
 | group | `data-depth` |
 | edge, message | `data-from`, `data-to` |
 | graph edge | `data-directed="false"` only when undirected |
+| graph edge arrowhead | class `sg-arrow-t<key>` on the marker path when its type has a stroke color |
 | message | `data-style` |
 
 All values are escaped, and the order is fixed, so the SVG stays deterministic.

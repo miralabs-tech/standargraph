@@ -26,7 +26,7 @@ La mise en page et la vue (caméra, hit testing, culling, niveau de détail, sur
 
 Les sorties sont le SVG, une page HTML en un seul fichier qui fonctionne hors ligne (polices et runtime embarqués, aucun accès réseau), le PNG et le PDF. Le PNG et le PDF sont rendus sans navigateur.
 
-**Statut : 1.1.0.**
+**Statut : 1.2.0.**
 
 ---
 
@@ -258,6 +258,25 @@ Une liste plate de nœuds liés par `parent`, mise en page en arbre « tidy » (
 
 Les formes sont dans le document ; les couleurs n'y sont jamais. Elles viennent du thème.
 
+### Champs d'arête
+
+Une arête de `graph` (pas un message, une transition, une relation ni une arête d'arbre) peut porter `type`, `weight`, `description` et `link` :
+
+- `weight` est un nombre supérieur ou égal à 0. L'épaisseur du trait croît linéairement de 1,5 (le plus petit poids du document) à 6 (le plus grand) ; une arête sans poids, ou un document où tous les poids sont égaux, reste à 1,5.
+- `description` s'affiche dans le panneau latéral de la page HTML et comme info-bulle native de l'arête SVG.
+- `link` enveloppe l'arête dans un `<a href>` en SVG et apparaît comme lien dans le panneau. Une URL dangereuse comme `javascript:` est refusée, comme pour les nœuds.
+
+```json
+{ "from": "api", "to": "db", "type": "closed", "weight": 8, "description": "Reads and writes", "link": "https://example.com/db", "directed": true }
+```
+
+```
+api -> db [type=closed, weight=8, description="Reads and writes", link="https://example.com/db"]
+a -> b -> c [weight=2]
+```
+
+Les couleurs et les tirets des types d'arête viennent du thème (`edgeTypes`, voir [docs/theming.md](./docs/theming.md)).
+
 ### Syntaxe texte
 
 Chaque type se laisse aussi écrire en texte brut, dans des fichiers nommés `.sg` par convention. Un graphe en forme à symboles :
@@ -364,6 +383,7 @@ npm install -g @standarx/graph   # puis : standargraph export graph.json
 - **Mise en page** : layout ELK en couches pour les graphes, les groupes, les machines à états et les diagrammes entité-relation, layout dédié aux diagrammes de séquence, layout arbre ou mindmap pour les arbres, texte mesuré avec les métriques d'Inter embarquées pour que SVG et HTML s'accordent.
 - **Formes** : 11 formes de nœud sur les nœuds `graph` et `tree`, dessinées en SVG et coupées au contour par les arêtes (voir [Formes](#formes)).
 - **Thèmes** : six palettes nommées, une couleur automatique par `type` de nœud, un sélecteur clair, sombre et auto, des jetons de couleur et des couleurs par `type` de nœud, un seul objet pour le SVG, le HTML, le PNG et le PDF, option `--theme <nom|fichier.json>` (voir [docs/theming.md](./docs/theming.md), en anglais).
+- **Style des arêtes** : `weight`, `description` et `link` sur les arêtes de graphe, couleurs et tirets par `type` d'arête via `edgeTypes`, couleur automatique d'arête par type, pointes de flèche de la couleur de leur arête (voir [Champs d'arête](#champs-darête)).
 - **Rendus** : SVG, HTML interactif (déplacement, zoom, survol, sélection, recherche, panneau, clavier, thèmes clair et sombre), et WebGL via Sigma.js.
 - **WebGL au-delà de 2000 nœuds** : l'export HTML d'un `graph` bascule automatiquement en WebGL au-delà de 2000 nœuds (`--renderer` force le choix). Sur la porte v1, 10 000 nœuds en WebGL tiennent une médiane de 303 FPS (p5 285,7) plafonnée par le rafraîchissement de l'écran, et une médiane de 58,1 FPS (p5 54,3) sans plafond, sur un Intel Core i7-14700KF avec une NVIDIA GeForce RTX 4070 Ti SUPER dans Microsoft Edge 157. Détails dans [docs/bench.md](./docs/bench.md).
 - **HTML hors ligne en un fichier** : polices et runtime embarqués, rien n'est téléchargé.
@@ -381,7 +401,7 @@ npm install -g @standarx/graph   # puis : standargraph export graph.json
 - **Précalculez les positions des grands graphes.** Dès que chaque nœud a une `position`, ELK est ignoré par `layout()`, `mount()` et les exports. `standargraph export` calcule la mise en page une fois et la page HTML qu'il écrit porte le résultat : l'ouvrir ne remet jamais rien en page. Pour garder les positions dans vos documents, lancez `standargraph layout graph.json` (ou `--out <fichier>`) : la commande écrit le même document avec une `position` sur chaque nœud, qui s'affiche ensuite sans ELK.
 
 - La sortie du plugin remark ne s'affiche pas sur GitHub. Dans un README, utilisez le SVG écrit par la CLI, lié à sa page HTML (`--markdown` affiche l'extrait).
-- Le rendu WebGL ne dessine ni les légendes de type de nœud, ni les libellés d'arêtes, ni les pointes de flèche, et les diagrammes `sequence`, `state`, `er` et `tree` sont toujours dessinés en SVG.
+- Le rendu WebGL ne dessine ni les légendes de type de nœud, ni les libellés d'arêtes, ni les pointes de flèche, ne dessine pas non plus les tirets d'arête, et les diagrammes `sequence`, `state`, `er` et `tree` sont toujours dessinés en SVG.
 
 ---
 

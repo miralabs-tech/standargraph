@@ -26,7 +26,7 @@ The layout and the view (camera, hit testing, culling, level of detail, hover, s
 
 Outputs are SVG, a single-file HTML page that works offline (fonts and runtime embedded, no network), PNG and PDF. PNG and PDF are rendered without a browser.
 
-**Status: 1.1.0.**
+**Status: 1.2.0.**
 
 ---
 
@@ -258,6 +258,25 @@ A flat list of nodes linked by `parent`, laid out as a tidy tree (`"layout": "tr
 
 Shapes live in the document; colors never do. They come from the theme.
 
+### Edge fields
+
+A `graph` edge (not a message, transition, relation or tree edge) can carry `type`, `weight`, `description` and `link`:
+
+- `weight` is a number of 0 or more. The stroke width grows linearly from 1.5 (the smallest weight of the document) to 6 (the largest); an edge without weight, or a document where all weights are equal, stays at 1.5.
+- `description` is shown in the side panel of the HTML page and as the native tooltip of the SVG edge.
+- `link` wraps the edge in an `<a href>` in the SVG and appears as a link in the panel. An unsafe URL such as `javascript:` is refused, as for nodes.
+
+```json
+{ "from": "api", "to": "db", "type": "closed", "weight": 8, "description": "Reads and writes", "link": "https://example.com/db", "directed": true }
+```
+
+```
+api -> db [type=closed, weight=8, description="Reads and writes", link="https://example.com/db"]
+a -> b -> c [weight=2]
+```
+
+Colors and dashes of edge types come from the theme (`edgeTypes`, see [docs/theming.md](./docs/theming.md)).
+
 ### Text syntax
 
 Every kind can also be written as plain text, in files conventionally named `.sg`. A graph in the symbol form:
@@ -364,6 +383,7 @@ npm install -g @standarx/graph   # then: standargraph export graph.json
 - **Layout**: ELK layered layout for graphs, groups, state machines and entity-relation diagrams, a dedicated layout for sequence diagrams, a tidy or mindmap layout for trees, text measured with embedded Inter metrics so SVG and HTML agree.
 - **Shapes**: 11 node shapes on `graph` and `tree` nodes, drawn in SVG and cut at the outline by the edges (see [Shapes](#shapes)).
 - **Theming**: six named palettes, an automatic color per node `type`, a light, dark and auto switch, color tokens and colors per node `type`, one object for SVG, HTML, PNG and PDF, a `--theme <name|file.json>` option (see [docs/theming.md](./docs/theming.md)).
+- **Edge styling**: `weight`, `description` and `link` on graph edges, colors and dashes per edge `type` through `edgeTypes`, an automatic edge color per type, arrowheads in the color of their edge (see [Edge fields](#edge-fields)).
 - **Renderers**: SVG, interactive HTML (pan, zoom, hover, selection, search, panel, keyboard, light and dark themes), and WebGL through Sigma.js.
 - **WebGL above 2000 nodes**: the HTML export of a `graph` switches to WebGL automatically past 2000 nodes (`--renderer` overrides it). On the v1 gate, 10 000 nodes in WebGL hold a median of 303 FPS (p5 285.7) with the display refresh as the cap, and a median of 58.1 FPS (p5 54.3) uncapped, on an Intel Core i7-14700KF with an NVIDIA GeForce RTX 4070 Ti SUPER in Microsoft Edge 157. Details in [docs/bench.md](./docs/bench.md).
 - **Offline single-file HTML**: fonts and runtime are embedded, nothing is fetched.
@@ -381,7 +401,7 @@ npm install -g @standarx/graph   # then: standargraph export graph.json
 - **Precompute positions for large graphs.** Once every node has a `position`, ELK is skipped by `layout()`, `mount()` and the exports. `standargraph export` runs the layout once and the HTML page it writes carries the result: opening it never lays anything out again. To keep positions in your documents, run `standargraph layout graph.json` (or `--out <file>`): it writes the same document with a `position` on every node, which then renders without ELK.
 
 - The remark plugin output does not render on GitHub. In a README, use the SVG written by the CLI, linked to its HTML page (`--markdown` prints the snippet).
-- Node type captions, edge labels and arrowheads are not drawn by the WebGL renderer, and `sequence`, `state`, `er` and `tree` diagrams are always drawn as SVG.
+- Node type captions, edge labels and arrowheads are not drawn by the WebGL renderer, edge dashes are not drawn either, and `sequence`, `state`, `er` and `tree` diagrams are always drawn as SVG.
 
 ---
 
