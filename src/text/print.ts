@@ -17,6 +17,7 @@ type Fields = {
   id?: string;
   label?: string;
   type?: string;
+  weight?: number;
   shape?: string;
   pseudo?: string;
   actions?: string[];
@@ -126,6 +127,7 @@ function fieldPairs(item: Fields, withId: boolean): Pair[] {
   const pairs: Pair[] = [];
   if (withId && item.id !== undefined) pairs.push(["id", quote(item.id)]);
   if (item.type !== undefined) pairs.push(["type", quote(item.type)]);
+  if (item.weight !== undefined) pairs.push(["weight", numberText(item.weight)]);
   if (item.shape !== undefined) pairs.push(["shape", item.shape]);
   if (item.pseudo !== undefined) pairs.push(["pseudo", item.pseudo]);
   if (item.actions !== undefined) {
