@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-22
+
+### Fixed
+
+- In the `stress` layout, edge labels are placed shortest edge first and try nine spots along their edge instead of five, so a label on a short edge no longer loses its only free spot to a label on a long edge.
+
 ## [1.4.1] - 2026-11-22
 
 ### Fixed

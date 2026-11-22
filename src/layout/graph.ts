@@ -272,12 +272,76 @@ function parallelSlots(edges: readonly Edge[]): Map<number, number> {
   return offsets;
 }
 
-const LABEL_POSITIONS = [0.5, 0.35, 0.65, 0.25, 0.75];
+const LABEL_POSITIONS = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.15, 0.85];
 
 function overlapArea(a: Box, b: Box): number {
   const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
   return width > 0 && height > 0 ? width * height : 0;
+}
+
+export type EdgeLabelRequest = {
+  width: number;
+  height: number;
+  anchor: Point;
+  segment?: readonly [Point, Point];
+  push?: Point;
+};
+
+export function placeEdgeLabels(
+  requests: readonly (EdgeLabelRequest | undefined)[],
+  fixedObstacles: readonly Box[],
+): (Box | undefined)[] {
+  const boxes: (Box | undefined)[] = requests.map(() => undefined);
+  const placed: Box[] = [];
+  const boxAt = (request: EdgeLabelRequest, point: Point): Box => ({
+    x: point.x - request.width / 2,
+    y: point.y - request.height / 2,
+    width: request.width,
+    height: request.height,
+  });
+  requests.forEach((request, index) => {
+    if (request === undefined || request.segment !== undefined) return;
+    const box = boxAt(request, request.anchor);
+    boxes[index] = box;
+    placed.push(box);
+  });
+  const lengthOf = (request: EdgeLabelRequest): number => {
+    const [start, end] = request.segment!;
+    return Math.hypot(end.x - start.x, end.y - start.y);
+  };
+  const sliding = requests
+    .map((request, index) => ({ request, index }))
+    .filter(
+      (entry): entry is { request: EdgeLabelRequest; index: number } =>
+        entry.request?.segment !== undefined,
+    )
+    .sort(
+      (a, b) => lengthOf(a.request) - lengthOf(b.request) || a.index - b.index,
+    );
+  for (const { request, index } of sliding) {
+    const [start, end] = request.segment!;
+    const push = request.push ?? { x: 0, y: 0 };
+    let best = Number.POSITIVE_INFINITY;
+    let chosen = boxAt(request, request.anchor);
+    for (const t of LABEL_POSITIONS) {
+      const box = boxAt(request, {
+        x: start.x + (end.x - start.x) * t + push.x,
+        y: start.y + (end.y - start.y) * t + push.y,
+      });
+      let total = 0;
+      for (const obstacle of placed) total += overlapArea(box, obstacle);
+      for (const obstacle of fixedObstacles) total += overlapArea(box, obstacle);
+      if (total < best) {
+        best = total;
+        chosen = box;
+      }
+      if (total === 0) break;
+    }
+    boxes[index] = chosen;
+    placed.push(chosen);
+  }
+  return boxes;
 }
 
 function layoutPrecomputed(
@@ -340,7 +404,6 @@ function layoutPrecomputed(
   }
 
   const shapeById = new Map(doc.nodes.map((node) => [node.id, node.shape]));
-  const labelBoxes: Box[] = [];
   const parallel =
     options.separateOpposite === true
       ? parallelSlots(doc.edges ?? [])
@@ -357,14 +420,15 @@ function layoutPrecomputed(
       };
     }),
   ];
-  const laidOutEdges = (doc.edges ?? []).map((edge, index) => {
+  const drawn = (doc.edges ?? []).map((edge, index) => {
     const from = nodeBoxes.get(edge.from)!;
     const to = nodeBoxes.get(edge.to)!;
     const fromShape = shapeById.get(edge.from);
     const toShape = shapeById.get(edge.to);
     let points: Point[];
     let anchor: Point;
-    let candidates: Point[] | undefined;
+    let segment: [Point, Point] | undefined;
+    let push: Point | undefined;
     if (edge.from === edge.to) {
       const right = from.x + from.width;
       const mid = from.y + from.height / 2;
@@ -416,43 +480,27 @@ function layoutPrecomputed(
         edge.label !== undefined &&
         edge.label !== ""
       ) {
-        const push = {
+        segment = [start, end];
+        push = {
           x: anchor.x - (start.x + end.x) / 2,
           y: anchor.y - (start.y + end.y) / 2,
         };
-        candidates = LABEL_POSITIONS.map((t) => ({
-          x: start.x + (end.x - start.x) * t + push.x,
-          y: start.y + (end.y - start.y) * t + push.y,
-        }));
       }
     }
-    let labelBox: Box | undefined;
-    if (edge.label !== undefined && edge.label !== "") {
-      const size = labelBoxSize(edge.label);
-      const boxAt = (point: Point): Box => ({
-        x: point.x - size.width / 2,
-        y: point.y - size.height / 2,
-        ...size,
-      });
-      labelBox = boxAt(anchor);
-      if (candidates !== undefined) {
-        const obstacles = [...labelBoxes, ...fixedObstacles];
-        let best = Number.POSITIVE_INFINITY;
-        for (const candidate of candidates) {
-          const box = boxAt(candidate);
-          let total = 0;
-          for (const obstacle of obstacles) total += overlapArea(box, obstacle);
-          if (total < best) {
-            best = total;
-            labelBox = box;
-          }
-          if (total === 0) break;
-        }
-      }
-      labelBoxes.push(labelBox);
-    }
-    return laidOutEdge(edge, index, points, labelBox);
+    const request: EdgeLabelRequest | undefined =
+      edge.label !== undefined && edge.label !== ""
+        ? { ...labelBoxSize(edge.label), anchor, segment, push }
+        : undefined;
+    return { edge, index, points, request };
   });
+  const placedLabels = placeEdgeLabels(
+    drawn.map(({ request }) => request),
+    fixedObstacles,
+  );
+  const labelBoxes = placedLabels.filter((box): box is Box => box !== undefined);
+  const laidOutEdges = drawn.map(({ edge, index, points }) =>
+    laidOutEdge(edge, index, points, placedLabels[index]),
+  );
 
   const bounds = boundsOf([
     ...nodeBoxes.values(),
