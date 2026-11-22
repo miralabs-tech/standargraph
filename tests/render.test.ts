@@ -81,6 +81,39 @@ describe("structure", () => {
     expect(second).toBe(first);
   });
 
+  test("a label leader is drawn as a 1 px polyline before the label box", () => {
+    const svg = renderSvg({
+      kind: "graph",
+      width: 300,
+      height: 200,
+      groups: [],
+      nodes: [],
+      edges: [
+        {
+          id: "e0",
+          from: "a",
+          to: "b",
+          label: "far",
+          directed: true,
+          points: [
+            { x: 10, y: 10 },
+            { x: 210, y: 10 },
+          ],
+          labelBox: { x: 80, y: 60, width: 40, height: 19 },
+          labelLeader: [
+            { x: 110, y: 10 },
+            { x: 110, y: 60 },
+          ],
+        },
+      ],
+    });
+    const leader = svg.match(/<polyline class="sg-edge-leader"[^>]*\/>/)![0];
+    expect(leader).toContain('points="110,10 110,60"');
+    expect(leader).toContain('stroke-width="1"');
+    expect(leader).toContain('fill="none"');
+    expect(svg.indexOf(leader)).toBeLessThan(svg.indexOf('<rect class="sg-label-bg'));
+  });
+
   test("every element carries data-id and data-kind", async () => {
     const svg = await render(example("architecture"));
     const kinds = [...svg.matchAll(/data-kind="(\w+)"/g)].map((m) => m[1]);

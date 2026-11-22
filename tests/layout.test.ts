@@ -285,7 +285,7 @@ describe("graph layout", () => {
     const long = {
       ...size,
       anchor: { x: 100, y: 34 },
-      segment: [
+      path: [
         { x: 0, y: 34 },
         { x: 200, y: 34 },
       ] as const,
@@ -293,14 +293,68 @@ describe("graph layout", () => {
     const short = {
       ...size,
       anchor: { x: 100, y: 34 },
-      segment: [
+      path: [
         { x: 100, y: 14 },
         { x: 100, y: 54 },
       ] as const,
     };
-    const [longBox, shortBox] = placeEdgeLabels([long, short], []);
-    expect(overlaps(longBox!, shortBox!)).toBe(false);
-    expect(shortBox!.x + shortBox!.width / 2).toBe(100);
+    const [longPlaced, shortPlaced] = placeEdgeLabels([long, short], []);
+    expect(overlaps(longPlaced!.box, shortPlaced!.box)).toBe(false);
+    expect(shortPlaced!.box.x + shortPlaced!.box.width / 2).toBe(100);
+  });
+
+  test("a label moves to a later segment of a polyline when the first is blocked", () => {
+    const request = {
+      width: 62,
+      height: 19,
+      anchor: { x: 100, y: 0 },
+      path: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+      ],
+    };
+    const [placed] = placeEdgeLabels(
+      [request],
+      [{ x: -50, y: -30, width: 200, height: 60 }],
+    );
+    expect(placed!.box.x + placed!.box.width / 2).toBe(100);
+    expect(placed!.box.y + placed!.box.height / 2).toBe(40);
+    expect(placed!.leader).toBeUndefined();
+  });
+
+  test("a blocked label falls back to a side position with a leader line", () => {
+    const strip = { x: -50, y: -30, width: 300, height: 60 };
+    const request = {
+      width: 62,
+      height: 19,
+      anchor: { x: 100, y: 0 },
+      path: [
+        { x: 0, y: 0 },
+        { x: 200, y: 0 },
+      ],
+      allowLeader: true,
+    };
+    const [placed] = placeEdgeLabels([request], [strip]);
+    expect(overlaps(placed!.box, strip)).toBe(false);
+    expect(placed!.leader).toHaveLength(2);
+    expect(placed!.leader![0]).toEqual({ x: 100, y: 0 });
+    expect(placed!.leader![1]).toEqual({ x: 100, y: placed!.box.y });
+    const [flat] = placeEdgeLabels([{ ...request, allowLeader: false }], [strip]);
+    expect(flat!.leader).toBeUndefined();
+  });
+
+  test("layered output carries no label leader", async () => {
+    const laid = await graphOf({
+      version: 1,
+      kind: "graph",
+      nodes: [{ id: "a" }, { id: "b" }, { id: "c" }],
+      edges: [
+        { from: "a", to: "b", label: "one" },
+        { from: "b", to: "c", label: "two" },
+      ],
+    });
+    for (const edge of laid.edges) expect(edge.labelLeader).toBeUndefined();
   });
 });
 

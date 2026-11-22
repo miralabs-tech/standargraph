@@ -326,6 +326,10 @@ function renderEdge(
       : "sg-arrow-filled";
   const marker = item.directed ? ` marker-end="url(#${markerId})"` : "";
   const path = `<path class="sg-edge" d="${pathOf(item.points)}" fill="none" stroke="${stroke}" stroke-width="${n(scale(item.weight))}" stroke-linejoin="round"${dashAttr(dash)}${marker}/>`;
+  const leader =
+    item.labelLeader === undefined
+      ? ""
+      : `<polyline class="sg-edge-leader" points="${item.labelLeader.map((point) => `${n(point.x)},${n(point.y)}`).join(" ")}" fill="none" stroke="${stroke}" stroke-width="1"/>`;
   const label =
     item.labelBox === undefined || item.label === undefined
       ? ""
@@ -335,7 +339,7 @@ function renderEdge(
       "edge",
       item.id,
       item.meta,
-      path + label,
+      path + leader + label,
       data([
         ["type", item.type],
         ["confidence", confidenceOf(item.meta)],

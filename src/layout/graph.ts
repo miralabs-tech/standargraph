@@ -93,6 +93,7 @@ function laidOutEdge(
   index: number,
   points: Point[],
   labelBox: Box | undefined,
+  labelLeader?: Point[],
 ): LaidOutEdge {
   return compact({
     id: edge.id ?? `e${index}`,
@@ -114,6 +115,10 @@ function laidOutEdge(
             width: round(labelBox.width),
             height: round(labelBox.height),
           },
+    labelLeader: labelLeader?.map((point) => ({
+      x: round(point.x),
+      y: round(point.y),
+    })),
     meta: edge.meta,
   });
 }
@@ -285,15 +290,52 @@ export type EdgeLabelRequest = {
   width: number;
   height: number;
   anchor: Point;
-  segment?: readonly [Point, Point];
+  path?: readonly Point[];
   push?: Point;
+  allowLeader?: boolean;
 };
+
+export type PlacedEdgeLabel = { box: Box; leader?: Point[] };
+
+const SIDE_DISTANCES = [24, 48, 72];
+
+function pathLength(path: readonly Point[]): number {
+  let total = 0;
+  for (let i = 1; i < path.length; i++) {
+    total += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.y - path[i - 1]!.y);
+  }
+  return total;
+}
+
+function pathAt(
+  path: readonly Point[],
+  distance: number,
+): { point: Point; direction: Point } {
+  let remaining = distance;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1]!;
+    const b = path[i]!;
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    if (remaining <= length || i === path.length - 1) {
+      const t = length === 0 ? 0 : Math.min(1, remaining / length);
+      return {
+        point: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
+        direction:
+          length === 0
+            ? { x: 1, y: 0 }
+            : { x: (b.x - a.x) / length, y: (b.y - a.y) / length },
+      };
+    }
+    remaining -= length;
+  }
+  return { point: path[0]!, direction: { x: 1, y: 0 } };
+}
 
 export function placeEdgeLabels(
   requests: readonly (EdgeLabelRequest | undefined)[],
   fixedObstacles: readonly Box[],
-): (Box | undefined)[] {
-  const boxes: (Box | undefined)[] = requests.map(() => undefined);
+): (PlacedEdgeLabel | undefined)[] {
+  const boxes: (PlacedEdgeLabel | undefined)[] = requests.map(() => undefined);
   const placed: Box[] = [];
   const boxAt = (request: EdgeLabelRequest, point: Point): Box => ({
     x: point.x - request.width / 2,
@@ -302,45 +344,76 @@ export function placeEdgeLabels(
     height: request.height,
   });
   requests.forEach((request, index) => {
-    if (request === undefined || request.segment !== undefined) return;
+    if (request === undefined || request.path !== undefined) return;
     const box = boxAt(request, request.anchor);
-    boxes[index] = box;
+    boxes[index] = { box };
     placed.push(box);
   });
-  const lengthOf = (request: EdgeLabelRequest): number => {
-    const [start, end] = request.segment!;
-    return Math.hypot(end.x - start.x, end.y - start.y);
-  };
   const sliding = requests
     .map((request, index) => ({ request, index }))
     .filter(
       (entry): entry is { request: EdgeLabelRequest; index: number } =>
-        entry.request?.segment !== undefined,
+        entry.request?.path !== undefined,
     )
-    .sort(
-      (a, b) => lengthOf(a.request) - lengthOf(b.request) || a.index - b.index,
-    );
-  for (const { request, index } of sliding) {
-    const [start, end] = request.segment!;
+    .map((entry) => ({ ...entry, length: pathLength(entry.request.path!) }))
+    .sort((a, b) => a.length - b.length || a.index - b.index);
+  const overlapOf = (box: Box): number => {
+    let total = 0;
+    for (const obstacle of placed) total += overlapArea(box, obstacle);
+    for (const obstacle of fixedObstacles) total += overlapArea(box, obstacle);
+    return total;
+  };
+  for (const { request, index, length } of sliding) {
+    const path = request.path!;
     const push = request.push ?? { x: 0, y: 0 };
     let best = Number.POSITIVE_INFINITY;
-    let chosen = boxAt(request, request.anchor);
+    let chosen: PlacedEdgeLabel = { box: boxAt(request, request.anchor) };
+    let found = false;
     for (const t of LABEL_POSITIONS) {
-      const box = boxAt(request, {
-        x: start.x + (end.x - start.x) * t + push.x,
-        y: start.y + (end.y - start.y) * t + push.y,
-      });
-      let total = 0;
-      for (const obstacle of placed) total += overlapArea(box, obstacle);
-      for (const obstacle of fixedObstacles) total += overlapArea(box, obstacle);
+      const at = pathAt(path, length * t).point;
+      const box = boxAt(request, { x: at.x + push.x, y: at.y + push.y });
+      const total = overlapOf(box);
       if (total < best) {
         best = total;
-        chosen = box;
+        chosen = { box };
       }
-      if (total === 0) break;
+      if (total === 0) {
+        found = true;
+        break;
+      }
+    }
+    if (!found && request.allowLeader === true) {
+      const { point: middle, direction } = pathAt(path, length / 2);
+      const normal = { x: -direction.y, y: direction.x };
+      const half =
+        (Math.abs(normal.x) * request.width + Math.abs(normal.y) * request.height) / 2;
+      search: for (const distance of SIDE_DISTANCES) {
+        for (const sign of [1, -1]) {
+          const offset = sign * (distance + half);
+          const box = boxAt(request, {
+            x: middle.x + normal.x * offset,
+            y: middle.y + normal.y * offset,
+          });
+          const total = overlapOf(box);
+          if (total < best) {
+            best = total;
+            chosen = {
+              box,
+              leader: [
+                middle,
+                {
+                  x: Math.min(Math.max(middle.x, box.x), box.x + box.width),
+                  y: Math.min(Math.max(middle.y, box.y), box.y + box.height),
+                },
+              ],
+            };
+          }
+          if (total === 0) break search;
+        }
+      }
     }
     boxes[index] = chosen;
-    placed.push(chosen);
+    placed.push(chosen.box);
   }
   return boxes;
 }
@@ -445,7 +518,7 @@ function layoutPrecomputed(
     const toShape = shapeById.get(edge.to);
     let points: Point[];
     let anchor: Point;
-    let segment: [Point, Point] | undefined;
+    let path: Point[] | undefined;
     let push: Point | undefined;
     if (edge.from === edge.to) {
       const right = from.x + from.width;
@@ -533,7 +606,7 @@ function layoutPrecomputed(
           edge.label !== undefined &&
           edge.label !== ""
         ) {
-          segment = [a, b];
+          path = points;
           push = {
             x: anchor.x - (a.x + b.x) / 2,
             y: anchor.y - (a.y + b.y) / 2,
@@ -541,7 +614,13 @@ function layoutPrecomputed(
         }
         const request: EdgeLabelRequest | undefined =
           edge.label !== undefined && edge.label !== ""
-            ? { ...labelBoxSize(edge.label), anchor, segment, push }
+            ? {
+                ...labelBoxSize(edge.label),
+                anchor,
+                path,
+                push,
+                allowLeader: path !== undefined,
+              }
             : undefined;
         return { edge, index, points, request };
       }
@@ -564,7 +643,7 @@ function layoutPrecomputed(
         edge.label !== undefined &&
         edge.label !== ""
       ) {
-        segment = [start, end];
+        path = [start, end];
         push = {
           x: anchor.x - (start.x + end.x) / 2,
           y: anchor.y - (start.y + end.y) / 2,
@@ -573,7 +652,13 @@ function layoutPrecomputed(
     }
     const request: EdgeLabelRequest | undefined =
       edge.label !== undefined && edge.label !== ""
-        ? { ...labelBoxSize(edge.label), anchor, segment, push }
+        ? {
+            ...labelBoxSize(edge.label),
+            anchor,
+            path,
+            push,
+            allowLeader: path !== undefined,
+          }
         : undefined;
     return { edge, index, points, request };
   });
@@ -581,9 +666,17 @@ function layoutPrecomputed(
     drawn.map(({ request }) => request),
     fixedObstacles,
   );
-  const labelBoxes = placedLabels.filter((box): box is Box => box !== undefined);
+  const labelBoxes = placedLabels.flatMap((label) =>
+    label === undefined ? [] : [label.box],
+  );
   const laidOutEdges = drawn.map(({ edge, index, points }) =>
-    laidOutEdge(edge, index, points, placedLabels[index]),
+    laidOutEdge(
+      edge,
+      index,
+      points,
+      placedLabels[index]?.box,
+      placedLabels[index]?.leader,
+    ),
   );
 
   const bounds = boundsOf([
@@ -591,7 +684,11 @@ function layoutPrecomputed(
     ...groupBoxes.values(),
     ...labelBoxes,
     ...laidOutEdges.flatMap((edge) =>
-      edge.points.map((point) => ({ ...point, width: 0, height: 0 })),
+      [...edge.points, ...(edge.labelLeader ?? [])].map((point) => ({
+        ...point,
+        width: 0,
+        height: 0,
+      })),
     ),
   ]);
 
