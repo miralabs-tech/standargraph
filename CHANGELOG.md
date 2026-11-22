@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-22
+
+### Fixed
+
+- In the `stress` layout, an edge label prefers a spot that no other edge passes through, and edge labels are drawn above every edge, so a link that still crosses a label passes under its opaque background. The label keeps its edge's id, link and selection in the interactive HTML.
+
 ## [1.5.0] - 2026-11-22
 
 ### Added
