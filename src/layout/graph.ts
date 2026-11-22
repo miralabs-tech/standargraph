@@ -11,6 +11,7 @@ import {
   round,
 } from "./shared";
 import { clipEnds, clipToShape, shapeSize } from "./shapes";
+import { stressPositions } from "./stress";
 import type {
   Box,
   LaidOutEdge,
@@ -22,7 +23,7 @@ import type {
 
 type OrderedGroup = { group: Group; depth: number };
 
-function orderGroups(groups: readonly Group[]): OrderedGroup[] {
+export function orderGroups(groups: readonly Group[]): OrderedGroup[] {
   const children = new Map<string | undefined, Group[]>();
   for (const group of groups) {
     const list = children.get(group.parent) ?? [];
@@ -44,12 +45,12 @@ function nodeLabel(node: Node): string {
   return node.label ?? node.id;
 }
 
-function groupLabelWidth(group: Group): number {
+export function groupLabelWidth(group: Group): number {
   if (group.label === undefined || group.label === "") return 0;
   return measureText(group.label, GROUP_FONT).width;
 }
 
-function emptyGroupSize(group: Group): { width: number; height: number } {
+export function emptyGroupSize(group: Group): { width: number; height: number } {
   return {
     width: Math.ceil(Math.max(80, groupLabelWidth(group) + 2 * PAD_X)),
     height: groupTopPadding(group.label) + 24,
@@ -360,6 +361,14 @@ function layoutPrecomputed(doc: GraphDocument): LaidOutGraph {
   );
 }
 
+async function layoutStress(doc: GraphDocument): Promise<LaidOutGraph> {
+  const positions = await stressPositions(doc);
+  return layoutPrecomputed({
+    ...doc,
+    nodes: doc.nodes.map((node) => ({ ...node, position: positions.get(node.id)! })),
+  });
+}
+
 export function layoutGraph(doc: GraphDocument): Promise<LaidOutGraph> {
   if (
     doc.nodes.length > 0 &&
@@ -367,5 +376,6 @@ export function layoutGraph(doc: GraphDocument): Promise<LaidOutGraph> {
   ) {
     return Promise.resolve(layoutPrecomputed(doc));
   }
+  if (doc.layout === "stress") return layoutStress(doc);
   return layoutWithElk(doc);
 }
