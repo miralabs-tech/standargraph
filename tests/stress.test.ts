@@ -119,4 +119,42 @@ describe("stress layout", () => {
     const absent = await graphOf(withoutLayout);
     expect(layered).toEqual(absent);
   });
+
+  test("separates opposite edges and their labels", async () => {
+    const doc = {
+      version: 1,
+      kind: "graph",
+      layout: "stress",
+      nodes: [{ id: "a" }, { id: "b" }, { id: "c" }],
+      edges: [
+        { from: "a", to: "b", label: "forth" },
+        { from: "b", to: "a", label: "back" },
+        { from: "b", to: "c" },
+      ],
+    };
+    const result = await graphOf(doc);
+    const [forth, back] = result.edges;
+    expect(forth!.points).not.toEqual(back!.points);
+    expect(overlaps(forth!.labelBox!, back!.labelBox!)).toBe(false);
+    expect(await graphOf(doc)).toEqual(result);
+  });
+
+  test("keeps opposite edges on one axis with precomputed positions", async () => {
+    const result = await graphOf({
+      version: 1,
+      kind: "graph",
+      nodes: [
+        { id: "a", position: { x: 0, y: 0 } },
+        { id: "b", position: { x: 200, y: 0 } },
+      ],
+      edges: [
+        { from: "a", to: "b" },
+        { from: "b", to: "a" },
+      ],
+    });
+    const [forth, back] = result.edges;
+    expect(forth!.points[0]!.y).toBe(forth!.points[1]!.y);
+    expect(back!.points[0]!.y).toBe(forth!.points[0]!.y);
+    expect(back!.points[1]!.y).toBe(forth!.points[1]!.y);
+  });
 });
