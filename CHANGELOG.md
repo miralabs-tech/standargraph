@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-22
+
+### Added
+
+- Graph `layout` field, `layered` (the default, the existing behaviour) or `stress`, in JSON and as `layout=stress` in the `.sg` header. `stress` lays out groups in two passes, the inside of each group first and then the groups and free nodes relative to each other, and draws opposite edges side by side.
+- `--layout <layered|stress>` option of `export`.
+
+### Changed
+
+- The `/layout` validation message now lists the values of the document's kind.
+
 ## [1.3.0] - 2026-11-21
 
 ### Added
@@ -90,6 +101,7 @@ This is the first release of `@standarx/graph`. The package was first published 
 - Comment-preserving formatter: `formatText()` and `format()` keep comments, are idempotent and refuse a document with syntax errors.
 - Partial parsing for editors: the valid statements around a broken line are kept, so completion, hover, symbols, folding and references keep working while the user types.
 
+[1.4.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.4.0
 [1.2.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.2.0
 [1.1.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.1.0
 [1.0.0]: https://github.com/miralabs-tech/standargraph/releases/tag/v1.0.0

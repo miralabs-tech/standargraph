@@ -47,7 +47,7 @@ end
 
 ### `complete(source, position): CompletionItem[]`
 
-Completion items for the cursor, chosen from the context: the kind keywords on the header, statement keywords and operators of the kind, attribute keys inside `[ … ]` (including `data.<key>`), the values allowed for a key (`shape=`, `direction=`, `confidence=`, …), ER flags and cardinalities, and the ids already declared where a reference is expected. It returns an empty array inside a comment or a string.
+Completion items for the cursor, chosen from the context: the kind keywords on the header, statement keywords and operators of the kind, attribute keys inside `[ … ]` (including `data.<key>`), the values allowed for a key (`shape=`, `direction=`, `layout=`, `confidence=`, …), ER flags and cardinalities, and the ids already declared where a reference is expected. It returns an empty array inside a comment or a string.
 
 ```ts
 complete('graph "x"\n\na [', { line: 2, character: 3 });
