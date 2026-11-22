@@ -167,7 +167,7 @@ function headerLine(doc: Document): string {
   if ("direction" in doc && doc.direction !== undefined) {
     pairs.push(["direction", doc.direction]);
   }
-  if (doc.kind === "tree" && doc.layout !== undefined) {
+  if ((doc.kind === "tree" || doc.kind === "graph") && doc.layout !== undefined) {
     pairs.push(["layout", doc.layout]);
   }
   pairs.push(...metaPairs(doc.meta));

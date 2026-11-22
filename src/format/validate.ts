@@ -3,6 +3,7 @@ import { Value, ValueErrorType } from "@sinclair/typebox/value";
 import {
   CARDINALITIES,
   FORMAT_VERSION,
+  GRAPH_LAYOUTS,
   KEYS,
   PSEUDO,
   SHAPES,
@@ -86,7 +87,7 @@ function structuralErrors(
             : /\/keys\/\d+$/.test(error.path)
               ? `Expected one of ${KEYS.join(", ")}`
               : error.path === "/layout"
-                ? `Expected one of ${TREE_LAYOUTS.join(", ")}`
+                ? `Expected one of ${(isRecord(input) && input.kind === "graph" ? GRAPH_LAYOUTS : TREE_LAYOUTS).join(", ")}`
                 : "Expected a string, a number or a boolean";
     } else if (error.type === ValueErrorType.ObjectAdditionalProperties) {
       message = "Unexpected property";

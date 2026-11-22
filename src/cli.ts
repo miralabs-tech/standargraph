@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExportResult } from "./export";
-import type { Document } from "./format/schema";
+import { GRAPH_LAYOUTS, type Document, type GraphLayout } from "./format/schema";
 import { formatLoadErrors } from "./shared/errors";
 import {
   isThemeName,
@@ -39,6 +39,7 @@ Export options:
   --no-palette       Turn off the automatic color per item type
   --scale <n>        PNG scale factor (default: 2)
   --renderer <name>  HTML renderer: auto, svg or webgl (default: auto)
+  --layout <name>    Graph layout override: layered or stress (graph documents only)
   --markdown         Print a Markdown snippet linking the SVG preview to the HTML page, then the Mermaid code block when mermaid is exported
 
 Options:
@@ -89,6 +90,7 @@ type Renderer = "auto" | "svg" | "webgl";
 
 type ExportArgs = {
   file: string;
+  layout: GraphLayout | undefined;
   formats: Format[];
   out: string | undefined;
   name: string | undefined;
@@ -161,7 +163,7 @@ function readTheme(file: string): PageThemeOption | undefined {
 
 function parseExportArgs(args: string[]): ExportArgs | undefined {
   const values = new Map<string, string>();
-  const valued = new Set(["--format", "--out", "--name", "--theme", "--scale", "--renderer"]);
+  const valued = new Set(["--format", "--out", "--name", "--theme", "--scale", "--renderer", "--layout"]);
   let markdown = false;
   let palette = true;
   let file: string | undefined;
@@ -187,7 +189,7 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     }
   }
   if (file === undefined) {
-    return fail(`Usage: standargraph export <file> [--format svg,html,png,pdf,mermaid] [--out <dir>] [--name <base>] [--theme auto|${THEME_NAMES.join("|")}|<file.json>] [--no-palette] [--scale <n>] [--renderer auto|svg|webgl] [--markdown]`);
+    return fail(`Usage: standargraph export <file> [--format svg,html,png,pdf,mermaid] [--out <dir>] [--name <base>] [--theme auto|${THEME_NAMES.join("|")}|<file.json>] [--no-palette] [--scale <n>] [--renderer auto|svg|webgl] [--layout ${GRAPH_LAYOUTS.join("|")}] [--markdown]`);
   }
   const formats: Format[] = [];
   for (const item of (values.get("--format") ?? "svg,html").split(",")) {
@@ -217,8 +219,17 @@ function parseExportArgs(args: string[]): ExportArgs | undefined {
     scale = Number(scaleText);
     if (!Number.isFinite(scale) || scale <= 0) return fail(`Invalid scale: ${scaleText}`);
   }
+  const layoutValue = values.get("--layout");
+  let layout: GraphLayout | undefined;
+  if (layoutValue !== undefined) {
+    if (!(GRAPH_LAYOUTS as readonly string[]).includes(layoutValue)) {
+      return fail(`Unknown layout: ${layoutValue}`);
+    }
+    layout = layoutValue as GraphLayout;
+  }
   return {
     file,
+    layout,
     formats,
     out: values.get("--out"),
     name: values.get("--name"),
@@ -235,7 +246,14 @@ async function runExport(args: string[]): Promise<number> {
   if (parsed === undefined) return 2;
   const read = readDocument(parsed.file);
   if (typeof read === "number") return read;
-  const document = read.document;
+  let document = read.document;
+  if (parsed.layout !== undefined) {
+    if (document.kind !== "graph") {
+      process.stderr.write("--layout applies to graph documents only\n");
+      return 1;
+    }
+    document = { ...document, layout: parsed.layout };
+  }
   const base = parsed.name ?? baseName(parsed.file);
   const directory = parsed.out ?? dirname(parsed.file);
   const rendered = parsed.formats.filter((format) => format !== "mermaid");

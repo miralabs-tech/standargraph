@@ -1,4 +1,4 @@
-import { DirectionSchema, PSEUDO, SHAPES, TREE_LAYOUTS } from "../format/schema";
+import { DirectionSchema, GRAPH_LAYOUTS, PSEUDO, SHAPES, TREE_LAYOUTS } from "../format/schema";
 import type { Range, Sink } from "./errors";
 import type {
   Ast,
@@ -71,7 +71,7 @@ const TREE_NODE: Spec = {
   meta: true,
 };
 const HEADERS: Readonly<Record<Kind, Spec>> = {
-  graph: { noun: "the header", fields: { direction: DIRECTIONS }, meta: true },
+  graph: { noun: "the header", fields: { direction: DIRECTIONS, layout: GRAPH_LAYOUTS }, meta: true },
   sequence: { noun: "the header", fields: {}, meta: true },
   state: { noun: "the header", fields: { direction: DIRECTIONS }, meta: true },
   er: { noun: "the header", fields: { direction: DIRECTIONS }, meta: true },

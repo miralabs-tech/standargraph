@@ -335,6 +335,13 @@ describe("print output", () => {
     expect(text).not.toMatch(/ {$/m);
   });
 
+  test("a graph layout survives the text round trip", () => {
+    const source = 'graph "T" [direction=right, layout=stress]\n\na\nb\n\na -> b\n';
+    const document = reparse(source);
+    expect((document as { layout?: string }).layout).toBe("stress");
+    expect(print(document)).toBe(source);
+  });
+
   test("sequence operators follow the message style", () => {
     const symbols = print(SEQUENCE).split("\n");
     const words = print(SEQUENCE, { style: "words" }).split("\n");

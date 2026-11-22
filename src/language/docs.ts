@@ -1,4 +1,4 @@
-import { DirectionSchema, PSEUDO, SHAPES, TREE_LAYOUTS } from "../format/schema";
+import { DirectionSchema, GRAPH_LAYOUTS, PSEUDO, SHAPES, TREE_LAYOUTS } from "../format/schema";
 import type { Kind, OpSymbol } from "../text/parser";
 
 export type AttrContext =
@@ -25,6 +25,7 @@ export const KIND_DOCS: Readonly<Record<Kind, string>> = {
 
 const DIRECTION = "Layout direction: down, right, up or left.";
 const LAYOUT = "Tree layout: tree or mindmap.";
+const GRAPH_LAYOUT = "Graph layout: layered (default) or stress.";
 const ID = "Explicit id of this item, used instead of the generated one.";
 const TYPE = "Free-form type of this item, used for styling and grouping (for example page, service or database).";
 const SHAPE =
@@ -33,7 +34,7 @@ const LINK = "URL or path this item links to.";
 const DESCRIPTION = "Longer description shown with this item.";
 
 const HEADER_DOCS: Readonly<Record<Kind, Readonly<Record<string, string>>>> = {
-  graph: { direction: DIRECTION },
+  graph: { direction: DIRECTION, layout: GRAPH_LAYOUT },
   sequence: {},
   state: { direction: DIRECTION },
   er: { direction: DIRECTION },
@@ -145,6 +146,7 @@ export function attributeValues(context: AttrContext, key: string, kind: Kind): 
   if (context === "header") {
     if (key === "direction" && Object.hasOwn(HEADER_DOCS[kind], key)) return DIRECTIONS;
     if (key === "layout" && kind === "tree") return TREE_LAYOUTS;
+    if (key === "layout" && kind === "graph") return GRAPH_LAYOUTS;
     return undefined;
   }
   if (key === "shape" && (context === "node" || context === "treeNode")) return SHAPES;

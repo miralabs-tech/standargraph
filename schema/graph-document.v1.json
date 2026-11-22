@@ -26,6 +26,18 @@
         "title": {
           "type": "string"
         },
+        "layout": {
+          "anyOf": [
+            {
+              "const": "layered",
+              "type": "string"
+            },
+            {
+              "const": "stress",
+              "type": "string"
+            }
+          ]
+        },
         "direction": {
           "anyOf": [
             {
