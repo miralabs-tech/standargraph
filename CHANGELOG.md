@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-22
+
+### Fixed
+
+- In the `stress` layout, edge labels slide along their edge to avoid other labels, nodes and group titles; a label on an edge shorter than itself may still overlap.
+
 ## [1.4.0] - 2026-11-22
 
 ### Added
