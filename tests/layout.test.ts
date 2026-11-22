@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { layout, measureText } from "../src/layout";
+import { placeEdgeLabels } from "../src/layout/graph";
 import { groupTopPadding } from "../src/layout/shared";
 import type {
   Box,
@@ -277,6 +278,29 @@ describe("graph layout", () => {
         expect(overlaps(label, title)).toBe(false);
       }
     }
+  });
+
+  test("edge labels of short edges are placed before those of long edges", () => {
+    const size = { width: 62, height: 19 };
+    const long = {
+      ...size,
+      anchor: { x: 100, y: 34 },
+      segment: [
+        { x: 0, y: 34 },
+        { x: 200, y: 34 },
+      ] as const,
+    };
+    const short = {
+      ...size,
+      anchor: { x: 100, y: 34 },
+      segment: [
+        { x: 100, y: 14 },
+        { x: 100, y: 54 },
+      ] as const,
+    };
+    const [longBox, shortBox] = placeEdgeLabels([long, short], []);
+    expect(overlaps(longBox!, shortBox!)).toBe(false);
+    expect(shortBox!.x + shortBox!.width / 2).toBe(100);
   });
 });
 

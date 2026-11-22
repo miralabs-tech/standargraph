@@ -1,6 +1,6 @@
 {
   "name": "@standarx/graph",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "type": "module",
   "license": "MIT",
   "description": "Declarative graph and diagram rendering",
