@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { layout, measureText } from "../src/layout";
+import { groupTopPadding } from "../src/layout/shared";
 import type {
   Box,
   LaidOutGraph,
@@ -221,6 +222,61 @@ describe("graph layout", () => {
     expect(inside(inner, outer)).toBe(true);
     expect(laid.edges[0]!.points.length).toBe(2);
     expect(laid.edges[0]!.labelBox).toBeDefined();
+  });
+
+  test("stress layout keeps edge labels off each other, nodes and group titles", async () => {
+    const spokes = [
+      ["a1", "alpha"],
+      ["a2", "alpha"],
+      ["a3", "alpha"],
+      ["b1", "beta"],
+      ["b2", "beta"],
+      ["c1", "gamma"],
+      ["c2", "gamma"],
+      ["c3", "gamma"],
+    ] as const;
+    const laid = await graphOf({
+      version: 1,
+      kind: "graph",
+      layout: "stress",
+      groups: [
+        { id: "alpha", label: "Alpha group" },
+        { id: "beta", label: "Beta group" },
+        { id: "gamma", label: "Gamma group" },
+      ],
+      nodes: [
+        { id: "hub", label: "Hub" },
+        ...spokes.map(([id, group]) => ({ id, group })),
+      ],
+      edges: [
+        ...spokes.map(([id], index) => ({
+          from: "hub",
+          to: id,
+          label: index % 2 === 0 ? "2 close(s)" : "1 close(s)",
+        })),
+        { from: "a1", to: "hub", label: "1 close(s)" },
+        { from: "b1", to: "c1", label: "2 close(s)" },
+        { from: "a2", to: "b2", label: "1 close(s)" },
+      ],
+    });
+    const labels = laid.edges.flatMap((edge) =>
+      edge.labelBox === undefined ? [] : [edge.labelBox],
+    );
+    expect(labels.length).toBe(laid.edges.length);
+    for (let i = 0; i < labels.length; i++) {
+      for (let j = i + 1; j < labels.length; j++) {
+        expect(overlaps(labels[i]!, labels[j]!)).toBe(false);
+      }
+    }
+    for (const label of labels) {
+      for (const node of laid.nodes) {
+        expect(overlaps(label, node)).toBe(false);
+      }
+      for (const group of laid.groups) {
+        const title = { ...group, height: groupTopPadding(group.label) };
+        expect(overlaps(label, title)).toBe(false);
+      }
+    }
   });
 });
 
