@@ -56,6 +56,7 @@ standargraph export graph.json --format svg,html,png,pdf --out out --theme dark
 standargraph export graph.json --renderer webgl             # force la page WebGL
 standargraph export graph.json --markdown                   # affiche aussi un extrait Markdown d'aperçu
 standargraph export graph.json --format mermaid             # graph.mmd, pour le Markdown de GitHub (voir docs/mermaid.md)
+standargraph export graph.json --layout stress              # mise en page stress pour un graphe en étoile
 standargraph layout graph.json                              # graph.positioned.json : chaque nœud reçoit sa position calculée
 standargraph convert graph.json                             # graph.sg, le même document en syntaxe texte
 standargraph convert graph.sg --to json --out out/graph.json
@@ -72,6 +73,7 @@ Chaque commande lit du JSON ou la [syntaxe texte](#syntaxe-texte) : le format es
 | `--no-palette` | Coupe la couleur automatique par `type` d'élément ; s'applique aussi à `mermaid` |
 | `--scale <n>` | Facteur d'échelle du PNG (défaut 2) |
 | `--renderer <nom>` | Rendu HTML : `auto`, `svg` ou `webgl` (défaut `auto`) |
+| `--layout <layered\|stress>` | Remplace le `layout` d'un document `graph` (voir [`graph` et `sequence`](#graph-et-sequence)) ; une valeur invalide sort avec 2, un document qui n'est pas un `graph` sort avec 1 |
 | `--markdown` | Affiche `[![titre](base.svg)](base.html)`, un extrait Markdown qui lie l'aperçu SVG à la page HTML ; avec `mermaid` dans `--format`, un bloc de code `mermaid` suit |
 
 ### JavaScript
@@ -159,6 +161,8 @@ Chaque document porte `version: 1` et un `kind`. Les fichiers de [examples](./ex
 ### `graph` et `sequence`
 
 `graph` contient des `nodes`, des `edges` et des `groups` imbriqués ; `sequence` contient des `participants` et des `messages`. Voir le démarrage rapide plus haut, ainsi que `examples/architecture.json` et `examples/protocol.json`.
+
+Un document `graph` peut définir `"layout": "layered"` (par défaut, la mise en page en couches d'ELK) ou `"layout": "stress"`, écrit `layout=stress` dans l'en-tête `.sg`. `stress` place les nœuds pour que les distances dessinées suivent les distances du graphe : à choisir pour les graphes en étoile, où `layered` dessine de longs détours. Les groupes sont mis en page en deux passes, l'intérieur de chaque groupe d'abord, puis les groupes et les nœuds libres les uns par rapport aux autres, et deux groupes voisins ne se chevauchent jamais. Les arêtes sont droites, rognées aux formes des nœuds, avec l'étiquette au milieu, et deux arêtes entre les deux mêmes nœuds sont dessinées côte à côte, à 8 px de part et d'autre. `direction` n'a aucun effet avec `stress`. Limite connue : les arêtes droites peuvent traverser d'autres groupes, et les étiquettes peuvent recouvrir des nœuds sur les graphes denses. `state` et `er` refusent `layout` ; `tree` garde `tree` et `mindmap`.
 
 ### `state`
 

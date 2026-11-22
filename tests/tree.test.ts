@@ -146,6 +146,26 @@ describe("validation", () => {
     ]);
   });
 
+  test("a graph accepts layered and stress and names them otherwise", () => {
+    const graph: any = { version: 1, kind: "graph", nodes: [{ id: "a", label: "A" }] };
+    for (const value of ["layered", "stress"]) {
+      graph.layout = value;
+      expect(validate(graph).ok).toBe(true);
+    }
+    graph.layout = "mindmap";
+    expect(errorsOf(graph)).toEqual([
+      { path: "/layout", message: "Expected one of layered, stress" },
+    ]);
+  });
+
+  test("state and er documents still reject layout", () => {
+    const state: any = { version: 1, kind: "state", layout: "stress", states: [{ id: "a", label: "A" }] };
+    const er: any = { version: 1, kind: "er", layout: "stress", entities: [{ id: "a", label: "A" }] };
+    for (const doc of [state, er]) {
+      expect(errorsOf(doc)).toContainEqual({ path: "/layout", message: "Unexpected property" });
+    }
+  });
+
   test("an unknown kind lists the tree kind", () => {
     expect(errorsOf({ version: 1, kind: "pie" })[0]!.message).toContain('"tree"');
   });

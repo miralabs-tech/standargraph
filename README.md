@@ -56,6 +56,7 @@ standargraph export graph.json --format svg,html,png,pdf --out out --theme dark
 standargraph export graph.json --renderer webgl             # force the WebGL page
 standargraph export graph.json --markdown                   # also print a Markdown preview snippet
 standargraph export graph.json --format mermaid             # graph.mmd, for GitHub Markdown (see docs/mermaid.md)
+standargraph export graph.json --layout stress              # stress layout for a hub-shaped graph
 standargraph layout graph.json                              # graph.positioned.json: every node gets its computed position
 standargraph convert graph.json                             # graph.sg, the same document in the text syntax
 standargraph convert graph.sg --to json --out out/graph.json
@@ -72,6 +73,7 @@ Every command reads JSON or the [text syntax](#text-syntax): the format is detec
 | `--no-palette` | Turn off the automatic color per item `type`; also applies to `mermaid` |
 | `--scale <n>` | PNG scale factor (default 2) |
 | `--renderer <name>` | HTML renderer: `auto`, `svg` or `webgl` (default `auto`) |
+| `--layout <layered\|stress>` | Override the `layout` of a `graph` document (see [`graph` and `sequence`](#graph-and-sequence)); an invalid value exits 2, a document that is not a `graph` exits 1 |
 | `--markdown` | Print `[![title](base.svg)](base.html)`, a Markdown snippet linking the SVG preview to the HTML page; with `mermaid` in `--format`, a fenced `mermaid` code block follows |
 
 ### JavaScript
@@ -159,6 +161,8 @@ Every document has `version: 1` and a `kind`. The files in [examples](./examples
 ### `graph` and `sequence`
 
 `graph` holds `nodes`, `edges` and nested `groups`; `sequence` holds `participants` and `messages`. See the quickstart above and `examples/architecture.json` and `examples/protocol.json`.
+
+A `graph` document may set `"layout": "layered"` (the default, ELK's layered layout) or `"layout": "stress"`, written `layout=stress` in the `.sg` header. `stress` places nodes so that drawn distances follow graph distances: choose it for hub-shaped graphs, where `layered` draws long detours. Groups are laid out in two passes, the inside of each group first, then the groups and the free nodes relative to each other, and sibling groups never overlap. Edges are straight, clipped to the node shapes, with the label at the midpoint, and two edges between the same pair of nodes are drawn side by side, 8 px apart on each side. `direction` has no effect with `stress`. Known limit: straight edges may cross other groups, and labels may overlap nodes on dense graphs. `state` and `er` reject `layout`; `tree` keeps `tree` and `mindmap`.
 
 ### `state`
 

@@ -40,6 +40,8 @@ describe("header line", () => {
     expect(labels(at('sequence "T" ['))).not.toContain("direction");
     expect(labels(at('tree "T" [layout='))).toEqual(["mindmap", "tree"]);
     expect(labels(at('graph "T" [direction='))).toEqual(["down", "left", "right", "up"]);
+    expect(labels(at('graph "T" [layout='))).toEqual(["layered", "stress"]);
+    expect(labels(at('graph "T" ['))).toContain("layout");
   });
 });
 

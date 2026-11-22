@@ -103,12 +103,15 @@ export const DirectionSchema = Type.Union([
   Type.Literal("left"),
 ]);
 
+export const GRAPH_LAYOUTS = ["layered", "stress"] as const;
+
 export const GraphDocumentSchema = Type.Object(
   {
     $schema: Type.Optional(Type.String()),
     version: Type.Literal(FORMAT_VERSION),
     kind: Type.Literal("graph"),
     title: Type.Optional(Type.String()),
+    layout: Type.Optional(Type.Union(GRAPH_LAYOUTS.map((layout) => Type.Literal(layout)))),
     direction: Type.Optional(DirectionSchema),
     nodes: Type.Array(NodeSchema),
     edges: Type.Optional(Type.Array(EdgeSchema)),
@@ -325,7 +328,8 @@ export type Attribute = Static<typeof AttributeSchema>;
 export type Entity = Static<typeof EntitySchema>;
 export type Relation = Static<typeof RelationSchema>;
 export type ErDocument = Static<typeof ErDocumentSchema>;
-export type TreeLayout = (typeof TREE_LAYOUTS)[number];
+export type GraphLayout = (typeof GRAPH_LAYOUTS)[number];
+export type TreeLayout =(typeof TREE_LAYOUTS)[number];
 export type TreeNode = Static<typeof TreeNodeSchema>;
 export type TreeDocument = Static<typeof TreeDocumentSchema>;
 export type Document = Static<typeof DocumentSchema>;

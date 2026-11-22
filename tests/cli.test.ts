@@ -76,6 +76,23 @@ test("export rejects an unknown format, an unknown flag and a missing file with 
   }
 });
 
+test("export --layout accepts a graph layout and rejects bad values and non-graph documents", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
+  try {
+    expect(
+      await run(["export", "examples/architecture.json", "--layout", "stress", "--out", dir]),
+    ).toBe(0);
+    expect(
+      await run(["export", "examples/architecture.json", "--layout", "radial", "--out", dir]),
+    ).toBe(2);
+    expect(
+      await run(["export", "examples/protocol.json", "--layout", "stress", "--out", dir]),
+    ).toBe(1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("export, layout and convert write next to a bare file name from its own folder", async () => {
   const dir = mkdtempSync(join(tmpdir(), "standargraph-"));
   const previous = process.cwd();

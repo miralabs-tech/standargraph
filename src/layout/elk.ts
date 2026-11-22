@@ -58,6 +58,17 @@ function toElkNode(box: ElkBoxInput): ElkNode {
   };
 }
 
+export async function elkLayout(root: ElkNode): Promise<ElkNode> {
+  const scope = globalThis as unknown as { onmessage?: unknown };
+  const previousHandler = scope.onmessage;
+  try {
+    return await new ELK().layout(root);
+  } finally {
+    // elkjs registers a global onmessage handler that keeps Bun's event loop alive
+    scope.onmessage = previousHandler;
+  }
+}
+
 export async function runElk(
   direction: Direction,
   children: ElkBoxInput[],
@@ -98,15 +109,7 @@ export async function runElk(
     edges: elkEdges,
   };
 
-  const scope = globalThis as unknown as { onmessage?: unknown };
-  const previousHandler = scope.onmessage;
-  let result: ElkNode;
-  try {
-    result = await new ELK().layout(root);
-  } finally {
-    // elkjs registers a global onmessage handler that keeps Bun's event loop alive
-    scope.onmessage = previousHandler;
-  }
+  const result = await elkLayout(root);
 
   const absolute = new Map<string, Point>();
   const boxes = new Map<string, Box>();
