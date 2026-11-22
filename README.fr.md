@@ -1,6 +1,6 @@
 # StandarGraph
 
-[![CI](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml/badge.svg)](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@standarx/graph)](https://www.npmjs.com/package/@standarx/graph) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org)
+[![CI](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml/badge.svg)](https://github.com/miralabs-tech/standargraph/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@standarx/graph)](https://www.npmjs.com/package/@standarx/graph) [![downloads](https://img.shields.io/npm/dm/@standarx/graph?color=blue)](https://www.npmjs.com/package/@standarx/graph) [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org)
 
 > "Diagrammes déclaratifs à partir de JSON (graphes, séquences, machines à états, entité-relation et arbres), rendus en SVG, HTML interactif, PNG et PDF, avec WebGL au-delà de 2000 nœuds de graphe."
 
