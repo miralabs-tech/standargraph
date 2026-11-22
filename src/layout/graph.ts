@@ -331,9 +331,39 @@ function pathAt(
   return { point: path[0]!, direction: { x: 1, y: 0 } };
 }
 
+const AREA_WEIGHT = 1_000_000;
+
+function segmentCrossesBox(a: Point, b: Point, box: Box): boolean {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const sides: [number, number][] = [
+    [-dx, a.x - box.x],
+    [dx, box.x + box.width - a.x],
+    [-dy, a.y - box.y],
+    [dy, box.y + box.height - a.y],
+  ];
+  let enter = 0;
+  let leave = 1;
+  for (const [p, q] of sides) {
+    if (p === 0) {
+      if (q <= 0) return false;
+      continue;
+    }
+    const t = q / p;
+    if (p < 0) {
+      if (t > enter) enter = t;
+    } else if (t < leave) {
+      leave = t;
+    }
+    if (enter >= leave) return false;
+  }
+  return true;
+}
+
 export function placeEdgeLabels(
   requests: readonly (EdgeLabelRequest | undefined)[],
   fixedObstacles: readonly Box[],
+  edgePaths?: readonly (readonly Point[] | undefined)[],
 ): (PlacedEdgeLabel | undefined)[] {
   const boxes: (PlacedEdgeLabel | undefined)[] = requests.map(() => undefined);
   const placed: Box[] = [];
@@ -357,13 +387,22 @@ export function placeEdgeLabels(
     )
     .map((entry) => ({ ...entry, length: pathLength(entry.request.path!) }))
     .sort((a, b) => a.length - b.length || a.index - b.index);
-  const overlapOf = (box: Box): number => {
+  const overlapOf = (box: Box, index: number, avoidPaths: boolean): number => {
     let total = 0;
     for (const obstacle of placed) total += overlapArea(box, obstacle);
     for (const obstacle of fixedObstacles) total += overlapArea(box, obstacle);
-    return total;
+    if (!avoidPaths || edgePaths === undefined) return total;
+    let crossings = 0;
+    edgePaths.forEach((path, other) => {
+      if (other === index || path === undefined) return;
+      for (let i = 1; i < path.length; i++) {
+        if (segmentCrossesBox(path[i - 1]!, path[i]!, box)) crossings++;
+      }
+    });
+    return total * AREA_WEIGHT + crossings;
   };
   for (const { request, index, length } of sliding) {
+    const avoidPaths = request.allowLeader === true;
     const path = request.path!;
     const push = request.push ?? { x: 0, y: 0 };
     let best = Number.POSITIVE_INFINITY;
@@ -372,7 +411,7 @@ export function placeEdgeLabels(
     for (const t of LABEL_POSITIONS) {
       const at = pathAt(path, length * t).point;
       const box = boxAt(request, { x: at.x + push.x, y: at.y + push.y });
-      const total = overlapOf(box);
+      const total = overlapOf(box, index, avoidPaths);
       if (total < best) {
         best = total;
         chosen = { box };
@@ -394,7 +433,7 @@ export function placeEdgeLabels(
             x: middle.x + normal.x * offset,
             y: middle.y + normal.y * offset,
           });
-          const total = overlapOf(box);
+          const total = overlapOf(box, index, avoidPaths);
           if (total < best) {
             best = total;
             chosen = {
@@ -665,6 +704,9 @@ function layoutPrecomputed(
   const placedLabels = placeEdgeLabels(
     drawn.map(({ request }) => request),
     fixedObstacles,
+    options.avoidLabelCollisions === true
+      ? drawn.map(({ points }) => points)
+      : undefined,
   );
   const labelBoxes = placedLabels.flatMap((label) =>
     label === undefined ? [] : [label.box],
@@ -706,7 +748,7 @@ function layoutPrecomputed(
 
 async function layoutStress(doc: GraphDocument): Promise<LaidOutGraph> {
   const positions = await stressPositions(doc);
-  return layoutPrecomputed(
+  const laid = layoutPrecomputed(
     {
       ...doc,
       nodes: doc.nodes.map((node) => ({ ...node, position: positions.get(node.id)! })),
@@ -717,6 +759,7 @@ async function layoutStress(doc: GraphDocument): Promise<LaidOutGraph> {
       routeAroundGroups: true,
     },
   );
+  return { ...laid, labelsAbove: true };
 }
 
 export function layoutGraph(doc: GraphDocument): Promise<LaidOutGraph> {

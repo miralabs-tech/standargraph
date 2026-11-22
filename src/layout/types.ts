@@ -51,6 +51,7 @@ export type LaidOutGraph = {
   width: number;
   height: number;
   title?: string;
+  labelsAbove?: boolean;
   groups: LaidOutGroup[];
   nodes: LaidOutNode[];
   edges: LaidOutEdge[];

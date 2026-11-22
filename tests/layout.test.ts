@@ -344,6 +344,67 @@ describe("graph layout", () => {
     expect(flat!.leader).toBeUndefined();
   });
 
+  test("a label whose midpoint sits on another edge's path moves off every other path", () => {
+    const own = [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+    ];
+    const other = [
+      { x: 100, y: -50 },
+      { x: 100, y: 50 },
+    ];
+    const request = {
+      width: 62,
+      height: 19,
+      anchor: { x: 100, y: 0 },
+      path: own,
+      allowLeader: true,
+    };
+    const [placed] = placeEdgeLabels([request, undefined], [], [own, other]);
+    const box = placed!.box;
+    expect(box.x + box.width <= 100 || box.x >= 100).toBe(true);
+    expect(placed!.leader).toBeUndefined();
+  });
+
+  test("a label's own path does not count against its placement", () => {
+    const own = [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+    ];
+    const request = {
+      width: 62,
+      height: 19,
+      anchor: { x: 100, y: 0 },
+      path: own,
+      allowLeader: true,
+    };
+    const [placed] = placeEdgeLabels([request], [], [own]);
+    expect(placed!.box.x + placed!.box.width / 2).toBe(100);
+    expect(placed!.box.y + placed!.box.height / 2).toBe(0);
+  });
+
+  test("a label with no clear spot along its path takes a side position that crosses no other path", () => {
+    const own = [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+    ];
+    const band = [
+      { x: -20, y: 0 },
+      { x: 220, y: 0 },
+    ];
+    const request = {
+      width: 62,
+      height: 19,
+      anchor: { x: 100, y: 0 },
+      path: own,
+      allowLeader: true,
+    };
+    const [placed] = placeEdgeLabels([request], [], [own, band]);
+    const box = placed!.box;
+    expect(box.y > 0 || box.y + box.height < 0).toBe(true);
+    expect(placed!.leader).toHaveLength(2);
+  });
+
   test("layered output carries no label leader", async () => {
     const laid = await graphOf({
       version: 1,
