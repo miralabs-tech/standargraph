@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-22
+
+### Added
+
+- In the `stress` layout, an edge that would cross a group containing neither of its ends bends around that group's corners, 12 px off its border; edges with a clear way stay straight, and two opposite edges follow the same route 8 px apart.
+- `labelLeader` optional field of a laid-out edge: when no spot along a `stress` edge is free, its label sits beside the midpoint, 24, 48 or 72 px away, and the SVG draws a 1 px leader line to the edge.
+
+### Changed
+
+- `stress` edge labels slide along the whole routed polyline instead of a single segment.
+
 ## [1.4.2] - 2026-11-22
 
 ### Fixed
