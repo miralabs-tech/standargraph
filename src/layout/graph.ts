@@ -10,6 +10,7 @@ import {
   PAD_X,
   round,
 } from "./shared";
+import { offsetPolyline, routeAroundObstacles } from "./route";
 import { clipEnds, clipToShape, shapeSize } from "./shapes";
 import { stressPositions } from "./stress";
 import type {
@@ -346,7 +347,11 @@ export function placeEdgeLabels(
 
 function layoutPrecomputed(
   doc: GraphDocument,
-  options: { separateOpposite?: boolean; avoidLabelCollisions?: boolean } = {},
+  options: {
+    separateOpposite?: boolean;
+    avoidLabelCollisions?: boolean;
+    routeAroundGroups?: boolean;
+  } = {},
 ): LaidOutGraph {
   const nodeBoxes = new Map<string, Box>();
   for (const node of doc.nodes) {
@@ -420,6 +425,19 @@ function layoutPrecomputed(
       };
     }),
   ];
+  const groupParent = new Map(
+    groups.map(({ group }) => [group.id, group.parent]),
+  );
+  const nodeGroup = new Map(doc.nodes.map((node) => [node.id, node.group]));
+  const ancestorsOf = (nodeId: string): string[] => {
+    const chain: string[] = [];
+    let current = nodeGroup.get(nodeId);
+    while (current !== undefined && !chain.includes(current)) {
+      chain.push(current);
+      current = groupParent.get(current);
+    }
+    return chain;
+  };
   const drawn = (doc.edges ?? []).map((edge, index) => {
     const from = nodeBoxes.get(edge.from)!;
     const to = nodeBoxes.get(edge.to)!;
@@ -461,8 +479,74 @@ function layoutPrecomputed(
       }
       const shiftedFrom = { x: fromCenter.x + shift.x, y: fromCenter.y + shift.y };
       const shiftedTo = { x: toCenter.x + shift.x, y: toCenter.y + shift.y };
-      const start = clipToShape(fromShape, from, shiftedTo);
-      const end = clipToShape(toShape, to, shiftedFrom);
+      let routed: Point[] | undefined;
+      if (options.routeAroundGroups === true) {
+        const own = new Set([
+          ...ancestorsOf(edge.from),
+          ...ancestorsOf(edge.to),
+        ]);
+        const obstacles = groups
+          .filter(({ group }) => !own.has(group.id))
+          .map(({ group }) => groupBoxes.get(group.id)!);
+        const forward = edge.from < edge.to;
+        const route = routeAroundObstacles(
+          forward ? fromCenter : toCenter,
+          forward ? toCenter : fromCenter,
+          obstacles,
+        );
+        if (route.length > 2) {
+          const shifted = offsetPolyline(route, offset);
+          routed = forward ? shifted : shifted.reverse();
+        }
+      }
+      let start: Point;
+      let end: Point;
+      if (routed !== undefined) {
+        start = clipToShape(fromShape, from, routed[1]!);
+        end = clipToShape(toShape, to, routed[routed.length - 2]!);
+        points = [start, ...routed.slice(1, -1), end];
+        let longest = 0;
+        let best = -1;
+        for (let i = 0; i < points.length - 1; i++) {
+          const length = Math.hypot(
+            points[i + 1]!.x - points[i]!.x,
+            points[i + 1]!.y - points[i]!.y,
+          );
+          if (length > best) {
+            best = length;
+            longest = i;
+          }
+        }
+        const a = points[longest]!;
+        const b = points[longest + 1]!;
+        anchor = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        if (offset !== 0 && edge.label !== undefined && edge.label !== "" && best > 0) {
+          const size = labelBoxSize(edge.label);
+          const side = (edge.from < edge.to ? 1 : -1) * Math.sign(offset);
+          const nx = (-(b.y - a.y) / best) * side;
+          const ny = ((b.x - a.x) / best) * side;
+          const amount = (Math.abs(nx) * size.width + Math.abs(ny) * size.height) / 2;
+          anchor = { x: anchor.x + nx * amount, y: anchor.y + ny * amount };
+        }
+        if (
+          options.avoidLabelCollisions === true &&
+          edge.label !== undefined &&
+          edge.label !== ""
+        ) {
+          segment = [a, b];
+          push = {
+            x: anchor.x - (a.x + b.x) / 2,
+            y: anchor.y - (a.y + b.y) / 2,
+          };
+        }
+        const request: EdgeLabelRequest | undefined =
+          edge.label !== undefined && edge.label !== ""
+            ? { ...labelBoxSize(edge.label), anchor, segment, push }
+            : undefined;
+        return { edge, index, points, request };
+      }
+      start = clipToShape(fromShape, from, shiftedTo);
+      end = clipToShape(toShape, to, shiftedFrom);
       points = [start, end];
       anchor = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
       if (offset !== 0 && edge.label !== undefined && edge.label !== "") {
@@ -530,7 +614,11 @@ async function layoutStress(doc: GraphDocument): Promise<LaidOutGraph> {
       ...doc,
       nodes: doc.nodes.map((node) => ({ ...node, position: positions.get(node.id)! })),
     },
-    { separateOpposite: true, avoidLabelCollisions: true },
+    {
+      separateOpposite: true,
+      avoidLabelCollisions: true,
+      routeAroundGroups: true,
+    },
   );
 }
 
