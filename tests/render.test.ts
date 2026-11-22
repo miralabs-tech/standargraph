@@ -114,6 +114,48 @@ describe("structure", () => {
     expect(svg.indexOf(leader)).toBeLessThan(svg.indexOf('<rect class="sg-label-bg'));
   });
 
+  test("a stress graph draws every edge label above every edge path", async () => {
+    const doc = {
+      version: 1,
+      kind: "graph",
+      layout: "stress",
+      nodes: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }],
+      edges: [
+        { from: "a", to: "b", label: "one" },
+        { from: "b", to: "c", label: "two" },
+        { from: "c", to: "d", label: "three" },
+        { from: "a", to: "c" },
+      ],
+    };
+    const svg = await render(doc);
+    assertWellFormed(svg);
+    const body = svg.slice(svg.indexOf("</defs>"));
+    const lastPath = body.lastIndexOf('<path class="sg-edge"');
+    const firstLabel = body.indexOf("sg-edge-label");
+    expect(lastPath).toBeGreaterThan(-1);
+    expect(firstLabel).toBeGreaterThan(lastPath);
+    expect(body.match(/data-kind="edge" data-id="e0"/g)).toHaveLength(2);
+    expect(body.match(/<g data-kind="edge"[^>]*class="sg-edge-labels"/g)).toHaveLength(3);
+    const nodeStart = body.indexOf('data-kind="node"');
+    expect(body.lastIndexOf("sg-edge-label")).toBeLessThan(nodeStart);
+  });
+
+  test("a layered graph keeps each label inside its own edge group", async () => {
+    const svg = await render({
+      version: 1,
+      kind: "graph",
+      nodes: [{ id: "a" }, { id: "b" }, { id: "c" }],
+      edges: [
+        { from: "a", to: "b", label: "one" },
+        { from: "b", to: "c", label: "two" },
+      ],
+    });
+    const body = svg.slice(svg.indexOf("</defs>"));
+    expect(body.indexOf("sg-edge-label")).toBeLessThan(body.lastIndexOf('<path class="sg-edge"'));
+    expect(body).not.toContain("sg-edge-labels");
+    expect(body.match(/data-kind="edge"/g)).toHaveLength(2);
+  });
+
   test("every element carries data-id and data-kind", async () => {
     const svg = await render(example("architecture"));
     const kinds = [...svg.matchAll(/data-kind="(\w+)"/g)].map((m) => m[1]);

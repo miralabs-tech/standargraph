@@ -525,6 +525,74 @@ describe("mount() with an edge carrying weight, description and link", () => {
   });
 });
 
+describe("mount() with a stress graph whose labels are drawn above the links", () => {
+  const errors: string[] = [];
+  let page: Page;
+
+  beforeAll(async () => {
+    page = await open(await bundle("stress-labels", "{}"), errors);
+    await page.evaluate(async (doc) => {
+      const w = window as any;
+      w.m1 = await w.mountInto("a", doc);
+    }, {
+      version: 1,
+      kind: "graph",
+      layout: "stress",
+      nodes: [{ id: "a" }, { id: "b" }, { id: "c" }],
+      edges: [
+        { from: "a", to: "b", label: "one" },
+        { from: "b", to: "c", label: "two" },
+      ],
+    });
+  }, 60000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
+  test("clicking an edge label selects the edge and marks both of its parts", async () => {
+    await page.evaluate(() => (window as any).m1.view.fit());
+    const point = await page.evaluate(() => {
+      const rect = document
+        .querySelector("#a g.sg-edge-labels[data-id=e1] rect.sg-label-bg")!
+        .getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    });
+    await page.mouse.click(point.x, point.y);
+    expect(await page.evaluate(() => (window as any).m1.view.selected())).toEqual({
+      kind: "edge",
+      id: "e1",
+    });
+    const marked = () =>
+      page.evaluate(
+        () => document.querySelectorAll("#a [data-kind=edge][data-id=e1].sg-selected").length,
+      );
+    expect(await marked()).toBe(2);
+    await page.evaluate(() => (window as any).m1.view.select(null));
+    expect(await marked()).toBe(0);
+  });
+
+  test("hovering a node highlights both parts of its edges", async () => {
+    const point = await page.evaluate(() => {
+      const rect = document.querySelector("#a [data-id=b] rect.sg-node")!.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    });
+    await page.mouse.move(point.x, point.y);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as any).m1.view.hovered())).toEqual({
+      kind: "node",
+      id: "b",
+    });
+    expect(
+      await page.evaluate(() => document.querySelectorAll("#a [data-kind=edge].sg-hl").length),
+    ).toBe(4);
+  });
+
+  test("no page errors", () => {
+    expect(errors).toEqual([]);
+  });
+});
+
 describe("mount() with the WebGL renderer and typed colors", () => {
   const errors: string[] = [];
   let page: Page;

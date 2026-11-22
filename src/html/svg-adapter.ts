@@ -29,17 +29,21 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
   const view = createView(scene);
   const panelControl = createPanel(view, doc, panel);
 
-  const elements = new Map<string, Element>();
+  const elements = new Map<string, Element[]>();
   for (const item of root.querySelectorAll("[data-kind]")) {
-    elements.set(`${item.getAttribute("data-kind")}:${item.getAttribute("data-id")}`, item);
+    const key = `${item.getAttribute("data-kind")}:${item.getAttribute("data-id")}`;
+    const list = elements.get(key);
+    if (list === undefined) elements.set(key, [item]);
+    else list.push(item);
   }
-  const elementByRef = new Map<ItemRef, Element>();
+  const elementByRef = new Map<ItemRef, readonly Element[]>();
+  const none: readonly Element[] = [];
 
-  function elementOf(ref: ItemRef): Element | undefined {
+  function elementsOf(ref: ItemRef): readonly Element[] {
     let found = elementByRef.get(ref);
     if (found === undefined) {
-      found = elements.get(`${ref.kind}:${ref.id}`);
-      if (found !== undefined) elementByRef.set(ref, found);
+      found = elements.get(`${ref.kind}:${ref.id}`) ?? none;
+      if (found !== none) elementByRef.set(ref, found);
     }
     return found;
   }
@@ -55,7 +59,7 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
   let shown = new Set<ItemRef>(view.visible().items);
   let previousActive: ReadonlySet<string> = new Set();
   let previousFocused = false;
-  let selectedElement: Element | null = null;
+  let selectedElements: readonly Element[] = none;
 
   function touch(): void {
     lastMove = performance.now();
@@ -98,10 +102,12 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
       previousFocused = focused;
     }
     for (const key of previousActive) {
-      if (!active.has(key)) elements.get(key)?.classList.remove("sg-hl");
+      if (active.has(key)) continue;
+      for (const element of elements.get(key) ?? none) element.classList.remove("sg-hl");
     }
     for (const key of active) {
-      if (!previousActive.has(key)) elements.get(key)?.classList.add("sg-hl");
+      if (previousActive.has(key)) continue;
+      for (const element of elements.get(key) ?? none) element.classList.add("sg-hl");
     }
     previousActive = active;
   }
@@ -111,13 +117,15 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
     const next = new Set(view.visible().items);
     for (const ref of shown) {
       if (next.has(ref)) continue;
-      const target = elementOf(ref);
-      if (target instanceof SVGElement) target.style.display = "none";
+      for (const target of elementsOf(ref)) {
+        if (target instanceof SVGElement) target.style.display = "none";
+      }
     }
     for (const ref of next) {
       if (shown.has(ref)) continue;
-      const target = elementOf(ref);
-      if (target instanceof SVGElement) target.style.display = "";
+      for (const target of elementsOf(ref)) {
+        if (target instanceof SVGElement) target.style.display = "";
+      }
     }
     shown = next;
   }
@@ -128,8 +136,9 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
     const grown = new Set(shown);
     for (const ref of next) {
       if (grown.has(ref)) continue;
-      const target = elementOf(ref);
-      if (target instanceof SVGElement) target.style.display = "";
+      for (const target of elementsOf(ref)) {
+        if (target instanceof SVGElement) target.style.display = "";
+      }
       grown.add(ref);
     }
     shown = grown;
@@ -177,12 +186,12 @@ export function startSvg(doc: Document, scene: LaidOut): Mounted | undefined {
   });
 
   function applySelection(): void {
-    selectedElement?.classList.remove("sg-selected");
-    selectedElement = null;
+    for (const element of selectedElements) element.classList.remove("sg-selected");
+    selectedElements = none;
     const ref = view.selected();
     if (ref !== null) {
-      selectedElement = elementOf(ref) ?? null;
-      selectedElement?.classList.add("sg-selected");
+      selectedElements = elementsOf(ref);
+      for (const element of selectedElements) element.classList.add("sg-selected");
     }
     panelControl.update();
   }

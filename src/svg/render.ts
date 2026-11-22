@@ -309,6 +309,7 @@ function renderEdge(
   theme: Theme,
   edgeTypes: EdgeTypes,
   scale: EdgeWidth,
+  part: "whole" | "line" | "label" = "whole",
 ): string {
   const typed: EdgeTypeStyle =
     item.type !== undefined && Object.hasOwn(edgeTypes, item.type)
@@ -334,19 +335,22 @@ function renderEdge(
     item.labelBox === undefined || item.label === undefined
       ? ""
       : labelBoxSvg(item.labelBox, item.label, theme, true, typed.text);
+  if (part === "label" && label === "") return "";
+  const body =
+    part === "line" ? path + leader : part === "label" ? label : path + leader + label;
   return wrapLink(
     group(
       "edge",
       item.id,
       item.meta,
-      path + leader + label,
+      body,
       data([
         ["type", item.type],
         ["confidence", confidenceOf(item.meta)],
         ["from", item.from],
         ["to", item.to],
         ["directed", item.directed ? undefined : "false"],
-      ]),
+      ]) + (part === "label" ? ' class="sg-edge-labels"' : ""),
       item.description,
     ),
     item.link,
@@ -491,9 +495,15 @@ function renderGraph(
   edgeTypes: EdgeTypes,
 ): string {
   const scale = edgeWidthScale(laid.edges);
+  const layered = laid.labelsAbove === true;
   return [
     ...laid.groups.map((item) => renderGroup(item, theme)),
-    ...laid.edges.map((item) => renderEdge(item, theme, edgeTypes, scale)),
+    ...laid.edges.map((item) =>
+      renderEdge(item, theme, edgeTypes, scale, layered ? "line" : "whole"),
+    ),
+    ...(layered
+      ? laid.edges.map((item) => renderEdge(item, theme, edgeTypes, scale, "label"))
+      : []),
     ...laid.nodes.map((item, index) => renderNode(item, index, theme, types)),
   ].join("");
 }
